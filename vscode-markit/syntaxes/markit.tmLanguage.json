@@ -1,0 +1,282 @@
+{
+  "scopeName": "source.markit",
+  "name": "Markit",
+  "patterns": [
+    { "include": "#idBlock" },
+    { "include": "#metadataBlock" },
+    { "include": "#blockTag" },
+    { "include": "#inline" }
+  ],
+  "repository": {
+    "idBlock": {
+      "match": "^((#{1,6})\\s+(.+))$",
+      "captures": {
+        "1": { "name": "markup.heading.markit" },
+        "2": { "name": "punctuation.definition.heading.markit" },
+        "3": { "name": "entity.name.section.markit" }
+      }
+    },
+    "metadataBlock": {
+      "begin": "^(?=\\s*[a-zA-Z_][a-zA-Z0-9_-]*\\s*:)",
+      "end": "^(?=\\s*$|\\s*\\{#)",
+      "name": "meta.embedded.block.yaml",
+      "patterns": [
+        {
+          "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(:)",
+          "captures": {
+            "1": { "name": "entity.name.tag.yaml" },
+            "2": { "name": "punctuation.separator.key-value.yaml" }
+          }
+        },
+        {
+          "match": "\\b(true|false)\\b",
+          "name": "constant.language.yaml"
+        },
+        {
+          "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
+          "name": "constant.numeric.yaml"
+        },
+        {
+          "match": "\"[^\"]*\"",
+          "name": "string.quoted.double.yaml"
+        },
+        {
+          "match": "'[^']*'",
+          "name": "string.quoted.single.yaml"
+        },
+        {
+          "match": "#.*$",
+          "name": "comment.line.number-sign.yaml"
+        },
+        {
+          "match": "\\s*-\\s+",
+          "name": "punctuation.definition.list.begin.yaml"
+        }
+      ]
+    },
+    "blockTag": {
+      "begin": "(\\{)(#)",
+      "end": "(\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.markit" },
+        "2": { "name": "punctuation.definition.tag.hash.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.markit" }
+      },
+      "name": "meta.block-tag.markit",
+      "patterns": [
+        {
+          "match": "[a-zA-Z0-9.]+",
+          "name": "entity.name.tag.block-id.markit"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.markit"
+        },
+        {
+          "match": "=",
+          "name": "keyword.operator.assignment.markit"
+        },
+        {
+          "match": "\"[^\"]*\"",
+          "name": "string.quoted.double.markit"
+        },
+        {
+          "match": "\\b(true|false)\\b",
+          "name": "constant.language.boolean.markit"
+        },
+        {
+          "match": "\\b\\d+(\\.\\d+)?\\b",
+          "name": "constant.numeric.markit"
+        }
+      ]
+    },
+    "inline": {
+      "patterns": [
+        { "include": "#escape" },
+        { "include": "#braceCode" },
+        { "include": "#footnoteRef" },
+        { "include": "#inlineHeading" },
+        { "include": "#strong" },
+        { "include": "#emphasis" },
+        { "include": "#blockquote" },
+        { "include": "#quote" },
+        { "include": "#greek" },
+        { "include": "#foreign" },
+        { "include": "#aside" },
+        { "include": "#insertion" },
+        { "include": "#deletion" },
+        { "include": "#citation" },
+        { "include": "#lineBreak" },
+        { "include": "#pageBreak" },
+        { "include": "#emSpace" },
+        { "include": "#nbSpace" }
+      ]
+    },
+    "escape": {
+      "match": "\\\\[\\\\S*_\"$@+\\-<\\[{£~/#]",
+      "name": "constant.character.escape.markit"
+    },
+    "braceCode": {
+      "match": "\\{(S|--|-|ae|AE|oe|OE)\\}",
+      "name": "constant.character.braceCode.markit"
+    },
+    "footnoteRef": {
+      "match": "(<)(n[a-zA-Z0-9.]+)(>)",
+      "captures": {
+        "1": { "name": "punctuation.definition.footnote.begin.markit" },
+        "2": { "name": "entity.name.footnote.reference.markit" },
+        "3": { "name": "punctuation.definition.footnote.end.markit" }
+      }
+    },
+    "inlineHeading": {
+      "begin": "(£[1-6])",
+      "end": "(£[1-6])",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.heading.inline.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "keyword.control.heading.inline.end.markit" }
+      },
+      "name": "markup.heading.inline.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "strong": {
+      "begin": "(?<!\\\\)(\\*)",
+      "end": "(?<!\\\\)(\\*)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.bold.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.bold.end.markit" }
+      },
+      "name": "markup.bold.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "emphasis": {
+      "begin": "(?<!\\\\)(_)",
+      "end": "(?<!\\\\)(_)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.italic.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.italic.end.markit" }
+      },
+      "name": "markup.italic.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "blockquote": {
+      "begin": "(?<!\\\\)(\"\")",
+      "end": "(?<!\\\\)(\"\")",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.blockquote.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.blockquote.end.markit" }
+      },
+      "name": "markup.quote.block.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "quote": {
+      "begin": "(?<!\\\\)(\")",
+      "end": "(?<!\\\\)(\")",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.quote.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.quote.end.markit" }
+      },
+      "name": "markup.quote.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "greek": {
+      "begin": "(?<!\\\\)(\\$\\$)",
+      "end": "(?<!\\\\)(\\$\\$)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.greek.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.greek.end.markit" }
+      },
+      "name": "markup.other.greek.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "foreign": {
+      "begin": "(?<!\\\\)(\\$)",
+      "end": "(?<!\\\\)(\\$)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.foreign.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.foreign.end.markit" }
+      },
+      "name": "markup.other.foreign.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "aside": {
+      "begin": "(?<!\\\\)(@)",
+      "end": "(?<!\\\\)(@)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.aside.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.aside.end.markit" }
+      },
+      "name": "markup.other.aside.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "insertion": {
+      "begin": "(?<!\\\\)(\\+\\+)",
+      "end": "(?<!\\\\)(\\+\\+)",
+      "beginCaptures": {
+        "1": { "name": "markup.inserted.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "markup.inserted.end.markit" }
+      },
+      "name": "markup.inserted.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "deletion": {
+      "begin": "(?<!\\\\)(--)",
+      "end": "(?<!\\\\)(--)",
+      "beginCaptures": {
+        "1": { "name": "markup.deleted.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "markup.deleted.end.markit" }
+      },
+      "name": "markup.deleted.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "citation": {
+      "begin": "(?<!\\\\)(\\[)",
+      "end": "(?<!\\\\)(\\])",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.citation.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.citation.end.markit" }
+      },
+      "name": "markup.other.citation.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "lineBreak": {
+      "match": "//",
+      "name": "constant.character.linebreak.markit"
+    },
+    "pageBreak": {
+      "match": "\\|",
+      "name": "constant.character.pagebreak.markit"
+    },
+    "emSpace": {
+      "match": "~~",
+      "name": "constant.character.emspace.markit"
+    },
+    "nbSpace": {
+      "match": "~",
+      "name": "constant.character.nbsp.markit"
+    }
+  }
+}

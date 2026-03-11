@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Markit.Example</title>
+  </head>
+  <body>
+    <section id="Markit.Example" data-line="0">
+      <div data-line="11"><h1>Markit Example</h1></div>
+      <div data-line="14">
+        <p>
+          This is an example Markit document, which illustrates all the features
+          of the language.
+        </p>
+      </div>
+      <section id="Markit.Example.Structure" data-line="17">
+        <div data-line="21"><h1>Markit Document Structure</h1></div>
+        <div data-line="24">
+          <p>
+            A Markit document is made up of a series of <em>blocks</em>, which
+            are separated by one or more blank lines.
+          </p>
+        </div>
+        <div data-line="27">
+          <p>
+            There are three types of blocks: ID blocks, metadata blocks, and
+            content blocks.
+          </p>
+        </div>
+        <div data-line="30">
+          <p>
+            ID blocks consist of one or more hash symbols followed by an
+            identifier. They are used to give a text (or any of its child texts)
+            a unique ID, and encode the hierarchical structure of the document.
+            The number of hash symbols indicates the level of the block in the
+            hierarchy. Every document must have a single top-level ID block.
+            Other level documents can be nested inside, to arbitrary depth.
+          </p>
+        </div>
+        <div data-line="33">
+          <p>
+            ID blocks <em>may</em> (but need not) be followed by a
+            <em>metadata block</em>. Metadata blocks consist of one or more
+            lines of the form `key: value` (see the metadata block at the top of
+            this document for examples). Metadata blocks are used to attach
+            arbitrary metadata to the text (or any of its child texts).
+          </p>
+        </div>
+        <div data-line="36">
+          <p>
+            Content blocks <em>must</em> begin with a <em>block tag</em>, e.g.
+            `{#1}`. A block tag gives a unique ID to the block (relative to the
+            text it is in). Typically IDs are consecutive numbers, but they can
+            be any alphanumeric string.
+          </p>
+        </div>
+        <div data-line="39">
+          <p>
+            Block tags can optionally include block metadata, as a
+            comma-separated list of `key=value` pairs (see the example block tag
+            above).
+          </p>
+        </div>
+        <div data-line="42">
+          <p>
+            After the block tag, the content of the block follows. Various
+            markup and formatting can be used in the content, as described in
+            the next section.
+          </p>
+        </div>
+      </section>
+      <section id="Markit.Example.Markup" data-line="45">
+        <div data-line="47"><h1>Markit Markup</h1></div>
+        <section id="Markit.Example.Markup.Headings" data-line="50">
+          <div data-line="52">
+            <h1>Headings</h1>
+            <h1>The 0th Block is the Title</h1>
+            <h2>Use Pounds on Either Side to Create Headings</h2>
+            <h3>The Number Indicates the Heading Level</h3>
+            <h6>The Heading Level Can Go Up to 6</h6>
+            <p>
+              You can include regular (non-heading) content in the same block as
+              the heading.
+            </p>
+          </div>
+          <div data-line="60">
+            <h4>You can also include headings in subsequent blocks</h4>
+            <p>if you want</p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.Formatting" data-line="64">
+          <div data-line="66"><h1>Formatting</h1></div>
+          <div data-line="69">
+            <p>
+              This is a paragraph with <strong>some</strong>
+              <em>inline markup</em>, and also
+              <em>some <strong>nested</strong> formatting</em>. Asterisks
+              indicate bold text, and underscores indicate italic text.
+            </p>
+          </div>
+          <div data-line="72">
+            <h2>
+              <strong>Bold</strong> and <em>italic</em> text can be used in
+              headings
+            </h2>
+          </div>
+          <div data-line="75">
+            <p>
+              You can indicate that some text is an inline quotation by
+              surrounding it in double quotation marks: <q>like this</q>.
+            </p>
+          </div>
+          <div data-line="78">
+            <p>
+              You can indicate that some text is a block quotation by
+              surrounding it in two double quotation marks:
+            </p>
+            <blockquote>This is a block quotation</blockquote>
+            <p>
+              You can optionally add single line breaks and indentation around
+              block quotation marks (as shown here), for readability. But don't
+              include multiple line breaks, because a blank line will indicate
+              the start of a new content block.
+            </p>
+          </div>
+          <div data-line="83">
+            <p>
+              You can mark up text as a citation by enclosing it in square
+              brackets: <cite>like this</cite>.
+            </p>
+          </div>
+          <div data-line="86">
+            <p>
+              You can indicate editorial changes by surrounding
+              <del>deleted text in double hyphens</del> and
+              <ins>inserted text in double plus signs</ins>.
+            </p>
+          </div>
+          <div data-line="89">
+            <p>
+              You can indicate that some text is a margin comment by surrounding
+              it in <q>at</q> symbols: <span class="aside">like this</span>.
+            </p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.WhiteSpace" data-line="92">
+          <div data-line="94"><h1>Whitespace</h1></div>
+          <div data-line="97">
+            <p>
+              Whitespace inside content is generally ignored by Markit - line
+              breaks are treated as spaces, and multiple consecutive spaces are
+              treated as a single space.
+            </p>
+          </div>
+          <div data-line="100">
+            <p>
+              If you want to include line breaks in the content, you can use two
+              forward slashes:<br />This will ensure that the line break is
+              preserved in the output.
+            </p>
+          </div>
+          <div data-line="104">
+            <p>
+              If you want to include multiple consecutive spaces, you can use
+              the tilde character. A single <q>&nbsp;</q> represents a single
+              space, but multiple consecutive tildes will be preserved as
+              multiple spaces in the output. Two consecutive tildes
+              <q>&emsp;</q> are equivalent to a <q>tab</q> space.
+            </p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.ForeignText" data-line="107">
+          <div data-line="109"><h1>Foreign Text</h1></div>
+          <div data-line="112">
+            <p>
+              Source texts often include foreign text, and it is often useful to
+              be able to indicate that a particular piece of text is in a
+              different language. Foreign text should be enclosed in dollar
+              symbols: <em class="foreign">like this</em>.
+            </p>
+          </div>
+          <div data-line="115">
+            <p>
+              Text enclosed in <em>pairs</em> of dollar symbols -
+              <em class="greek">λικε θις</em> - is treated as Greek text. In
+              Greek text, Roman characters or character-pairs are replaced with
+              their Greek equivalents, e.g.
+              <em class="greek">φιλοσοφια</em> becomes <q>φιλοσοφία</q>.
+            </p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.BraceCodes" data-line="118">
+          <div data-line="120"><h1>Brace Codes</h1></div>
+          <div data-line="123">
+            <p>
+              Some characters commonly found in source texts are difficult to
+              input using standard keyboards. Markit provides a convenient way
+              to input these characters, using <q>brace codes</q>.
+            </p>
+          </div>
+          <div data-line="126">
+            <p>
+              A brace code consists of a sequence of characters enclosed in
+              curly braces: {like this}. The following brace codes are
+              supported: æ (converted to <q>æ</q>), œ (converted to <q>œ</q>), Æ
+              (converted to <q>Æ</q>), Œ (converted to <q>Œ</q>), § (converted
+              to <q>§</q>), – (converted to <q>–</q>), and — (converted to
+              <q>—</q>).
+            </p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.PageBreaks" data-line="129">
+          <div data-line="131"><h1>Page Breaks</h1></div>
+          <div data-line="134">
+            <p>
+              Page breaks in the copytext can be indicated using the pipe
+              character <q><span class="page-break">|</span></q
+              >. In plain text output, page breaks are removed. In HTML output,
+              page breaks are rendered as `<span class="page-break"></span>`,
+              and you can use CSS styling to determine whether or how to render
+              them.
+            </p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.Footnotes" data-line="137">
+          <div data-line="139"><h1>Footnotes</h1></div>
+          <div data-line="142">
+            <p>
+              Footnotes should be represented as content blocks line any other,
+              except that their ID should being with an <q>n</q>, and they
+              should all be placed at the end of the text.
+            </p>
+          </div>
+          <div data-line="145">
+            <p>
+              Footnotes are referred to in the main text using a footnote
+              marker, which consists of the footnote ID enclosed in angle
+              brackets:
+              <a href="#footnote-n1" id="footnote-ref-n1"><sup>n1</sup></a
+              >.
+            </p>
+          </div>
+          <div data-line="148">
+            <p><sup>n1</sup> This is a footnote.</p>
+          </div>
+        </section>
+        <section id="Markit.Example.Markup.Escaping" data-line="151">
+          <div data-line="153"><h1>Escaping</h1></div>
+          <div data-line="156">
+            <p>
+              If you want to include any of the special characters used in
+              Markit markup (e.g. `*`, `_`, `"`, `[`, `]`, etc.) as literal
+              characters in the content, you can escape them using a backslash,
+              e.g. `\*`, `\_`, `\"`, `\[`, `\]`, etc.
+            </p>
+          </div>
+          <div data-line="159">
+            <p>
+              Note that the source Markit code here itself has to use
+              backslashes in front of all the special characters above, as well
+              as in front of the backslashes themselves.
+            </p>
+          </div>
+        </section>
+      </section>
+    </section>
+  </body>
+</html>
