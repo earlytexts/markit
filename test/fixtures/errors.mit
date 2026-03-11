@@ -1,0 +1,43 @@
+## Markit.Errors
+
+#### Markit.Errors.BadTextMetadata
+
+badBoolean: troo
+badString: "no closing quote
+this is not okay
+
+#### Markit.Errors.BadBlockMetadata
+
+This block has no tag.
+
+{#1
+This block has a badly formed tag.
+
+{#2, nothing, string: "hello"}
+This block has badly formed metadata.
+
+{#3, badBoolean=troo, badString="no closing quote}
+This block has badly formed metadata.
+
+{#2}
+This block has the same ID as a previous block.
+
+#### Markit.Errors.BadBlockContent
+
+{#1}
+This has an {unknown} brace code.
+
+{#2}
+This has an {unclosed brace code.
+
+{#3}
+This has *unclosed bold.
+
+{#4}
+This has a £1 heading without end.
+
+{#5}
+This has a ref to <n99>.
+
+{#6}
+£1 Heading with ""blockquote"" inside £1

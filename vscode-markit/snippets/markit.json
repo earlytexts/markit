@@ -1,0 +1,57 @@
+{
+  "Text Section": {
+    "prefix": "section",
+    "body": ["# ${1:id}", "", "{#${2:1}}\n\n${3:content}", ""],
+    "description": "Insert a new text section with ID block and paragraph"
+  },
+  "Metadata Block": {
+    "prefix": "meta",
+    "body": ["${1:key}: ${2:value}"],
+    "description": "Insert a metadata key-value pair"
+  },
+  "Title Block": {
+    "prefix": "title",
+    "body": ["{#0}\n${1:Title text}"],
+    "description": "Insert a title block (id = 0)"
+  },
+  "Paragraph Block": {
+    "prefix": "para",
+    "body": ["{#${1:1}}\n${2:content}"],
+    "description": "Insert a paragraph block"
+  },
+  "Footnote Block": {
+    "prefix": "footnote",
+    "body": ["{#n${1:1}}\n${2:content}"],
+    "description": "Insert a footnote block"
+  },
+  "Subsection": {
+    "prefix": "sub",
+    "body": ["", "## ${1:id}", "", "{#${2:1}}\n\n${3:content}", ""],
+    "description": "Insert a subsection (level 2)"
+  },
+  "Footnote Reference": {
+    "prefix": "fnref",
+    "body": ["<n${1:1}>"],
+    "description": "Insert an inline footnote reference"
+  },
+  "Strong": {
+    "prefix": "strong",
+    "body": ["*${1:text}*"],
+    "description": "Wrap text in strong markup"
+  },
+  "Emphasis": {
+    "prefix": "em",
+    "body": ["_${1:text}_"],
+    "description": "Wrap text in emphasis markup"
+  },
+  "Quote": {
+    "prefix": "quote",
+    "body": ["\"${1:text}\""],
+    "description": "Wrap text in quotation markup"
+  },
+  "Citation": {
+    "prefix": "cite",
+    "body": ["[${1:text}]"],
+    "description": "Wrap text in citation markup"
+  }
+}

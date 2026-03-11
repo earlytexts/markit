@@ -1,67 +1,53 @@
-import { exists } from "@std/fs";
-import getContext, { readMitPaths } from "./context.ts";
-import compile from "./lib/compile.ts";
-import type { CompileOptions, Markit } from "./types.ts";
+import generateTextTree from "./compile/generateTextTree.js";
+import makeError from "./compile/makeError.js";
+import parseContent from "./compile/parseContent.js";
+import parseMetadata from "./compile/parseMetadata.js";
+import splitIntoBlocks from "./compile/splitIntoBlocks.js";
+import { endLine, startLine } from "./types.js";
+import type { MarkitDocument, MarkitError } from "./types.js";
 
-export default async (
-  path: string,
-  options: Partial<CompileOptions> = {}
-): Promise<Markit[]> => {
-  // merge specified options with defaults
-  const opts = { ...defaultOptions, ...options };
-
-  // check input path
-  const isFile = await exists(path, { isFile: true });
-  const isDir = await exists(path, { isDirectory: true });
-  if (!isFile && !isDir) {
-    throw new Error(`Path "${path}" does not exist`);
+/**
+ * Compile a Markit document string into a structured JSON-ready object.
+ *
+ * @param text The input Markit document as a string.
+ * @returns A tuple of:
+ *   [0] The parsed document (always produced, even if there are errors)
+ *   [1] An array of any errors and warnings encountered during parsing and validation
+ */
+export default (text: string): [MarkitDocument, MarkitError[]] => {
+  // Step 1: parse the text into blocks separated by one or more blank lines
+  const [firstBlock, ...otherBlocks] = splitIntoBlocks(text);
+  if (!firstBlock) {
+    return [emptyDocument, [emptyDocumentError]];
   }
 
-  // create texts array
-  const texts: Markit[] = [];
+  // Step 2: generate the text tree from the blocks
+  const [textTree, treeErrors] = generateTextTree([firstBlock, ...otherBlocks]);
 
-  // get context
-  const context = await getContext(
-    opts.contextDirectory,
-    opts.clearContextCache
+  // Step 3: parse metadata for each text and block in the tree
+  const [treeWithMetadata, metaDataErrors] = parseMetadata(textTree);
+
+  // Step 4: parse block content for every text
+  const [document, contentErrors] = parseContent(treeWithMetadata);
+
+  // Return document and all errors
+  const errors = [...treeErrors, ...metaDataErrors, ...contentErrors].sort(
+    (a, b) => a.line - b.line || a.column - b.column,
   );
-
-  // compile markit file(s)
-  if (isFile) {
-    // compile single file
-    const mit = await Deno.readTextFile(path);
-    const text = compile(mit, context, opts.format);
-    texts.push(text);
-
-    // write text to output file - TODO: fix this
-    if (opts.outputDirectory) {
-      const outputPath = `${opts.outputDirectory}/${path}`;
-      await Deno.writeTextFile(outputPath, JSON.stringify(text));
-    }
-  } else {
-    // compile all files in the input directory
-    const mits = await readMitPaths(path);
-    for await (const path of mits) {
-      const mit = await Deno.readTextFile(path);
-      const text = compile(mit, context, opts.format);
-      texts.push(text);
-
-      // write text to output file - TODO: fix this
-      if (opts.outputDirectory) {
-        const outputPath = `${opts.outputDirectory}/${path}`;
-        await Deno.writeTextFile(outputPath, JSON.stringify(text));
-      }
-    }
-  }
-
-  // return the texts
-  return texts;
+  return [document, errors];
 };
 
-const defaultOptions: CompileOptions = {
-  contextDirectory: null,
-  format: "markit",
-  outputDirectory: null,
-  emptyOutputDirectory: true,
-  clearContextCache: false,
+const emptyDocument = {
+  id: "empty-document",
+  blocks: [],
+  children: [],
+  metadata: {},
+  [startLine]: 0,
+  [endLine]: 0,
 };
+
+const emptyDocumentError = makeError({
+  message: "Document is empty",
+  line: 0,
+  length: 0,
+});

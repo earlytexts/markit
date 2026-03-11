@@ -1,0 +1,36 @@
+{
+  "name": "markit",
+  "publisher": "earlytexts",
+  "displayName": "Markit",
+  "version": "2.0.0",
+  "description": "Markit is a lightweight textual markup language similar to Markdown, but designed for use in textual preservation projects, as a more human-readable alternative to TEI XML. It compiles to JSON for representing document structure and metadata, while the text content itself can further be compiled to either plain text (for search or analysis) or HTML (for display in a web page).",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node esbuild.js && tsc -p tsconfig.build.json",
+    "build:vscode": "cd vscode-markit && npm run build",
+    "build:all": "npm run build && npm run build:vscode",
+    "build:watch": "node esbuild.js --watch",
+    "test": "vitest run && npm run check && npm run format:check",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    "check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.27.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
