@@ -6,7 +6,7 @@
   - A _text_ is a series of _blocks_ and (optionally) _child texts_, separated by one or more _blank lines_ (i.e. a line with either nothing on it or only whitespace).
   - The main/root text in a document must be level 1, and any child texts must be exactly one level deeper than their parent text. A text terminates either at the end of the document, or at the start of the next text of an equal or higher level (meaning that a child text must come after all blocks in its parent text).
     - The first block in a text must be the _id block_. The _id block_ is a single line indicating the ID and level of the text. It is of the form `# ID`, `## ID`, `### ID`, etc. where the number of `#`s indicate the level of the text (just as with Markdown headers), and the ID is a unique identifier for the text. The ID can contain only letters, numbers, and full stops.
-    - The second block may be a _metadata block_. A _metadata block_ contains arbitrary metadata for the text in YAML format. Any YAML is valid, except that blank lines are not permitted (since blank lines indicate the end of the block), and the keys `id`, `blocks`, and `children` are reserved (since these are used in the JSON output for the text ID, content blocks, and child texts respectively).
+    - The second block may be a _metadata block_. A _metadata block_ contains arbitrary metadata for the text in YAML format. Only a subset of YAML is supported (see below for details). The keys `id`, `blocks`, and `children` are reserved (since these are used in the JSON output for the text ID, content blocks, and child texts respectively).
     - Zero or more _content blocks_ may follow the metadata block (or the id block, if there is no metadata).
       - A _content block_ consists of a _metadata tag_, followed by a space or a single line break, followed by _content text_.
         - A _metadata tag_ consists of a unique identifier for the block (relative to the text), preceded by a `#`, and surrounded by curly brackets, e.g. `{#0}`, `{#1}`, `{#a}`, `{#n1}`. Block identifiers need not be unique across the whole document, and typically won't be - most texts will number their blocks starting from 1, so any child text will likely have blocks with the same IDs as blocks in the parent text or any sibling texts.
@@ -20,6 +20,27 @@
           - Block metadata values can be either the Boolean values `true` and `false`, numbers, or strings. Strings must be surrounded by either single or double quotation marks. Single-quoted strings may included double quotation marks unescaped, and vice-versa; otherwise quotation marks can be escaped with a backslash `\`.
         - _Content text_ consists of text with some inline markup. Whitespace is relatively meaningless, in that content is trimmed, line breaks are replaced with spaces, and multiple adjacent spaces are reduced to a single space. The supported inline markup is shown in the table below.
     - Zero or more _child texts_ may follow the _content blocks_. A _child text_ is a _text_ that is exactly one level deeper than its parent text.
+
+## YAML Metadata
+
+YAML metadata blocks support a subset of YAML syntax. Values can be any of the following:
+
+- Boolean values: `true` and `false`
+- Numbers (e.g. `42`, `3.14`, `-1`, etc.)
+- Strings, which _must_ be surrounded by either single or double quotation marks. Single-quoted strings may included double quotation marks unescaped, and vice-versa; otherwise quotation marks can be escaped with a backslash `\`.
+- Inline arrays, which are comma-separated lists of values surrounded by square brackets, e.g. `[value1, value2, value3]`. Values in arrays can be Booleans, numbers, or strings, but all values in a given array must be of the same type.
+- Multiline arrays, which are lists of values where each value is on a new line and preceded by two spaces, a hyphen, and another space:
+
+  ```
+  array:
+    - value1
+    - value2
+    - value3
+  ```
+
+  Values in multiline arrays can be Booleans, numbers, or strings, but all values in a given array must be of the same type.
+
+Note that object values are _not_ (currently) supported.
 
 ## Inline Markup: Special Characters
 

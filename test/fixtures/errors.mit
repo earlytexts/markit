@@ -5,6 +5,10 @@
 badBoolean: troo
 badString: "no closing quote
 this is not okay
+mixedArray:
+  - string: "hello"
+  - number: 42
+  - boolean: true
 
 #### Markit.Errors.BadBlockMetadata
 

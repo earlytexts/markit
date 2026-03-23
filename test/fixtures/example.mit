@@ -5,9 +5,13 @@ metadataBooleans2: false
 metadataNumbers: 42
 metadataStrings: "strings must be enclosed with double quotes"
 metadataStringsEscape: "quotations marks can be \"escaped\" with a backslash"
-metadataBooleanArrays: [true, false]
-metadataNumberArrays: [1, 2, 3]
-metadataStringArrays: ["a", "b", "c"]
+metadataBooleanArray: [true, false]
+metadataNumberArray: [1, 2, 3]
+metadataStringArray: ["a", "b", "c"]
+metadataMultilineArray:
+  - 1
+  - 2
+  - 3
 
 {#0}
 £1 Markit Example £1

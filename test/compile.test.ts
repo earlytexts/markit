@@ -67,9 +67,13 @@ describe("compile", () => {
           "metadataBooleans2: false",
           "metadataNumbers: 42",
           'metadataString: "the answer"',
-          "metadataBooleanArrays: [true, false]",
-          "metadataNumberArrays: [1, 2, 3]",
-          'metadataStringArrays: ["a", "b", "c"]',
+          "metadataBooleanArray: [true, false]",
+          "metadataNumberArray: [1, 2, 3]",
+          'metadataStringArray: ["a", "b", "c"]',
+          "metadataMultilineArray:",
+          "  - 1",
+          "  - 2",
+          "  - 3",
         ),
       );
 
@@ -78,9 +82,21 @@ describe("compile", () => {
         metadataBooleans2: false,
         metadataNumbers: 42,
         metadataString: "the answer",
-        metadataBooleanArrays: [true, false],
-        metadataNumberArrays: [1, 2, 3],
-        metadataStringArrays: ["a", "b", "c"],
+        metadataBooleanArray: [true, false],
+        metadataNumberArray: [1, 2, 3],
+        metadataStringArray: ["a", "b", "c"],
+        metadataMultilineArray: [1, 2, 3],
+      });
+    });
+
+    it("parses multiline arrays followed by other metadata", () => {
+      const [document] = compile(
+        markitWithMetadata("arrayKey:", "  - 1", "  - 2", "otherKey: true"),
+      );
+
+      expect(document.metadata).toEqual({
+        arrayKey: [1, 2],
+        otherKey: true,
       });
     });
 
@@ -276,6 +292,46 @@ describe("compile", () => {
           content: [{ type: "plainText", content: "A block quotation." }],
         },
         { type: "plainText", content: "And also some follow-on text." },
+      ]);
+    });
+
+    it("trims whitespace-only content from blockquotes", () => {
+      const [document] = compile(markitWithContent("{#1}", '"" ""'));
+
+      expect(document.blocks[0]!.content).toEqual([
+        {
+          type: "blockquote",
+          content: [],
+        },
+      ]);
+    });
+
+    it("trims leading and trailing whitespace from blockquotes", () => {
+      const [document] = compile(markitWithContent("{#1}", '"" text ""'));
+
+      expect(document.blocks[0]!.content).toEqual([
+        {
+          type: "blockquote",
+          content: [{ type: "plainText", content: "text" }],
+        },
+      ]);
+    });
+
+    it("removes leading whitespace-only plainText before inline elements in blockquotes", () => {
+      const [document] = compile(
+        markitWithContent("{#1}", '""  _emphasized_""'),
+      );
+
+      expect(document.blocks[0]!.content).toEqual([
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "emphasis",
+              content: [{ type: "plainText", content: "emphasized" }],
+            },
+          ],
+        },
       ]);
     });
 

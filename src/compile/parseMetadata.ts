@@ -80,7 +80,80 @@ const parseMetadataBlock = (
   const errors: MarkitError[] = [];
   const metadata: Record<string, MetadataValue> = {};
 
-  block.lines.forEach((line, index) => {
+  for (let index = 0; index < block.lines.length; index++) {
+    const line = block.lines[index]!;
+
+    // Check if this is a multiline array key (key: with no value or empty value)
+    const multilineArrayMatch = line.content.match(/^(\w+)\s*:\s*$/);
+    if (multilineArrayMatch) {
+      const key = multilineArrayMatch[1]!;
+
+      // Collect array items from subsequent lines
+      const arrayItems: (number | boolean | string)[] = [];
+      let arrayIndex = index + 1;
+
+      while (arrayIndex < block.lines.length) {
+        const arrayLine = block.lines[arrayIndex]!;
+        const arrayItemMatch = arrayLine.content.match(/^- (.+)$/);
+
+        if (!arrayItemMatch) {
+          // Not an array item, stop collecting
+          break;
+        }
+
+        const itemString = arrayItemMatch[1]!.trim();
+        let itemValue: number | boolean | string;
+        try {
+          itemValue = JSON.parse(itemString);
+        } catch {
+          itemValue = itemString;
+          errors.push(
+            makeError({
+              message: `Invalid metadata value: ${itemString}`,
+              line: block.startLine + arrayIndex,
+              column:
+                arrayLine.charOffset + arrayLine.content.indexOf(itemString),
+              length: itemString.length,
+            }),
+          );
+        }
+
+        arrayItems.push(itemValue);
+        arrayIndex++;
+      }
+
+      if (arrayItems.length === 0) {
+        errors.push(
+          makeError({
+            message: "Multiline array must have at least one item",
+            line: block.startLine + index,
+            column: line.charOffset,
+            length: line.content.length,
+          }),
+        );
+      } else {
+        // Check for mixed types in the array
+        const types = new Set(arrayItems.map((item) => typeof item));
+        if (types.size > 1) {
+          errors.push(
+            makeError({
+              message:
+                "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+              line: block.startLine + index,
+              column: line.charOffset,
+              length: line.content.length,
+            }),
+          );
+        }
+        metadata[key] = arrayItems as MetadataValue;
+      }
+
+      // Skip the lines we've just processed
+      index = arrayIndex - 1;
+      continue;
+    }
+
+    // Regular key: value line
     const match = line.content.match(/^(\w+)\s*:\s*(.+)$/);
     if (!match) {
       errors.push(
@@ -91,7 +164,7 @@ const parseMetadataBlock = (
           length: line.content.length,
         }),
       );
-      return;
+      continue;
     }
 
     const key = match[1]!;
@@ -112,8 +185,24 @@ const parseMetadataBlock = (
       );
     }
 
+    // Check for mixed types in inline arrays
+    if (Array.isArray(value) && value.length > 0) {
+      const types = new Set(value.map((item) => typeof item));
+      if (types.size > 1) {
+        errors.push(
+          makeError({
+            message:
+              "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+            line: block.startLine + index,
+            column: line.charOffset,
+            length: line.content.length,
+          }),
+        );
+      }
+    }
+
     metadata[key] = value;
-  });
+  }
 
   return [metadata, errors];
 };
