@@ -359,7 +359,7 @@ const cleanupElements = (elements: ReadonlyArray<Element>): Element[] => {
 
       // Trim content inside block-level elements
       if (isBlockLevelType(element.type)) {
-        // Remove leading/trailing whitespace-only plainText elements
+        // Remove leading whitespace-only plainText elements
         while (
           cleanedContent.length > 0 &&
           cleanedContent[0]!.type === "plainText" &&
@@ -367,18 +367,6 @@ const cleanupElements = (elements: ReadonlyArray<Element>): Element[] => {
           /^\s+$/.test(cleanedContent[0]!.content)
         ) {
           cleanedContent.shift();
-        }
-        while (cleanedContent.length > 0) {
-          const lastElement = cleanedContent[cleanedContent.length - 1]!;
-          if (
-            lastElement.type === "plainText" &&
-            typeof lastElement.content === "string" &&
-            /^\s+$/.test(lastElement.content)
-          ) {
-            cleanedContent.pop();
-          } else {
-            break;
-          }
         }
 
         // Trim leading space from the first element if it's plainText
