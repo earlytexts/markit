@@ -386,4 +386,40 @@ describe("compilation errors", () => {
       });
     });
   });
+
+  describe("external children errors", () => {
+    it("returns error for non-array children metadata", () => {
+      const [, errors] = compile(markit("# Text", "", 'children: "not-array"'));
+
+      expect(errors.length).toBe(1);
+      expect(errors[0]!.message).toBe(
+        "The 'children' metadata field must be an array of strings (file paths)",
+      );
+    });
+
+    it("returns error for children metadata with non-string values", () => {
+      const [, errors] = compile(markit("# Text", "", "children: [1, 2, 3]"));
+
+      expect(errors.length).toBe(1);
+      expect(errors[0]!.message).toBe(
+        "The 'children' metadata field must be an array of strings (file paths)",
+      );
+    });
+
+    it("returns error for mixed-type children metadata array", () => {
+      const [, errors] = compile(
+        markit("# Text", "", 'children: ["file.mit", 123]'),
+      );
+
+      // Should get both the general mixed-type error and the children-specific error
+      expect(errors.length).toBeGreaterThanOrEqual(1);
+      expect(
+        errors.some(
+          (e) =>
+            e.message ===
+            "The 'children' metadata field must be an array of strings (file paths)",
+        ),
+      ).toBe(true);
+    });
+  });
 });

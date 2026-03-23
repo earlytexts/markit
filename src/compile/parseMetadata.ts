@@ -204,6 +204,25 @@ const parseMetadataBlock = (
     metadata[key] = value;
   }
 
+  // Validate children metadata if present
+  if ("children" in metadata) {
+    const childrenValue = metadata.children;
+    if (
+      !Array.isArray(childrenValue) ||
+      !childrenValue.every((item) => typeof item === "string")
+    ) {
+      errors.push(
+        makeError({
+          message:
+            "The 'children' metadata field must be an array of strings (file paths)",
+          line: block.startLine,
+          column: 0,
+          length: block.lines[0]!.content.length,
+        }),
+      );
+    }
+  }
+
   return [metadata, errors];
 };
 

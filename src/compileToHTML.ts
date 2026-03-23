@@ -1,9 +1,18 @@
 import compile from "./compile.js";
-import type { Block, Element, MarkitDocument, MarkitError } from "./types.js";
+import type {
+  Block,
+  CompileOptions,
+  Element,
+  MarkitDocument,
+  MarkitError,
+} from "./types.js";
 import { startLine } from "./types.js";
 
-export default (input: string): [string, MarkitError[]] => {
-  const [markit, errors] = compile(input);
+export default (
+  input: string,
+  options?: CompileOptions,
+): [string, MarkitError[]] => {
+  const [markit, errors] = compile(input, options);
   return [
     `<!doctype html><html><head><meta charset="UTF-8"><title>${markit.id}</title></head><body>${textToHTML(
       markit,

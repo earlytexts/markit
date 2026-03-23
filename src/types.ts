@@ -5,6 +5,13 @@ export type MarkitError = Readonly<{
   column: number;
   endLine: number;
   endColumn: number;
+  file?: string;
+}>;
+
+// Compile options
+export type CompileOptions = Readonly<{
+  loadFile?: (path: string) => string;
+  currentFilePath?: string;
 }>;
 
 // Document type
@@ -20,7 +27,6 @@ export type MarkitDocument = Readonly<{
 export const RESERVED_TEXT_KEYS: ReadonlyArray<string> = [
   "id",
   "blocks",
-  "children",
   "metadata",
 ];
 

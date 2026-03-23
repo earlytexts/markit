@@ -12,12 +12,14 @@ import parseElements from "./parseElements.js";
  */
 export default (
   tree: TextTreeWithMetadata,
+  externalChildren: MarkitDocument[] = [],
 ): [MarkitDocument, MarkitError[]] => {
-  return parseTextContent(tree);
+  return parseTextContent(tree, externalChildren);
 };
 
 const parseTextContent = (
   text: TextTreeWithMetadata,
+  externalChildren: MarkitDocument[] = [],
 ): [MarkitDocument, MarkitError[]] => {
   const footnoteIds = text.blocks
     .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
@@ -29,15 +31,19 @@ const parseTextContent = (
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
 
-  const childResults = text.children.map(parseTextContent);
+  const childResults = text.children.map((child) => parseTextContent(child));
   const children = childResults.map((result) => result[0]);
   const childErrors = childResults.flatMap((result) => result[1]);
+
+  // Merge inline children (from tree structure) with external children (from metadata)
+  // Inline children first, then external children
+  const allChildren = [...children, ...externalChildren];
 
   const document: MarkitDocument = {
     id: text.id,
     metadata: text.metadata,
     blocks,
-    children,
+    children: allChildren,
     [startLine]: text.startLine,
     [endLine]: text.endLine,
   };

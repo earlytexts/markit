@@ -773,4 +773,267 @@ describe("compile", () => {
       ]);
     });
   });
+
+  describe("external children", () => {
+    const mockLoadFile = (files: Record<string, string>) => (path: string) => {
+      const content = files[path];
+      if (content === undefined) {
+        throw new Error(`File not found: ${path}`);
+      }
+      return content;
+    };
+
+    it("loads external children from children metadata", () => {
+      const files = {
+        "/parent.mit": markit(
+          "# Parent",
+          "",
+          'children: ["child1.mit", "child2.mit"]',
+          "",
+          "{#1} Parent content.",
+        ),
+        "/child1.mit": markit("# Child1", "", "{#1} Child 1 content."),
+        "/child2.mit": markit("# Child2", "", "{#1} Child 2 content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.id).toBe("Parent");
+      expect(document.children.length).toBe(2);
+      expect(document.children[0]!.id).toBe("Child1");
+      expect(document.children[1]!.id).toBe("Child2");
+    });
+
+    it("orders inline children first, then external children", () => {
+      const files = {
+        "/parent.mit": markit(
+          "# Parent",
+          "",
+          'children: ["external.mit"]',
+          "",
+          "{#1} Parent content.",
+          "",
+          "## Inline.Child",
+          "",
+          "{#1} Inline child content.",
+        ),
+        "/external.mit": markit(
+          "# External.Child",
+          "",
+          "{#1} External child content.",
+        ),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(2);
+      expect(document.children[0]!.id).toBe("Inline.Child");
+      expect(document.children[1]!.id).toBe("External.Child");
+    });
+
+    it("resolves paths without .mit extension", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["child"]'),
+        "/child.mit": markit("# Child", "", "{#1} Child content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+    });
+
+    it("tries path as-is first, then with .mit extension", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["child.txt"]'),
+        "/child.txt": markit("# Child", "", "{#1} Child content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+    });
+
+    it("recursively loads nested external children", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["child.mit"]'),
+        "/child.mit": markit("# Child", "", 'children: ["grandchild.mit"]'),
+        "/grandchild.mit": markit("# Grandchild", "", "{#1} Content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+      expect(document.children[0]!.children.length).toBe(1);
+      expect(document.children[0]!.children[0]!.id).toBe("Grandchild");
+    });
+
+    it("handles missing external child file gracefully", () => {
+      const files = {
+        "/parent.mit": markit(
+          "# Parent",
+          "",
+          'children: ["missing.mit"]',
+          "",
+          "{#1} Content.",
+        ),
+      };
+
+      const [document, errors] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(0);
+      expect(errors.length).toBe(1);
+      expect(errors[0]!.message).toBe(
+        "Cannot load external child: missing.mit",
+      );
+    });
+
+    it("detects circular dependencies", () => {
+      const files = {
+        "/a.mit": markit("# A", "", 'children: ["b.mit"]'),
+        "/b.mit": markit("# B", "", 'children: ["a.mit"]'),
+      };
+
+      const [, errors] = compile(files["/a.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/a.mit",
+      });
+
+      expect(
+        errors.some((e) => e.message.includes("Circular dependency")),
+      ).toBe(true);
+    });
+
+    it("propagates errors from external children with file context", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["child.mit"]'),
+        "/child.mit": markit(
+          "# Child",
+          "",
+          "{#1}",
+          "Invalid *unclosed formatting",
+        ),
+      };
+
+      const [, errors] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      const childErrors = errors.filter((e) => e.file === "child.mit");
+      expect(childErrors.length).toBeGreaterThan(0);
+      expect(childErrors[0]!.message).toContain("Unclosed");
+    });
+
+    it("does not load external children when no options provided", () => {
+      const [document] = compile(
+        markit("# Parent", "", 'children: ["child.mit"]'),
+      );
+
+      expect(document.children.length).toBe(0);
+    });
+
+    it("does not load external children when no currentFilePath provided", () => {
+      const files = {
+        "/child.mit": markit("# Child"),
+      };
+
+      const [document] = compile(
+        markit("# Parent", "", 'children: ["child.mit"]'),
+        {
+          loadFile: mockLoadFile(files),
+        },
+      );
+
+      expect(document.children.length).toBe(0);
+    });
+
+    it("resolves paths correctly when parent has no directory component", () => {
+      const files = {
+        "parent.mit": markit("# Parent", "", 'children: ["child.mit"]'),
+        "child.mit": markit("# Child", "", "{#1} Content."),
+      };
+
+      const [document] = compile(files["parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+    });
+
+    it("handles path that already has .mit extension", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["child.mit.mit"]'),
+        "/child.mit.mit": markit("# Child", "", "{#1} Content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+    });
+
+    it("gracefully handles non-array children metadata with loadFile present", () => {
+      const [document] = compile(
+        markit("# Parent", "", 'children: "not-array"'),
+        {
+          loadFile: () => "",
+          currentFilePath: "/parent.mit",
+        },
+      );
+
+      // Should not crash and return no external children
+      expect(document.children.length).toBe(0);
+    });
+
+    it("gracefully handles non-string items in children array with loadFile present", () => {
+      const [document] = compile(markit("# Parent", "", "children: [123]"), {
+        loadFile: () => "",
+        currentFilePath: "/parent.mit",
+      });
+
+      // Should not crash and return no external children
+      expect(document.children.length).toBe(0);
+    });
+
+    it("handles absolute paths in children metadata", () => {
+      const files = {
+        "/parent.mit": markit("# Parent", "", 'children: ["/child.mit"]'),
+        "/child.mit": markit("# Child", "", "{#1} Content."),
+      };
+
+      const [document] = compile(files["/parent.mit"]!, {
+        loadFile: mockLoadFile(files),
+        currentFilePath: "/parent.mit",
+      });
+
+      expect(document.children.length).toBe(1);
+      expect(document.children[0]!.id).toBe("Child");
+    });
+  });
 });
