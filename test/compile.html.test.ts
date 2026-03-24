@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { format } from "prettier";
 import compileToHTML from "../src/compileToHTML.js";
-import { loadFixture } from "./fixtures.js";
+import { loadFixture } from "./utils/fixtures.js";
 
 describe("compileToHTML", () => {
   it("compiles a Markit document to HTML", async () => {

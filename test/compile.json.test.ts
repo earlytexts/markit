@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import compileToJSON from "../src/compileToJSON.js";
-import { loadFixture } from "./fixtures.js";
+import { loadFixture } from "./utils/fixtures.js";
 
 describe("compileToJSON", () => {
   it("compiles a valid Markit document to JSON", () => {

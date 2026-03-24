@@ -5,7 +5,7 @@ import {
   markitWithId,
   markitWithMetadata,
   markitWithContent,
-} from "./factories.js";
+} from "./utils/factories.js";
 
 describe("formatter", () => {
   describe("blank line normalization", () => {

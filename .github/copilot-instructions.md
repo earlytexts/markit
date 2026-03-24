@@ -68,16 +68,7 @@ npm run format
 
 ## Testing Conventions
 
-There are six text files in the `test` directory:
-
-- `compile.test.ts`: Tests for the main compilation pipeline, describing all the all the expected behaviours for _valid_ Markit code
-- `compile.errors.test.ts`: Tests for error handling in the compilation pipeline, describing all the expected behaviours for _invalid_ Markit code
-- `format.test.ts`: Tests for the formatter, describing all the expected behaviours for _valid_ Markit code (we're not specifying how the formatter handles invalid code)
-- `compile.html.test.ts`: A test that the HTML renderer produces the expected output for a fixture file that illustrates all the features of the language (`test/fixtures/example.mit` → `test/fixtures/example.html`), alongside a basic test that it passes core compiler errors through
-- `compile.text.test.ts`: A test that the text renderer produces the expected output for a fixture file that illustrates all the features of the language (`test/fixtures/example.mit` → `test/fixtures/example.txt`), alongside a basic test that it passes core compiler errors through
-- `compile.json.test.ts`: Two basic tests that the JSON renderer produces the same output as the core compiler but as a JSON string, and passes errors through
-
-New tests should be added to `compile.test.ts` or `compile.errors.test.ts`, depending on whether they describe valid or invalid code. The other four test files should rarely need to be updated.
+Tests are in the `tests` directory, organized by feature (e.g. `compile.tag.test.ts`, `compile.metadata.test.ts`). Each test file should cover both valid cases and error cases for the relevant feature.
 
 Tests should only call the public APIs (`compile`, `format`, `compileToHTML`, `compileToText`, and `compileToJSON`), and should aim for 100% code coverage (and no dead code).
 

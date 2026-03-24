@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import compileToText from "../src/compileToText.js";
-import { loadFixture } from "./fixtures.js";
+import { loadFixture } from "./utils/fixtures.js";
 
 describe("compileToText", () => {
   it("compiles a Markit document to text", () => {
