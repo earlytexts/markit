@@ -23,11 +23,13 @@ describe("block metadata", () => {
     const [document] = compile(
       markitWithContent('{#1, boolean=true, number=42, string="hello"}'),
     );
-    expect(document.blocks[0]!.metadata).toEqual({
-      boolean: true,
-      number: 42,
-      string: "hello",
-    });
+    expect(document.blocks[0]).toEqual(
+      expect.objectContaining({
+        boolean: true,
+        number: 42,
+        string: "hello",
+      }),
+    );
   });
 });
 

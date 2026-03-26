@@ -54,10 +54,13 @@ const compile = (
     compile,
   );
 
-  // Merge external children with internal children
-  const fullDocument = {
+  // Create full document with metadata inlined and external children included
+  // @ts-expect-error: TypeScript complains that `id`, `blocks`, and `children` aren't compatible with `MetadataValue`
+  const fullDocument: MarkitDocument = {
     ...document,
     children: [...document.children, ...externalChildren],
+    [startLine]: document[startLine],
+    [endLine]: document[endLine],
   };
 
   // Merge and sort errors
@@ -76,7 +79,6 @@ const emptyDocument = {
   id: "empty-document",
   blocks: [],
   children: [],
-  metadata: {},
   [startLine]: 0,
   [endLine]: 0,
 };

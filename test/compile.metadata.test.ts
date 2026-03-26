@@ -8,18 +8,22 @@ describe("text metadata", () => {
       markitWithMetadata("metadataBoolean1: true", "metadataBoolean2: false"),
     );
 
-    expect(document.metadata).toEqual({
-      metadataBoolean1: true,
-      metadataBoolean2: false,
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataBoolean1: true,
+        metadataBoolean2: false,
+      }),
+    );
   });
 
   it("parses numeric metadata", () => {
     const [document] = compile(markitWithMetadata("metadataNumber: 42"));
 
-    expect(document.metadata).toEqual({
-      metadataNumber: 42,
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataNumber: 42,
+      }),
+    );
   });
 
   it("parses string metadata", () => {
@@ -27,9 +31,11 @@ describe("text metadata", () => {
       markitWithMetadata('metadataString: "the answer"'),
     );
 
-    expect(document.metadata).toEqual({
-      metadataString: "the answer",
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataString: "the answer",
+      }),
+    );
   });
 
   it("handles escaped quotes in string metadata", () => {
@@ -37,9 +43,11 @@ describe("text metadata", () => {
       markitWithMetadata('metadataString: "She said \\"hello\\"."'),
     );
 
-    expect(document.metadata).toEqual({
-      metadataString: 'She said "hello".',
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataString: 'She said "hello".',
+      }),
+    );
   });
 
   it("parses inline array metadata", () => {
@@ -51,11 +59,13 @@ describe("text metadata", () => {
       ),
     );
 
-    expect(document.metadata).toEqual({
-      metadataBooleanArray: [true, false],
-      metadataNumberArray: [1, 2, 3],
-      metadataStringArray: ["a", "b", "c"],
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataBooleanArray: [true, false],
+        metadataNumberArray: [1, 2, 3],
+        metadataStringArray: ["a", "b", "c"],
+      }),
+    );
   });
 
   it("parses multiline array metadata", () => {
@@ -75,11 +85,13 @@ describe("text metadata", () => {
       ),
     );
 
-    expect(document.metadata).toEqual({
-      metadataBooleanArray: [true, false],
-      metadataNumberArray: [1, 2, 3],
-      metadataStringArray: ["a", "b", "c"],
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        metadataBooleanArray: [true, false],
+        metadataNumberArray: [1, 2, 3],
+        metadataStringArray: ["a", "b", "c"],
+      }),
+    );
   });
 
   it("parses multiline arrays followed by other metadata", () => {
@@ -87,10 +99,12 @@ describe("text metadata", () => {
       markitWithMetadata("arrayKey:", "  - 1", "  - 2", "otherKey: true"),
     );
 
-    expect(document.metadata).toEqual({
-      arrayKey: [1, 2],
-      otherKey: true,
-    });
+    expect(document).toEqual(
+      expect.objectContaining({
+        arrayKey: [1, 2],
+        otherKey: true,
+      }),
+    );
   });
 
   it("parses metadata from child texts", () => {
@@ -105,9 +119,11 @@ describe("text metadata", () => {
     );
 
     const section1 = document.children[0]!;
-    expect(section1.metadata).toEqual({
-      note: "Child texts can contain metadata too.",
-    });
+    expect(section1).toEqual(
+      expect.objectContaining({
+        note: "Child texts can contain metadata too.",
+      }),
+    );
   });
 });
 
