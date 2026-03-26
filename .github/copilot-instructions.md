@@ -1,93 +1,61 @@
 # Markit Project Guidelines
 
-## Overview
+Markit is a markup language for textual preservation. The compiler is error-tolerant: it always produces output and accumulates diagnostics, enabling live preview workflows.
 
-Markit is a textual markup language similar to Markdown, designed for textual preservation projects. The compiler is a best-effort, error-tolerant pipeline that always produces output even when encountering errors, enabling live preview and gradual fixing workflows.
-
-For language specification, see [SPECIFICATION.md](../SPECIFICATION.md).
+Syntax: [SPECIFICATION.md](../SPECIFICATION.md)
+Example: [test/fixtures/example.mit](../test/fixtures/example.mit)
 
 ## Architecture
 
-- **Core compiler**: Functional pipeline with sequential stages (split → tree generation → metadata parsing → content parsing)
-- **Tuple return convention**: All public APIs return `[output, errors]` tuples—always produce output, accumulate diagnostics
-- **Position tracking**: Use symbol-based `startLine`/`endLine` metadata (not regular JSON keys) for editor tooling integration
-- **Output formats**: Base compiler produces structured objects; separate renderers for HTML/JSON/text
-- **Formatter**: Line-by-line state machine with context transitions and buffered content
+**Pipeline**: split → tree generation → metadata parsing → content parsing
 
-Key modules:
-
-- [src/compile.ts](../src/compile.ts): Main compilation orchestration
-- [src/types.ts](../src/types.ts): Shared domain model and grammar constants
-- [src/format.ts](../src/format.ts): Document formatter entry point
+- [src/types.ts](../src/types.ts): Domain model and grammar constants (element types, specs)
+- [src/compile.ts](../src/compile.ts): Compilation orchestration
 - [src/compile/](../src/compile/): Pipeline stage implementations
-- [src/format/](../src/format/): Formatting state machine handlers
+- [src/format.ts](../src/format.ts): Formatter entrypoint (state machine)
+- [src/format/](../src/format/): Handlers for each formatter state
+- [src/compileToHTML.ts](../src/compileToHTML.ts): HTML renderer (depends on `compile`)
+- [src/compileToText.ts](../src/compileToText.ts): Plain text renderer (depends on `compile`)
+- [src/compileToJSON.ts](../src/compileToJSON.ts): JSON renderer (depends on `compile`)
+- [vscode-markit/](../vscode-markit/): VS Code LSP extension — thin wrapper, delegates to core, has no tests
 
-The VS Code extension ([vscode-markit/](../vscode-markit/)) is a thin wrapper that delegates all semantic operations to the core compiler.
+All public APIs return `[output, errors]` tuples.
 
-## Code Style
+## Source Code Conventions
 
-- **TypeScript**: Strict mode with all strict options enabled ([tsconfig.json](../tsconfig.json))
-- **Functional style**: Prefer pure functions, minimize mutable state, favour recursive traversal for tree operations
-- **ES modules**: All imports must include `.js`/`.ts` extensions (verbatimModuleSyntax enabled)
-- **Array safety**: Use `noUncheckedIndexedAccess` — array access may be undefined
-- **Error tolerance**: Invalid constructs should produce diagnostics and continue with fallback parsing
+- **TypeScript strict**: all options on; `noUncheckedIndexedAccess` means array access may be undefined
+- **ES modules**: imports must include `.js`/`.ts` extensions (`verbatimModuleSyntax`)
+- **Functional style**: pure functions, recursive tree traversal, minimal mutable state
 - **Formatting**: Prettier with default settings
 
-## Contributing
+## Compiler Design Conventions
 
-- For every new language feature, always write a failing test first
-- Verify tests pass and coverage is 100% before submitting a PR
+- **Error tolerance**: invalid constructs → emit diagnostic, continue with fallback parsing
+- **Error positions**: 0-based internally, 1-based in public errors
+- **Symbol metadata**: editor-only data (e.g. `startLine`/`endLine`) goes on symbols, not JSON keys
+- **Grammar**: define element types and specs as constants in [src/types.ts](../src/types.ts), consumed by parsers
 
-## Build and Test
+## Language and Output Conventions
+
+- **Reserved keys** — document: `id`, `metadata`, `blocks`, `children`; block: `id`, `type`, `content`, `metadata`
+- **Whitespace**: trim content, collapse line breaks and spaces to single space (except `~`, `//`)
+
+## Adding a New Language Feature
+
+1. Read [SPECIFICATION.md](../SPECIFICATION.md) to understand the syntax being added
+2. Write a failing test in `test/` — use only public APIs (`compile`, `format`, `compileToHTML`, `compileToText`, `compileToJSON`); cover valid cases and error cases
+3. Add element type and spec constants to [src/types.ts](../src/types.ts)
+4. Implement parsing in the relevant [src/compile/](../src/compile/) stage
+5. Add rendering support in affected renderers
+6. Run `npm test` — all tests must pass with 100% coverage
+
+## Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Build compiler
-npm run build
-
-# Build VS Code extension
-npm run build:vscode
-
-# Run tests (includes type checking and format validation)
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# View test coverage
-npm run test:coverage
-
-# Type check without building
-npm run check
-
-# Format code
-npm run format
+npm test                                     # Type check, format, and run all tests
+npx vitest run test/compile.tag.test.ts      # Run a single test file
+npm run test:coverage                        # Coverage report
+npm run build                                # Build compiler
+npm run build:vscode                         # Build VS Code extension
+npm run format                               # Format with Prettier
 ```
-
-## Testing Conventions
-
-Tests are in the `tests` directory, organized by feature (e.g. `compile.tag.test.ts`, `compile.metadata.test.ts`). Each test file should cover both valid cases and error cases for the relevant feature.
-
-Tests should only call the public APIs (`compile`, `format`, `compileToHTML`, `compileToText`, and `compileToJSON`), and should aim for 100% code coverage (and no dead code).
-
-## Conventions
-
-- **Error positions**: Internally use 0-based offsets, normalize to 1-based line/column for public errors
-- **Grammar centralization**: Element types and specs are defined as constants in [src/types.ts](../src/types.ts), consumed by parsers
-- **Recursive document traversal**: Standard pattern for compilation, rendering, and folding
-- **Reserved metadata keys**: `id`, `metadata`, `blocks`, `children` (document); `id`, `type`, `content`, `metadata` (block)
-- **Symbol metadata pattern**: Store editor-only metadata on symbols to keep JSON output clean
-- **Whitespace handling**: Content is trimmed, line breaks → spaces, multiple spaces → single space (except explicit markers like `~`, `//`)
-
-## VS Code Extension
-
-Located in [vscode-markit/](../vscode-markit/), structured as LSP client-server:
-
-- **Client**: Extension host, handles commands and preview webview
-- **Server**: LSP process, provides diagnostics, folding, formatting
-- **Integration**: Direct imports from main compiler package
-- **Preview sync**: Uses `data-line` attributes from HTML output for editor-to-preview scrolling
-
-Build separately with `npm run build:vscode`.
