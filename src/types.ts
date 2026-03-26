@@ -5,23 +5,30 @@ export type MarkitError = Readonly<{
   column: number;
   endLine: number;
   endColumn: number;
+  file?: string;
+}>;
+
+// Compile options
+export type CompileOptions = Readonly<{
+  loadFile?: (path: string) => string;
+  currentFilePath?: string;
 }>;
 
 // Document type
-export type MarkitDocument = Readonly<{
-  id: string;
-  metadata: Record<string, MetadataValue>;
-  blocks: ReadonlyArray<Block>;
-  children: ReadonlyArray<MarkitDocument>;
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-}>;
+export type MarkitDocument = Readonly<
+  {
+    id: string;
+    blocks: ReadonlyArray<Block>;
+    children: ReadonlyArray<MarkitDocument>;
+    [startLine]: number; // used by the language server
+    [endLine]: number; // used by the language server
+  } & Record<string, MetadataValue>
+>; // allow any other metadata fields
 
 export const RESERVED_TEXT_KEYS: ReadonlyArray<string> = [
   "id",
   "blocks",
   "children",
-  "metadata",
 ];
 
 // Metadata types
@@ -34,20 +41,16 @@ export type MetadataValue =
   | string[];
 
 // Block types
-export type Block = Readonly<{
-  id: string;
-  metadata: Record<string, MetadataValue>;
-  content: ReadonlyArray<Element>;
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-}>;
+export type Block = Readonly<
+  {
+    id: string;
+    content: ReadonlyArray<Element>;
+    [startLine]: number; // used by the language server
+    [endLine]: number; // used by the language server
+  } & Record<string, MetadataValue>
+>; // allow any other metadata fields
 
-export const RESERVED_BLOCK_KEYS: ReadonlyArray<string> = [
-  "id",
-  "type",
-  "content",
-  "metadata",
-];
+export const RESERVED_BLOCK_KEYS: ReadonlyArray<string> = ["id", "content"];
 
 // Source range symbols (used by the language server)
 export const startLine = Symbol("startLine");

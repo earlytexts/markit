@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { compileToHTML } from "markit";
 import {
   ExtensionContext,
@@ -48,7 +49,12 @@ export default async (context: ExtensionContext): Promise<void> => {
     // Watch for document changes
     const changeSubscription = workspace.onDidChangeTextDocument((e) => {
       if (e.document === document && previewPanel) {
-        updatePreview(previewPanel, context, e.document.getText());
+        updatePreview(
+          previewPanel,
+          context,
+          e.document.getText(),
+          e.document.uri.fsPath,
+        );
       }
     });
 
@@ -82,15 +88,19 @@ export default async (context: ExtensionContext): Promise<void> => {
   }
 
   // Update preview content
-  updatePreview(previewPanel, context, document.getText());
+  updatePreview(previewPanel, context, document.getText(), document.uri.fsPath);
 };
 
 const updatePreview = (
   previewPanel: WebviewPanel,
   context: ExtensionContext,
   content: string,
+  currentFilePath: string,
 ): void => {
-  const [html] = compileToHTML(content);
+  const [html] = compileToHTML(content, {
+    loadFile: (path: string) => readFileSync(path, "utf-8"),
+    currentFilePath,
+  });
 
   // Get webview URIs for CSS and JS files
   const cssUri = previewPanel.webview.asWebviewUri(

@@ -8,6 +8,7 @@ import type { Line, RawBlock } from "./splitIntoBlocks.js";
  */
 export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
   metadata: Record<string, MetadataValue>;
+  metadataPositions: Record<string, MetadataPosition>; // expose this for error reporting when compiling external children
   blocks: BlockWithMetadata[];
   children: TextTreeWithMetadata[];
 };
@@ -18,6 +19,17 @@ export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   lines: Line[];
 };
 
+export type MetadataPosition = {
+  line: number;
+  column: number;
+  length: number;
+  arrayElementPositions: Array<{
+    line: number;
+    column: number;
+    length: number;
+  }>;
+};
+
 export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
   return parseTextMetadata(textTree);
 };
@@ -25,24 +37,20 @@ export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
 const parseTextMetadata = (
   text: TextTree,
 ): [TextTreeWithMetadata, MarkitError[]] => {
+  // Check if first block is a metadata block (if it exists)
   const firstBlock = text.blocks[0];
-  if (!firstBlock) {
-    const parseChildrenResult = text.children.map(parseTextMetadata);
-    const childrenWithMetadata = parseChildrenResult.map((result) => result[0]);
-    const childrenErrors = parseChildrenResult.flatMap((result) => result[1]);
-    return [
-      { ...text, metadata: {}, blocks: [], children: childrenWithMetadata },
-      childrenErrors,
-    ];
-  }
+  const firstLine = firstBlock?.lines[0];
+  const isMetadata = firstLine?.content.match(/^\w+:/);
 
-  const firstLine = firstBlock.lines[0];
-  const isMetadata = firstLine.content.match(/^\w+:/);
-  const [metadata, metadataErrors] = isMetadata
-    ? parseMetadataBlock(firstBlock)
-    : [{}, []];
+  // If there's a metadata block, parse it - otherwise metadata is empty
+  const [metadata, metadataPositions, metadataErrors] = isMetadata
+    ? parseMetadataBlock(firstBlock!)
+    : [{}, {}, []];
 
+  // If it was a metadata block, remove it from the blocks array for the rest of the parsing
   const contentBlocks = isMetadata ? text.blocks.slice(1) : text.blocks;
+
+  // Parse metadata for each block, passing in previously parsed blocks for duplicate ID checking
   const parseBlockMetadataResult = contentBlocks.reduce(
     (acc, block) => {
       const [blockWithMetadata, blockErrors] = parseBlockMetadata(
@@ -59,26 +67,33 @@ const parseTextMetadata = (
   );
   const blockErrors = parseBlockMetadataResult.flatMap((result) => result[1]);
 
+  // Parse metadata for children recursively
   const parseChildrenResult = text.children.map(parseTextMetadata);
   const childrenWithMetadata = parseChildrenResult.map((result) => result[0]);
   const childrenErrors = parseChildrenResult.flatMap((result) => result[1]);
 
+  // Put it all together and return
   const textWithMetadata = {
     ...text,
     metadata,
+    metadataPositions,
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
   };
-
   const errors = [...metadataErrors, ...blockErrors, ...childrenErrors];
   return [textWithMetadata, errors];
 };
 
 const parseMetadataBlock = (
   block: RawBlock,
-): [Record<string, MetadataValue>, MarkitError[]] => {
+): [
+  Record<string, MetadataValue>,
+  Record<string, MetadataPosition>,
+  MarkitError[],
+] => {
   const errors: MarkitError[] = [];
   const metadata: Record<string, MetadataValue> = {};
+  const metadataPositions: Record<string, MetadataPosition> = {};
 
   for (let index = 0; index < block.lines.length; index++) {
     const line = block.lines[index]!;
@@ -87,6 +102,14 @@ const parseMetadataBlock = (
     const multilineArrayMatch = line.content.match(/^(\w+)\s*:\s*$/);
     if (multilineArrayMatch) {
       const key = multilineArrayMatch[1]!;
+
+      // Track position for this key
+      metadataPositions[key] = {
+        line: block.startLine + index,
+        column: line.charOffset,
+        length: line.content.length,
+        arrayElementPositions: [],
+      };
 
       // Collect array items from subsequent lines
       const arrayItems: (number | boolean | string)[] = [];
@@ -102,6 +125,16 @@ const parseMetadataBlock = (
         }
 
         const itemString = arrayItemMatch[1]!.trim();
+        const itemStartColumn =
+          arrayLine.charOffset + arrayLine.content.indexOf(itemString);
+
+        // Track position for this array element
+        metadataPositions[key].arrayElementPositions.push({
+          line: block.startLine + arrayIndex,
+          column: itemStartColumn,
+          length: itemString.length,
+        });
+
         let itemValue: number | boolean | string;
         try {
           itemValue = JSON.parse(itemString);
@@ -111,8 +144,7 @@ const parseMetadataBlock = (
             makeError({
               message: `Invalid metadata value: ${itemString}`,
               line: block.startLine + arrayIndex,
-              column:
-                arrayLine.charOffset + arrayLine.content.indexOf(itemString),
+              column: itemStartColumn,
               length: itemString.length,
             }),
           );
@@ -170,6 +202,14 @@ const parseMetadataBlock = (
     const key = match[1]!;
     const valueString = match[2]!.trim();
 
+    // Track position for this key
+    metadataPositions[key] = {
+      line: block.startLine + index,
+      column: line.charOffset,
+      length: line.content.length,
+      arrayElementPositions: [],
+    };
+
     let value: MetadataValue;
     try {
       value = JSON.parse(valueString);
@@ -185,8 +225,25 @@ const parseMetadataBlock = (
       );
     }
 
+    // Track array element positions for inline arrays
+    if (Array.isArray(value)) {
+      const arrayOpeningBracketIndex = line.content.indexOf(valueString);
+      value.forEach((item) => {
+        const itemString = JSON.stringify(item);
+        const itemStartIndex = line.content.indexOf(
+          itemString,
+          arrayOpeningBracketIndex,
+        );
+        metadataPositions[key]!.arrayElementPositions.push({
+          line: block.startLine + index,
+          column: line.charOffset + itemStartIndex,
+          length: itemString.length,
+        });
+      });
+    }
+
     // Check for mixed types in inline arrays
-    if (Array.isArray(value) && value.length > 0) {
+    if (Array.isArray(value)) {
       const types = new Set(value.map((item) => typeof item));
       if (types.size > 1) {
         errors.push(
@@ -204,7 +261,7 @@ const parseMetadataBlock = (
     metadata[key] = value;
   }
 
-  return [metadata, errors];
+  return [metadata, metadataPositions, errors];
 };
 
 const parseBlockMetadata = (

@@ -27,7 +27,7 @@ YAML metadata blocks support a subset of YAML syntax. Values can be any of the f
 
 - Boolean values: `true` and `false`
 - Numbers (e.g. `42`, `3.14`, `-1`, etc.)
-- Strings, which _must_ be surrounded by either single or double quotation marks. Single-quoted strings may included double quotation marks unescaped, and vice-versa; otherwise quotation marks can be escaped with a backslash `\`.
+- Strings, which _must_ be surrounded by double quotation marks (`"`). Double quotation marks inside a string can be escaped with a backslash `\`.
 - Inline arrays, which are comma-separated lists of values surrounded by square brackets, e.g. `[value1, value2, value3]`. Values in arrays can be Booleans, numbers, or strings, but all values in a given array must be of the same type.
 - Multiline arrays, which are lists of values where each value is on a new line and preceded by two spaces, a hyphen, and another space:
 

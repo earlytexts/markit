@@ -1,47 +1,84 @@
+import compileExternalChildren from "./compile/compileExternalChildren.js";
 import generateTextTree from "./compile/generateTextTree.js";
 import makeError from "./compile/makeError.js";
 import parseContent from "./compile/parseContent.js";
 import parseMetadata from "./compile/parseMetadata.js";
 import splitIntoBlocks from "./compile/splitIntoBlocks.js";
+import type { CompileOptions, MarkitDocument, MarkitError } from "./types.js";
 import { endLine, startLine } from "./types.js";
-import type { MarkitDocument, MarkitError } from "./types.js";
 
 /**
  * Compile a Markit document string into a structured JSON-ready object.
  *
  * @param text The input Markit document as a string.
+ * @param options Optional compilation options including file loader and current file path.
  * @returns A tuple of:
  *   [0] The parsed document (always produced, even if there are errors)
  *   [1] An array of any errors and warnings encountered during parsing and validation
  */
-export default (text: string): [MarkitDocument, MarkitError[]] => {
-  // Step 1: parse the text into blocks separated by one or more blank lines
+export default (
+  text: string,
+  options: CompileOptions = {},
+): [MarkitDocument, MarkitError[]] => {
+  const loadingStack = new Set(
+    options.currentFilePath ? [options.currentFilePath] : [],
+  );
+  return compile(text, options, loadingStack);
+};
+
+const compile = (
+  text: string,
+  options: CompileOptions,
+  loadingStack: Set<string> = new Set(),
+): [MarkitDocument, MarkitError[]] => {
+  // Parse the text into blocks separated by one or more blank lines
   const [firstBlock, ...otherBlocks] = splitIntoBlocks(text);
   if (!firstBlock) {
     return [emptyDocument, [emptyDocumentError]];
   }
 
-  // Step 2: generate the text tree from the blocks
+  // Generate the text tree from the blocks
   const [textTree, treeErrors] = generateTextTree([firstBlock, ...otherBlocks]);
 
-  // Step 3: parse metadata for each text and block in the tree
+  // Parse metadata for each text and block in the tree
   const [treeWithMetadata, metaDataErrors] = parseMetadata(textTree);
 
-  // Step 4: parse block content for every text
+  // Parse block content for each block, including for internal children recursively
   const [document, contentErrors] = parseContent(treeWithMetadata);
 
-  // Return document and all errors
-  const errors = [...treeErrors, ...metaDataErrors, ...contentErrors].sort(
-    (a, b) => a.line - b.line || a.column - b.column,
+  // Compile external children recursively
+  const [externalChildren, externalChildrenErrors] = compileExternalChildren(
+    treeWithMetadata,
+    options,
+    loadingStack,
+    compile,
   );
-  return [document, errors];
+
+  // Create full document with metadata inlined and external children included
+  // @ts-expect-error: TypeScript complains that `id`, `blocks`, and `children` aren't compatible with `MetadataValue`
+  const fullDocument: MarkitDocument = {
+    ...document,
+    children: [...document.children, ...externalChildren],
+    [startLine]: document[startLine],
+    [endLine]: document[endLine],
+  };
+
+  // Merge and sort errors
+  const errors = [
+    ...treeErrors,
+    ...metaDataErrors,
+    ...externalChildrenErrors,
+    ...contentErrors,
+  ].sort((a, b) => a.line - b.line || a.column - b.column);
+
+  // return the full document along with any errors
+  return [fullDocument, errors];
 };
 
 const emptyDocument = {
   id: "empty-document",
   blocks: [],
   children: [],
-  metadata: {},
   [startLine]: 0,
   [endLine]: 0,
 };
@@ -49,5 +86,6 @@ const emptyDocument = {
 const emptyDocumentError = makeError({
   message: "Document is empty",
   line: 0,
+  column: 0,
   length: 0,
 });

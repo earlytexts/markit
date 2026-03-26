@@ -1,0 +1,11 @@
+# Parent
+
+children: ["child.mit"]
+
+{#1}
+This is the parent document.
+
+## Parent.InlineChild
+
+{#1}
+This is an inline child.

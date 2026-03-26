@@ -1,10 +1,16 @@
+import { readFileSync } from "fs";
 import { compile } from "markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 
 export default (textDocument: TextDocument): Diagnostic[] => {
   const text = textDocument.getText();
-  const [, errors] = compile(text);
+  const currentFilePath = textDocument.uri.replace("file:///", "");
+
+  const [, errors] = compile(text, {
+    loadFile: (path: string) => readFileSync(path, "utf-8"),
+    currentFilePath,
+  });
   return errors.map((err): Diagnostic => {
     const startLine = (err.line ?? 1) - 1; // convert 1-based to 0-based
     const startCol = (err.column ?? 1) - 1;
