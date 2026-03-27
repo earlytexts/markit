@@ -46,6 +46,15 @@ describe("document structure", () => {
     expect(grandchild[startLine]).toBe(10);
     expect(grandchild[endLine]).toBe(12);
   });
+
+  it("parses a text with only an ID block and no metadata or content", () => {
+    const [document, errors] = compile(markit("# Text.Only"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.id).toBe("Text.Only");
+    expect(document.blocks).toHaveLength(0);
+    expect(document.children).toHaveLength(0);
+  });
 });
 
 describe("document structure errors", () => {
@@ -58,6 +67,7 @@ describe("document structure errors", () => {
       column: 1,
       endLine: 1,
       endColumn: 1,
+      severity: "error",
     });
   });
 
@@ -70,6 +80,7 @@ describe("document structure errors", () => {
       column: 1,
       endLine: 1,
       endColumn: 5,
+      severity: "error",
     });
   });
 
@@ -82,6 +93,7 @@ describe("document structure errors", () => {
       column: 1,
       endLine: 1,
       endColumn: 17,
+      severity: "error",
     });
   });
 
@@ -103,6 +115,7 @@ describe("document structure errors", () => {
       column: 1,
       endLine: 5,
       endColumn: 43,
+      severity: "error",
     });
   });
 });

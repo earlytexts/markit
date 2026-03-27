@@ -39,12 +39,14 @@ describe("block metadata errors", () => {
       markit("# Text", "", "This block has no tag.", ""),
     );
 
+    expect(errors.length).toBe(1);
     expect(errors[0]).toEqual({
       message: "Block is missing metadata tag '{#id}'",
       line: 3,
       column: 1,
       endLine: 3,
       endColumn: 23,
+      severity: "error",
     });
   });
 
@@ -53,12 +55,14 @@ describe("block metadata errors", () => {
       markit("# Text", "", "{#1", "This block has a badly formed tag.", ""),
     );
 
+    expect(errors.length).toBe(1);
     expect(errors[0]).toEqual({
       message: "Block tag is not properly closed with '}'",
       line: 3,
       column: 1,
       endLine: 3,
       endColumn: 4,
+      severity: "error",
     });
   });
 
@@ -73,20 +77,22 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors.length).toBe(2);
     expect(errors[0]).toEqual({
       message: "Invalid block metadata, expected 'key=value'",
       line: 3,
       column: 6,
       endLine: 3,
       endColumn: 13,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: "Invalid block metadata, expected 'key=value'",
       line: 3,
       column: 15,
       endLine: 3,
       endColumn: 30,
+      severity: "error",
     });
   });
 
@@ -101,20 +107,22 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors.length).toBe(2);
     expect(errors[0]).toEqual({
       message: "Invalid metadata value: troo",
       line: 3,
       column: 17,
       endLine: 3,
       endColumn: 21,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "no closing quote',
       line: 3,
       column: 33,
       endLine: 3,
       endColumn: 50,
+      severity: "error",
     });
   });
 
@@ -132,12 +140,72 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors.length).toBe(1);
     expect(errors[0]).toEqual({
       message: "Duplicate block ID: #2",
       line: 6,
       column: 1,
       endLine: 6,
       endColumn: 5,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved block tag key 'id'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", '{#1, id="custom"}', "Block content.", ""),
+    );
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toEqual({
+      message: "Block tag key 'id' is reserved and cannot be used in metadata",
+      line: 3,
+      column: 6,
+      endLine: 3,
+      endColumn: 8,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved block tag key 'content'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", '{#1, content="x"}', "Block content.", ""),
+    );
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toEqual({
+      message:
+        "Block tag key 'content' is reserved and cannot be used in metadata",
+      line: 3,
+      column: 6,
+      endLine: 3,
+      endColumn: 13,
+      severity: "error",
+    });
+  });
+
+  it("returns error for footnote block appearing before a regular block", () => {
+    const [, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "{#n1}",
+        "Footnote content.",
+        "",
+        "{#1}",
+        "Regular block after footnote.",
+        "",
+      ),
+    );
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toEqual({
+      message: "Footnote blocks must appear after all paragraph blocks",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 6,
+      severity: "error",
     });
   });
 });

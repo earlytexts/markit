@@ -1,6 +1,7 @@
 # Parent
 
-children: ["child.mit"]
+children:
+  - "child.mit"
 
 {#1}
 This is the parent document.

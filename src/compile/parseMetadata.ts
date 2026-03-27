@@ -1,4 +1,9 @@
 import type { MarkitError, MetadataValue } from "../types.js";
+import {
+  RESERVED_BLOCK_KEYS,
+  RESERVED_TEXT_KEYS,
+  footnoteReferenceSpec,
+} from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
@@ -67,6 +72,30 @@ const parseTextMetadata = (
   );
   const blockErrors = parseBlockMetadataResult.flatMap((result) => result[1]);
 
+  // Validate footnote ordering: footnote blocks must appear after all paragraph blocks
+  const footnoteErrors: MarkitError[] = [];
+  let firstFootnoteIndex: number | null = null;
+  for (let i = 0; i < blocksWithMetadata.length; i++) {
+    const isFootnote = footnoteReferenceSpec.pattern.test(
+      blocksWithMetadata[i]!.id,
+    );
+    if (isFootnote && firstFootnoteIndex === null) {
+      firstFootnoteIndex = i;
+    } else if (!isFootnote && firstFootnoteIndex !== null) {
+      const footnoteBlock = blocksWithMetadata[firstFootnoteIndex]!;
+      const rawFootnoteBlock = contentBlocks[firstFootnoteIndex]!;
+      footnoteErrors.push(
+        makeError({
+          message: "Footnote blocks must appear after all paragraph blocks",
+          line: footnoteBlock.startLine,
+          column: rawFootnoteBlock.lines[0]!.charOffset,
+          length: footnoteBlock.id.length + 3, // {# + id + }
+        }),
+      );
+      break;
+    }
+  }
+
   // Parse metadata for children recursively
   const parseChildrenResult = text.children.map(parseTextMetadata);
   const childrenWithMetadata = parseChildrenResult.map((result) => result[0]);
@@ -80,7 +109,12 @@ const parseTextMetadata = (
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
   };
-  const errors = [...metadataErrors, ...blockErrors, ...childrenErrors];
+  const errors = [
+    ...metadataErrors,
+    ...blockErrors,
+    ...footnoteErrors,
+    ...childrenErrors,
+  ];
   return [textWithMetadata, errors];
 };
 
@@ -201,6 +235,19 @@ const parseMetadataBlock = (
 
     const key = match[1]!;
     const valueString = match[2]!.trim();
+
+    // Check for reserved keys (excluding 'children' which has its own handling)
+    if (RESERVED_TEXT_KEYS.includes(key) && key !== "children") {
+      errors.push(
+        makeError({
+          message: `The '${key}' metadata key is reserved and cannot be used in the document metadata`,
+          line: block.startLine + index,
+          column: line.charOffset,
+          length: key.length,
+        }),
+      );
+      continue;
+    }
 
     // Track position for this key
     metadataPositions[key] = {
@@ -323,6 +370,18 @@ const parseBlockMetadata = (
       return;
     }
 
+    if (RESERVED_BLOCK_KEYS.includes(key)) {
+      errors.push(
+        makeError({
+          message: `Block tag key '${key}' is reserved and cannot be used in metadata`,
+          line: block.startLine,
+          column: firstLine.charOffset + firstLine.content.indexOf(part),
+          length: key.length,
+        }),
+      );
+      return;
+    }
+
     let value: MetadataValue;
     try {
       value = JSON.parse(valueString);
@@ -341,9 +400,11 @@ const parseBlockMetadata = (
     metadata[key] = value;
   });
 
-  const contentAfterTag = firstLine.content
-    .slice(blockTagMatch ? blockTagMatch[0]!.length : 0)
-    .trim();
+  const contentAfterTag = blockTagMatch
+    ? firstLine.content.slice(blockTagMatch[0]!.length).trim()
+    : firstLine.content.trim().startsWith("{#")
+      ? ""
+      : firstLine.content.trim();
   const newFirstLine = contentAfterTag
     ? {
         charOffset:

@@ -6,6 +6,7 @@ export type MarkitError = Readonly<{
   endLine: number;
   endColumn: number;
   file?: string;
+  severity: "error" | "warning";
 }>;
 
 // Compile options

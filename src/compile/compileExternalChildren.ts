@@ -32,7 +32,7 @@ export default (
         "The 'children' metadata field must be an array of strings (file paths)",
       line: childrenPositions.line,
       column: childrenPositions.column,
-      length: childrenPositions.length,
+      length: "children".length,
     });
     return [[], [error]];
   }
@@ -44,7 +44,7 @@ export default (
         "Cannot load external children: no file loader provided to compile()",
       line: childrenPositions.line,
       column: childrenPositions.column,
-      length: childrenPositions.length,
+      length: "children".length,
     });
     return [[], [error]];
   }
@@ -128,9 +128,27 @@ export default (
       loadingStack,
     );
 
-    // Add the child any any child errors to our results
+    // Add the child and its errors to our results.
+    // Warnings from child compilations are not propagated — they will appear when the child file is opened.
     externalChildren.push(childDocument);
-    errors.push(...childErrors.map((error) => ({ ...error, file: childPath })));
+    errors.push(
+      ...childErrors
+        .filter((e) => e.severity !== "warning")
+        .map((error) => ({ ...error, file: childPath })),
+    );
+
+    // If the child has any errors, add a warning at the child path position
+    if (childErrors.length > 0) {
+      errors.push(
+        makeError({
+          message: `External child '${childPath}' has errors`,
+          line: elementPosition.line,
+          column: elementPosition.column,
+          length: elementPosition.length,
+          severity: "warning",
+        }),
+      );
+    }
   }
 
   // Return the compiled external children and any errors

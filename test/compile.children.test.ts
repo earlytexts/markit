@@ -165,18 +165,30 @@ describe("external children errors", () => {
     );
 
     expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe(
-      "The 'children' metadata field must be an array of strings (file paths)",
-    );
+    expect(errors[0]).toEqual({
+      message:
+        "The 'children' metadata field must be an array of strings (file paths)",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 9,
+      severity: "error",
+    });
   });
 
   it("returns error for children metadata with non-string values", () => {
     const [, errors] = compile(markit("# Text", "", "children: [1]"), options);
 
     expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe(
-      "Each item in 'children' metadata array must be a string (file path)",
-    );
+    expect(errors[0]).toEqual({
+      message:
+        "Each item in 'children' metadata array must be a string (file path)",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 13,
+      severity: "error",
+    });
   });
 
   it("returns error for missing external child file", () => {
@@ -196,7 +208,14 @@ describe("external children errors", () => {
     });
 
     expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe("Cannot load external child: missing.mit");
+    expect(errors[0]).toEqual({
+      message: "Cannot load external child: missing.mit",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 25,
+      severity: "error",
+    });
   });
 
   it("returns error for circular dependencies", () => {
@@ -210,8 +229,56 @@ describe("external children errors", () => {
       currentFilePath: "/a.mit",
     });
 
-    expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe("Circular dependency detected");
+    expect(errors.length).toBe(2);
+    expect(errors[0]).toEqual({
+      message: "Circular dependency detected",
+      file: "b.mit",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 19,
+      severity: "error",
+    });
+    expect(errors[1]).toEqual({
+      message: "External child 'b.mit' has errors",
+      severity: "warning",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 19,
+    });
+  });
+
+  it("returns error for deep circular dependencies (A→B→C→A)", () => {
+    const files = {
+      "/a.mit": markit("# A", "", 'children: ["b.mit"]'),
+      "/b.mit": markit("# B", "", 'children: ["c.mit"]'),
+      "/c.mit": markit("# C", "", 'children: ["a.mit"]'),
+    };
+
+    const [, errors] = compile(files["/a.mit"]!, {
+      loadFile: createMockFileLoader(files),
+      currentFilePath: "/a.mit",
+    });
+
+    expect(errors.length).toBe(2);
+    expect(errors[0]).toEqual({
+      message: "Circular dependency detected",
+      file: "b.mit",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 19,
+      severity: "error",
+    });
+    expect(errors[1]).toEqual({
+      message: "External child 'b.mit' has errors",
+      severity: "warning",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 19,
+    });
   });
 
   it("returns errors from external children with file context", () => {
@@ -231,16 +298,58 @@ describe("external children errors", () => {
     });
 
     const childErrors = errors.filter((e) => e.file === "child.mit");
-    expect(childErrors.length).toBeGreaterThan(0);
-    expect(childErrors[0]!.message).toBe("Unclosed formatting: *");
+    expect(childErrors.length).toBe(1);
+    expect(childErrors[0]).toEqual({
+      message: "Unclosed formatting: *",
+      file: "child.mit",
+      line: 4,
+      column: 9,
+      endLine: 4,
+      endColumn: 10,
+      severity: "error",
+    });
+  });
+
+  it("returns warning in parent when external child has errors", () => {
+    const files = {
+      "/parent.mit": markit("# Parent", "", 'children: ["child.mit"]'),
+      "/child.mit": markit(
+        "# Child",
+        "",
+        "{#1}",
+        "Invalid *unclosed formatting",
+      ),
+    };
+
+    const [, errors] = compile(files["/parent.mit"]!, {
+      loadFile: createMockFileLoader(files),
+      currentFilePath: "/parent.mit",
+    });
+
+    expect(errors.length).toBe(2);
+    const warning = errors.find((e) => e.severity === "warning");
+    expect(warning).toEqual({
+      message: "External child 'child.mit' has errors",
+      severity: "warning",
+      line: 3,
+      column: 12,
+      endLine: 3,
+      endColumn: 23,
+    });
   });
 
   it("returns error when external children specified but no file loader provided", () => {
     const [, errors] = compile(markit("# Text", "", 'children: ["file.mit"]'));
 
     expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe(
-      "Cannot load external children: no file loader provided to compile()",
-    );
+    expect(errors[0]).toEqual({
+      message:
+        "Cannot load external children: no file loader provided to compile()",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 9,
+      severity: "error",
+    });
   });
 });

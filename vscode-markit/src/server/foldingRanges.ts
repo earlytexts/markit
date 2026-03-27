@@ -1,11 +1,12 @@
 import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
 import { compile, endLine, startLine, type MarkitDocument } from "markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 
 export default (textDocument: TextDocument): FoldingRange[] => {
   const text = textDocument.getText();
-  const currentFilePath = textDocument.uri.replace("file:///", "");
+  const currentFilePath = fileURLToPath(textDocument.uri);
 
   const [doc] = compile(text, {
     loadFile: (path: string) => readFileSync(path, "utf-8"),

@@ -2,13 +2,37 @@
   "name": "vscode-markit",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Texts)",
-  "version": "2.2.0",
+  "version": "2.2.3",
   "repository": {
     "url": "https://github.com/earlytexts/markit"
   },
   "icon": "./markit-logo.png",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
+  "scripts": {
+    "build": "cd ../ && npm run build && cd vscode-markit && node esbuild.mjs",
+    "build:watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package --no-dependencies --out build/vscode-markit.vsix"
+  },
+  "dependencies": {
+    "markit": "file:..",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@types/vscode": "^1.85.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -89,30 +113,5 @@
         "when": "editorLangId == markit"
       }
     ]
-  },
-  "scripts": {
-    "build": "node esbuild.mjs",
-    "build:watch": "node esbuild.mjs --watch",
-    "check": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "vscode:prepublish": "npm run build",
-    "package": "vsce package --no-dependencies --out build/vscode-markit.vsix"
-  },
-  "dependencies": {
-    "markit": "file:..",
-    "vscode-languageclient": "^9.0.1",
-    "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12"
-  },
-  "devDependencies": {
-    "@types/node": "^25.2.3",
-    "@types/vscode": "^1.85.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "@vscode/vsce": "^3.7.1",
-    "esbuild": "^0.27.3",
-    "prettier": "^3.4.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
   }
 }

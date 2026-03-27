@@ -623,6 +623,85 @@ describe("block content", () => {
       },
     ]);
   });
+
+  it("parses heading content spanning multiple lines within the same block", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "£1 Title", "continued £1"),
+    );
+
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "heading",
+        level: 1,
+        content: [{ type: "plainText", content: "Title continued" }],
+      },
+    ]);
+  });
+
+  it("parses escaped pipe as literal pipe character", () => {
+    const [document] = compile(markitWithContent("{#1}", "price: \\| tax"));
+
+    expect(document.blocks[0]!.content).toEqual([
+      { type: "plainText", content: "price: | tax" },
+    ]);
+  });
+
+  it("parses Greek digraph mixed-case variants", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "$$Thalassa Ph Ph CH PS$$"),
+    );
+
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "Θαλασσα Φ Φ Χ Ψ" }],
+      },
+    ]);
+  });
+
+  it("passes non-table characters through unchanged in Greek transliteration", () => {
+    // `c` is not in the single-char table (only `ch` as a digraph), so it passes through
+    const [document] = compile(markitWithContent("{#1}", "$$42! abc$$"));
+
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "42! αβc" }],
+      },
+    ]);
+  });
+
+  it("applies final sigma when followed by punctuation", () => {
+    const [document] = compile(markitWithContent("{#1}", "$$logos, bios.$$"));
+
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "λογος, βιος." }],
+      },
+    ]);
+  });
+
+  it("parses multiple references to the same footnote", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "First ref <n1> and second ref <n1>.",
+        "",
+        "{#n1}",
+        "The footnote.",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      { type: "plainText", content: "First ref " },
+      { type: "footnoteReference", id: "n1" },
+      { type: "plainText", content: " and second ref " },
+      { type: "footnoteReference", id: "n1" },
+      { type: "plainText", content: "." },
+    ]);
+  });
 });
 
 describe("block content errors", () => {
@@ -637,6 +716,7 @@ describe("block content errors", () => {
       column: 14,
       endLine: 4,
       endColumn: 21,
+      severity: "error",
     });
   });
 
@@ -651,6 +731,7 @@ describe("block content errors", () => {
       column: 13,
       endLine: 4,
       endColumn: 14,
+      severity: "error",
     });
   });
 
@@ -665,6 +746,7 @@ describe("block content errors", () => {
       column: 10,
       endLine: 4,
       endColumn: 11,
+      severity: "error",
     });
   });
 
@@ -679,6 +761,7 @@ describe("block content errors", () => {
       column: 12,
       endLine: 4,
       endColumn: 15,
+      severity: "error",
     });
   });
 
@@ -693,6 +776,22 @@ describe("block content errors", () => {
       column: 19,
       endLine: 4,
       endColumn: 24,
+      severity: "error",
+    });
+  });
+
+  it("returns error for overlapping inline formatting", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "*bold _italic* wrong_", ""),
+    );
+
+    expect(errors[0]).toEqual({
+      message: "Unclosed formatting: *",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 2,
+      severity: "error",
     });
   });
 
@@ -712,16 +811,29 @@ describe("block content errors", () => {
       line: 4,
       column: 17,
       endLine: 4,
-      endColumn: 19,
+      endColumn: 31,
+      severity: "error",
     });
+  });
 
-    // The closing "" also generates an error
-    expect(errors[1]).toEqual({
+  it("returns error for unclosed nested block-level elements", () => {
+    const [, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "{#6}",
+        '£1 Heading with ""unclosed blockquote inside £1',
+        "",
+      ),
+    );
+
+    expect(errors[0]).toEqual({
       message: "Block-level elements cannot be nested",
       line: 4,
-      column: 29,
+      column: 17,
       endLine: 4,
-      endColumn: 31,
+      endColumn: 19,
+      severity: "error",
     });
   });
 });

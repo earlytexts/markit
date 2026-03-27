@@ -26,6 +26,12 @@ describe("text metadata", () => {
     );
   });
 
+  it("parses negative number metadata", () => {
+    const [document] = compile(markitWithMetadata("offset: -1"));
+
+    expect(document).toEqual(expect.objectContaining({ offset: -1 }));
+  });
+
   it("parses string metadata", () => {
     const [document] = compile(
       markitWithMetadata('metadataString: "the answer"'),
@@ -114,7 +120,7 @@ describe("text metadata", () => {
         "",
         "## Child.Text",
         "",
-        "note: Child texts can contain metadata too.",
+        'note: "Child texts can contain metadata too."',
       ),
     );
 
@@ -133,20 +139,22 @@ describe("text metadata errors", () => {
       markitWithMetadata("badBoolean: troo", 'badString: "no closing quote'),
     );
 
+    expect(errors.length).toBe(2);
     expect(errors[0]).toEqual({
       message: "Invalid metadata value: troo",
       line: 3,
       column: 13,
       endLine: 3,
       endColumn: 17,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "no closing quote',
       line: 4,
       column: 12,
       endLine: 4,
       endColumn: 29,
+      severity: "error",
     });
   });
 
@@ -170,6 +178,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 4,
       endColumn: 17,
+      severity: "error",
     });
   });
 
@@ -186,6 +195,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 33,
+      severity: "error",
     });
   });
 
@@ -202,6 +212,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 12,
+      severity: "error",
     });
   });
 
@@ -217,6 +228,7 @@ describe("text metadata errors", () => {
       column: 5,
       endLine: 4,
       endColumn: 9,
+      severity: "error",
     });
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "unclosed',
@@ -224,6 +236,7 @@ describe("text metadata errors", () => {
       column: 5,
       endLine: 5,
       endColumn: 14,
+      severity: "error",
     });
   });
 
@@ -237,6 +250,37 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 12,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved metadata key 'id'", () => {
+    const [, errors] = compile(markitWithMetadata('id: "custom"'));
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toEqual({
+      message:
+        "The 'id' metadata key is reserved and cannot be used in the document metadata",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 3,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved metadata key 'blocks'", () => {
+    const [, errors] = compile(markitWithMetadata("blocks: 1"));
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toEqual({
+      message:
+        "The 'blocks' metadata key is reserved and cannot be used in the document metadata",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 7,
+      severity: "error",
     });
   });
 });
