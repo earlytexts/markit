@@ -2,7 +2,7 @@
   "name": "@earlytexts/markit",
   "publisher": "earlytexts",
   "displayName": "Markit",
-  "version": "2.2.3",
+  "version": "2.3.0",
   "description": "Markit is a lightweight textual markup language similar to Markdown, but designed for use in textual preservation projects, as a more human-readable alternative to TEI XML. It compiles to JSON for representing document structure and metadata, while the text content itself can further be compiled to either plain text (for search or analysis) or HTML (for display in a web page).",
   "license": "MIT",
   "main": "dist/index.js",
