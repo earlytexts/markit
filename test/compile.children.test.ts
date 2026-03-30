@@ -17,13 +17,14 @@ describe("external children", () => {
       "/child2.mit": markit("# Child2", "", "{#1} Child 2 content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
+    expect(errors).toHaveLength(0);
     expect(document.id).toBe("Parent");
-    expect(document.children.length).toBe(2);
+    expect(document.children).toHaveLength(2);
     expect(document.children[0]!.id).toBe("Child1");
     expect(document.children[1]!.id).toBe("Child2");
   });
@@ -48,12 +49,13 @@ describe("external children", () => {
       ),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(2);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(2);
     expect(document.children[0]!.id).toBe("Inline.Child");
     expect(document.children[1]!.id).toBe("External.Child");
   });
@@ -64,12 +66,13 @@ describe("external children", () => {
       "/child.mit": markit("# Child", "", "{#1} Child content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
   });
 
@@ -79,12 +82,13 @@ describe("external children", () => {
       "/child.txt": markit("# Child", "", "{#1} Child content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
   });
 
@@ -95,14 +99,15 @@ describe("external children", () => {
       "/grandchild.mit": markit("# Grandchild", "", "{#1} Content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
-    expect(document.children[0]!.children.length).toBe(1);
+    expect(document.children[0]!.children).toHaveLength(1);
     expect(document.children[0]!.children[0]!.id).toBe("Grandchild");
   });
 
@@ -112,12 +117,13 @@ describe("external children", () => {
       "child.mit": markit("# Child", "", "{#1} Content."),
     };
 
-    const [document] = compile(files["parent.mit"]!, {
+    const [document, errors] = compile(files["parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
   });
 
@@ -127,12 +133,13 @@ describe("external children", () => {
       "/child.mit.mit": markit("# Child", "", "{#1} Content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
   });
 
@@ -142,12 +149,13 @@ describe("external children", () => {
       "/child.mit": markit("# Child", "", "{#1} Content."),
     };
 
-    const [document] = compile(files["/parent.mit"]!, {
+    const [document, errors] = compile(files["/parent.mit"]!, {
       loadFile: createMockFileLoader(files),
       currentFilePath: "/parent.mit",
     });
 
-    expect(document.children.length).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(document.children).toHaveLength(1);
     expect(document.children[0]!.id).toBe("Child");
   });
 });
@@ -164,7 +172,7 @@ describe("external children errors", () => {
       options,
     );
 
-    expect(errors.length).toBe(1);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message:
         "The 'children' metadata field must be an array of strings (file paths)",
@@ -179,7 +187,7 @@ describe("external children errors", () => {
   it("returns error for children metadata with non-string values", () => {
     const [, errors] = compile(markit("# Text", "", "children: [1]"), options);
 
-    expect(errors.length).toBe(1);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message:
         "Each item in 'children' metadata array must be a string (file path)",
@@ -207,7 +215,7 @@ describe("external children errors", () => {
       currentFilePath: "/parent.mit",
     });
 
-    expect(errors.length).toBe(1);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message: "Cannot load external child: missing.mit",
       line: 3,
@@ -229,7 +237,7 @@ describe("external children errors", () => {
       currentFilePath: "/a.mit",
     });
 
-    expect(errors.length).toBe(2);
+    expect(errors).toHaveLength(2);
     expect(errors[0]).toEqual({
       message: "Circular dependency detected",
       file: "b.mit",
@@ -261,7 +269,7 @@ describe("external children errors", () => {
       currentFilePath: "/a.mit",
     });
 
-    expect(errors.length).toBe(2);
+    expect(errors).toHaveLength(2);
     expect(errors[0]).toEqual({
       message: "Circular dependency detected",
       file: "b.mit",
@@ -298,7 +306,7 @@ describe("external children errors", () => {
     });
 
     const childErrors = errors.filter((e) => e.file === "child.mit");
-    expect(childErrors.length).toBe(1);
+    expect(childErrors).toHaveLength(1);
     expect(childErrors[0]).toEqual({
       message: "Unclosed formatting: *",
       file: "child.mit",
@@ -326,7 +334,7 @@ describe("external children errors", () => {
       currentFilePath: "/parent.mit",
     });
 
-    expect(errors.length).toBe(2);
+    expect(errors).toHaveLength(2);
     const warning = errors.find((e) => e.severity === "warning");
     expect(warning).toEqual({
       message: "External child 'child.mit' has errors",
@@ -341,7 +349,7 @@ describe("external children errors", () => {
   it("returns error when external children specified but no file loader provided", () => {
     const [, errors] = compile(markit("# Text", "", 'children: ["file.mit"]'));
 
-    expect(errors.length).toBe(1);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message:
         "Cannot load external children: no file loader provided to compile()",

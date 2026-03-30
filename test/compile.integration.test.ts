@@ -19,7 +19,7 @@ describe("external children integration", () => {
 
     expect(errors).toEqual([]);
     expect(document.id).toBe("Parent");
-    expect(document.children.length).toBe(2);
+    expect(document.children).toHaveLength(2);
     expect(document.children[0]!.id).toBe("Parent.InlineChild");
     expect(document.children[1]!.id).toBe("Child");
     const firstNode = document.children[1]!.blocks[0]!.content[0]!;

@@ -17,6 +17,6 @@ describe("compileToJSON", () => {
     const input = loadFixture("errors.mit");
     const [, errors] = compile(input);
     const [, jsonErrors] = compileToJSON(input);
-    expect(jsonErrors.length).toBe(errors.length);
+    expect(jsonErrors).toHaveLength(errors.length);
   });
 });

@@ -343,6 +343,33 @@ const parseBlockMetadata = (
   // error will be reported by blockTagMatch check above
   const id = blockTagParts[0]!;
 
+  // Validate block ID characters (only when a block tag was matched, not the fallback)
+  if (blockTagMatch && !/^[^\s#{}]+$/.test(id)) {
+    const idOffset = firstLine.content.indexOf(id, 2);
+    errors.push(
+      makeError({
+        message: `Block ID '${id}' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')`,
+        line: block.startLine,
+        column: firstLine.charOffset + idOffset,
+        length: id.length,
+      }),
+    );
+  } else if (
+    blockTagMatch &&
+    id.startsWith("n") &&
+    !footnoteReferenceSpec.pattern.test(id)
+  ) {
+    const idOffset = firstLine.content.indexOf(id, 2);
+    errors.push(
+      makeError({
+        message: `Block ID '${id}' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)`,
+        line: block.startLine,
+        column: firstLine.charOffset + idOffset,
+        length: id.length,
+      }),
+    );
+  }
+
   // check for duplicate block ID
   if (previousBlocks.some((b) => b.id === id)) {
     errors.push(

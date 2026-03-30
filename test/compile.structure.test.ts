@@ -5,7 +5,7 @@ import { markit } from "./utils/factories.js";
 
 describe("document structure", () => {
   it("parses the document tree and text IDs, with correct line numbers for folding", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markit(
         "# Test.Document", // line 0
         "",
@@ -23,26 +23,28 @@ describe("document structure", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
+
     expect(document.id).toBe("Test.Document");
-    expect(document.children.length).toBe(2);
+    expect(document.children).toHaveLength(2);
     expect(document[startLine]).toBe(0);
     expect(document[endLine]).toBe(12);
 
     const child1 = document.children[0]!;
     expect(child1.id).toBe("Test.Document.Child1");
-    expect(child1.children.length).toBe(0);
+    expect(child1.children).toHaveLength(0);
     expect(child1[startLine]).toBe(2);
     expect(child1[endLine]).toBe(4);
 
     const child2 = document.children[1]!;
     expect(child2.id).toBe("Test.Document.Child2");
-    expect(child2.children.length).toBe(1);
+    expect(child2.children).toHaveLength(1);
     expect(child2[startLine]).toBe(6);
     expect(child2[endLine]).toBe(12);
 
     const grandchild = child2.children[0]!;
     expect(grandchild.id).toBe("Test.Document.Child2.Grandchild");
-    expect(grandchild.children.length).toBe(0);
+    expect(grandchild.children).toHaveLength(0);
     expect(grandchild[startLine]).toBe(10);
     expect(grandchild[endLine]).toBe(12);
   });
