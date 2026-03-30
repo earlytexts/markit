@@ -13,12 +13,12 @@ jobs:
     environment: "publish"
 
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v6"
         with:
           ref: "${{ github.event.workflow_run.head_sha }}"
 
       - name: "Setup Node.js"
-        uses: "actions/setup-node@v4"
+        uses: "actions/setup-node@v6"
         with:
           node-version: "24"
           cache: "npm"
@@ -55,12 +55,12 @@ jobs:
     environment: "publish"
 
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v6"
         with:
           ref: "${{ github.event.workflow_run.head_sha }}"
 
       - name: "Setup Node.js"
-        uses: "actions/setup-node@v4"
+        uses: "actions/setup-node@v6"
         with:
           node-version: "24"
           cache: "npm"
