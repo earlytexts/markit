@@ -105,9 +105,9 @@ export default (
 };
 
 const readTextHeading = (line: string) => {
-  const idMatch = line.trim().match(/^(#+)\s*(.+)$/);
+  const idMatch = line.trim().match(/^(#+)\s*([^\s#{}]+)/);
   const level = idMatch ? idMatch[1]!.length : 0;
-  const id = idMatch ? idMatch[2]!.trim() : "missing-id";
+  const id = idMatch ? idMatch[2]! : "missing-id";
   return [level, id] as const;
 };
 

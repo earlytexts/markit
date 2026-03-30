@@ -6,6 +6,7 @@ export type MarkitError = Readonly<{
   endLine: number;
   endColumn: number;
   file?: string;
+  severity: "error" | "warning";
 }>;
 
 // Compile options
@@ -99,7 +100,7 @@ export type FootnoteReference = Readonly<{
 export const footnoteReferenceSpec = {
   open: "<",
   close: ">",
-  pattern: /^n[a-zA-Z0-9.*]+$/,
+  pattern: /^n[^\s#{}]+$/,
   type: "footnoteReference",
 } as const;
 

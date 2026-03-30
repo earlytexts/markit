@@ -4,7 +4,7 @@ import { markit, markitWithContent } from "./utils/factories.js";
 
 describe("block metadata", () => {
   it("parses blocks with their ids", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#0}",
         "This is the first block.",
@@ -14,15 +14,18 @@ describe("block metadata", () => {
       ),
     );
 
-    expect(document.blocks.length).toBe(2);
+    expect(errors).toHaveLength(0);
+    expect(document.blocks).toHaveLength(2);
     expect(document.blocks[0]!.id).toBe("0");
     expect(document.blocks[1]!.id).toBe("1");
   });
 
   it("parses block metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent('{#1, boolean=true, number=42, string="hello"}'),
     );
+
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]).toEqual(
       expect.objectContaining({
         boolean: true,
@@ -39,12 +42,14 @@ describe("block metadata errors", () => {
       markit("# Text", "", "This block has no tag.", ""),
     );
 
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message: "Block is missing metadata tag '{#id}'",
       line: 3,
       column: 1,
       endLine: 3,
       endColumn: 23,
+      severity: "error",
     });
   });
 
@@ -53,12 +58,14 @@ describe("block metadata errors", () => {
       markit("# Text", "", "{#1", "This block has a badly formed tag.", ""),
     );
 
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message: "Block tag is not properly closed with '}'",
       line: 3,
       column: 1,
       endLine: 3,
       endColumn: 4,
+      severity: "error",
     });
   });
 
@@ -73,20 +80,22 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors).toHaveLength(2);
     expect(errors[0]).toEqual({
       message: "Invalid block metadata, expected 'key=value'",
       line: 3,
       column: 6,
       endLine: 3,
       endColumn: 13,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: "Invalid block metadata, expected 'key=value'",
       line: 3,
       column: 15,
       endLine: 3,
       endColumn: 30,
+      severity: "error",
     });
   });
 
@@ -101,20 +110,22 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors).toHaveLength(2);
     expect(errors[0]).toEqual({
       message: "Invalid metadata value: troo",
       line: 3,
       column: 17,
       endLine: 3,
       endColumn: 21,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "no closing quote',
       line: 3,
       column: 33,
       endLine: 3,
       endColumn: 50,
+      severity: "error",
     });
   });
 
@@ -132,12 +143,106 @@ describe("block metadata errors", () => {
       ),
     );
 
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message: "Duplicate block ID: #2",
       line: 6,
       column: 1,
       endLine: 6,
       endColumn: 5,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved block tag key 'id'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", '{#1, id="custom"}', "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message: "Block tag key 'id' is reserved and cannot be used in metadata",
+      line: 3,
+      column: 6,
+      endLine: 3,
+      endColumn: 8,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved block tag key 'content'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", '{#1, content="x"}', "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "Block tag key 'content' is reserved and cannot be used in metadata",
+      line: 3,
+      column: 6,
+      endLine: 3,
+      endColumn: 13,
+      severity: "error",
+    });
+  });
+
+  it("returns error for block ID with invalid characters", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#id#bad}", "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "Block ID 'id#bad' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')",
+      line: 3,
+      column: 3,
+      endLine: 3,
+      endColumn: 9,
+      severity: "error",
+    });
+  });
+
+  it("returns error for block ID of just 'n'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#n}", "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "Block ID 'n' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)",
+      line: 3,
+      column: 3,
+      endLine: 3,
+      endColumn: 4,
+      severity: "error",
+    });
+  });
+
+  it("returns error for footnote block appearing before a regular block", () => {
+    const [, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "{#n1}",
+        "Footnote content.",
+        "",
+        "{#1}",
+        "Regular block after footnote.",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message: "Footnote blocks must appear after all paragraph blocks",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 6,
+      severity: "error",
     });
   });
 });

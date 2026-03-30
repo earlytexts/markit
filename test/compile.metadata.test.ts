@@ -4,10 +4,11 @@ import { markit, markitWithMetadata } from "./utils/factories.js";
 
 describe("text metadata", () => {
   it("parses boolean metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata("metadataBoolean1: true", "metadataBoolean2: false"),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataBoolean1: true,
@@ -17,8 +18,11 @@ describe("text metadata", () => {
   });
 
   it("parses numeric metadata", () => {
-    const [document] = compile(markitWithMetadata("metadataNumber: 42"));
+    const [document, errors] = compile(
+      markitWithMetadata("metadataNumber: 42"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataNumber: 42,
@@ -26,11 +30,19 @@ describe("text metadata", () => {
     );
   });
 
+  it("parses negative number metadata", () => {
+    const [document, errors] = compile(markitWithMetadata("offset: -1"));
+
+    expect(errors).toHaveLength(0);
+    expect(document).toEqual(expect.objectContaining({ offset: -1 }));
+  });
+
   it("parses string metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata('metadataString: "the answer"'),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataString: "the answer",
@@ -39,10 +51,11 @@ describe("text metadata", () => {
   });
 
   it("handles escaped quotes in string metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata('metadataString: "She said \\"hello\\"."'),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataString: 'She said "hello".',
@@ -51,7 +64,7 @@ describe("text metadata", () => {
   });
 
   it("parses inline array metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata(
         "metadataBooleanArray: [true, false]",
         "metadataNumberArray: [1, 2, 3]",
@@ -59,6 +72,7 @@ describe("text metadata", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataBooleanArray: [true, false],
@@ -69,7 +83,7 @@ describe("text metadata", () => {
   });
 
   it("parses multiline array metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata(
         "metadataBooleanArray:",
         "  - true",
@@ -85,6 +99,7 @@ describe("text metadata", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         metadataBooleanArray: [true, false],
@@ -95,10 +110,11 @@ describe("text metadata", () => {
   });
 
   it("parses multiline arrays followed by other metadata", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithMetadata("arrayKey:", "  - 1", "  - 2", "otherKey: true"),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document).toEqual(
       expect.objectContaining({
         arrayKey: [1, 2],
@@ -108,16 +124,17 @@ describe("text metadata", () => {
   });
 
   it("parses metadata from child texts", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markit(
         "# Text",
         "",
         "## Child.Text",
         "",
-        "note: Child texts can contain metadata too.",
+        'note: "Child texts can contain metadata too."',
       ),
     );
 
+    expect(errors).toHaveLength(0);
     const section1 = document.children[0]!;
     expect(section1).toEqual(
       expect.objectContaining({
@@ -133,20 +150,22 @@ describe("text metadata errors", () => {
       markitWithMetadata("badBoolean: troo", 'badString: "no closing quote'),
     );
 
+    expect(errors).toHaveLength(2);
     expect(errors[0]).toEqual({
       message: "Invalid metadata value: troo",
       line: 3,
       column: 13,
       endLine: 3,
       endColumn: 17,
+      severity: "error",
     });
-
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "no closing quote',
       line: 4,
       column: 12,
       endLine: 4,
       endColumn: 29,
+      severity: "error",
     });
   });
 
@@ -170,6 +189,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 4,
       endColumn: 17,
+      severity: "error",
     });
   });
 
@@ -186,6 +206,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 33,
+      severity: "error",
     });
   });
 
@@ -202,6 +223,7 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 12,
+      severity: "error",
     });
   });
 
@@ -217,6 +239,7 @@ describe("text metadata errors", () => {
       column: 5,
       endLine: 4,
       endColumn: 9,
+      severity: "error",
     });
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "unclosed',
@@ -224,6 +247,7 @@ describe("text metadata errors", () => {
       column: 5,
       endLine: 5,
       endColumn: 14,
+      severity: "error",
     });
   });
 
@@ -237,6 +261,37 @@ describe("text metadata errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 12,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved metadata key 'id'", () => {
+    const [, errors] = compile(markitWithMetadata('id: "custom"'));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "The 'id' metadata key is reserved and cannot be used in the document metadata",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 3,
+      severity: "error",
+    });
+  });
+
+  it("returns error for reserved metadata key 'blocks'", () => {
+    const [, errors] = compile(markitWithMetadata("blocks: 1"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "The 'blocks' metadata key is reserved and cannot be used in the document metadata",
+      line: 3,
+      column: 1,
+      endLine: 3,
+      endColumn: 7,
+      severity: "error",
     });
   });
 });

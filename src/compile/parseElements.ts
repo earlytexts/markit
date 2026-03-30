@@ -229,17 +229,25 @@ const parseElements = (
       if (input.startsWith(wrapper.open, pos)) {
         if (isBlockLevelType(wrapper.type) && insideBlockLevel) {
           const position = positionMap[pos]!;
+          const closeIdx = input.indexOf(
+            wrapper.close,
+            pos + wrapper.open.length,
+          );
+          const endPos =
+            closeIdx >= 0
+              ? closeIdx + wrapper.close.length
+              : pos + wrapper.open.length;
           errors.push(
             makeError({
               message: "Block-level elements cannot be nested",
               line: position.line,
               column: position.column,
-              length: wrapper.open.length,
+              length: endPos - pos,
             }),
           );
           // Treat as literal
-          plainTextBuffer += wrapper.open;
-          pos += wrapper.open.length;
+          plainTextBuffer += input.slice(pos, endPos);
+          pos = endPos;
           wrapperMatched = true;
           break;
         }

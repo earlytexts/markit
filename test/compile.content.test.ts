@@ -4,10 +4,11 @@ import { markit, markitWithContent } from "./utils/factories.js";
 
 describe("block content", () => {
   it("parses plain text", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#0}", "Example plain text content."),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "plainText",
@@ -17,7 +18,7 @@ describe("block content", () => {
   });
 
   it("parses headings with multiple levels", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#0}",
         "£1 Level 1 Heading £1",
@@ -27,6 +28,7 @@ describe("block content", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "heading",
@@ -52,13 +54,14 @@ describe("block content", () => {
   });
 
   it("parses inline formatting (bold and italic)", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "This is a paragraph with *some* _inline markup_, and also _some *nested* formatting_.",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is a paragraph with " },
       { type: "strong", content: [{ type: "plainText", content: "some" }] },
@@ -87,13 +90,14 @@ describe("block content", () => {
   });
 
   it("parses headings with formatting inside", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "£2 *Bold* and _italic_ text can be used in headings £2",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "heading",
@@ -118,10 +122,11 @@ describe("block content", () => {
   });
 
   it("parses inline quotes", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#1}", 'This is an inline quote: "like this".'),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is an inline quote: " },
       {
@@ -133,13 +138,14 @@ describe("block content", () => {
   });
 
   it("parses block quotes", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         'This is a paragraph that contains: ""A block quotation."" And also some follow-on text.',
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is a paragraph that contains:" },
       {
@@ -151,8 +157,9 @@ describe("block content", () => {
   });
 
   it("trims whitespace-only content from blockquotes", () => {
-    const [document] = compile(markitWithContent("{#1}", '"" ""'));
+    const [document, errors] = compile(markitWithContent("{#1}", '"" ""'));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "blockquote",
@@ -162,8 +169,9 @@ describe("block content", () => {
   });
 
   it("trims leading and trailing whitespace from blockquotes", () => {
-    const [document] = compile(markitWithContent("{#1}", '"" text ""'));
+    const [document, errors] = compile(markitWithContent("{#1}", '"" text ""'));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "blockquote",
@@ -173,8 +181,11 @@ describe("block content", () => {
   });
 
   it("removes leading whitespace-only plainText before inline elements in blockquotes", () => {
-    const [document] = compile(markitWithContent("{#1}", '""  _emphasized_""'));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", '""  _emphasized_""'),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "blockquote",
@@ -189,10 +200,11 @@ describe("block content", () => {
   });
 
   it("parses citations", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#1}", "This is a citation: [cite me]."),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is a citation: " },
       {
@@ -204,13 +216,14 @@ describe("block content", () => {
   });
 
   it("parses editorial deletions and insertions", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "This is an example of editorial markup: --deleted text in double hyphens-- and ++inserted text in double plus signs++.",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "plainText",
@@ -237,13 +250,14 @@ describe("block content", () => {
   });
 
   it("parses asides (margin comments)", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "This is an example of an aside. @in the margin@",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is an example of an aside. " },
       {
@@ -254,7 +268,7 @@ describe("block content", () => {
   });
 
   it("parses line breaks", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "This is the first line. //",
@@ -262,6 +276,7 @@ describe("block content", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is the first line." },
       { type: "lineBreak" },
@@ -270,13 +285,14 @@ describe("block content", () => {
   });
 
   it("parses non-breaking spaces", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         'This is a quote with a non-breaking space: "~".',
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "plainText",
@@ -291,10 +307,11 @@ describe("block content", () => {
   });
 
   it("parses foreign text", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#1}", "This is foreign text: $like this$."),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is foreign text: " },
       {
@@ -306,13 +323,14 @@ describe("block content", () => {
   });
 
   it("parses Greek text with transliteration", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "Greek words: $$like this$$ and $$philosophia$$.",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "Greek words: " },
       {
@@ -329,13 +347,14 @@ describe("block content", () => {
   });
 
   it("parses brace codes", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "Special characters: {ae} {oe} {AE} {OE} {SS} {-} {--}.",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "Special characters: " },
       { type: "plainText", content: "æ" },
@@ -356,10 +375,17 @@ describe("block content", () => {
   });
 
   it("parses footnote references", () => {
-    const [document] = compile(
-      markitWithContent("{#1}", "This is a sentence with a footnote<n1>."),
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "This is a sentence with a footnote<n1>.",
+        "",
+        "{#n1}",
+        "And here is the footnote.",
+      ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "This is a sentence with a footnote" },
       {
@@ -371,13 +397,14 @@ describe("block content", () => {
   });
 
   it("parses escaped characters as literals", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "Escaped block id: \\{#1} and escaped asterisk: \\*not bold\\*.",
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "plainText",
@@ -387,7 +414,7 @@ describe("block content", () => {
   });
 
   it("collapses whitespace and joins lines", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent(
         "{#1}",
         "This content is split",
@@ -396,6 +423,7 @@ describe("block content", () => {
       ),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "plainText",
@@ -406,8 +434,11 @@ describe("block content", () => {
   });
 
   it("parses page breaks", () => {
-    const [document] = compile(markitWithContent("{#1}", "before | after"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "before | after"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "before " },
       { type: "pageBreak" },
@@ -416,8 +447,11 @@ describe("block content", () => {
   });
 
   it("parses em spaces (double tildes)", () => {
-    const [document] = compile(markitWithContent("{#1}", "before~~after"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "before~~after"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "before" },
       { type: "emSpace" },
@@ -426,75 +460,38 @@ describe("block content", () => {
   });
 
   it("parses escape character at start of content", () => {
-    const [document] = compile(markitWithContent("{#1}", "\\*not bold"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "\\*not bold"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "*not bold" },
     ]);
   });
 
   it("treats trailing backslash as literal", () => {
-    const [document] = compile(markitWithContent("{#1}", "text\\"));
+    const [document, errors] = compile(markitWithContent("{#1}", "text\\"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "text\\" },
     ]);
   });
 
   it("treats lone backslash as literal", () => {
-    const [document] = compile(markitWithContent("{#1}", "\\"));
+    const [document, errors] = compile(markitWithContent("{#1}", "\\"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "\\" },
     ]);
   });
 
-  it("parses unknown brace code at start of content", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "{unknown} text"),
-    );
-
-    expect(errors.length).toBe(1);
-    expect(errors[0]!.message).toBe("Unknown brace code: unknown");
-    expect(document.blocks[0]!.content).toEqual([
-      { type: "plainText", content: "{unknown} text" },
-    ]);
-  });
-
-  it("reports error for heading nested inside block-level element", () => {
-    const [, errors] = compile(markitWithContent("{#1}", '""£1 heading £1""'));
-
-    expect(errors).toContainEqual(
-      expect.objectContaining({
-        message: "Block-level elements cannot be nested",
-      }),
-    );
-  });
-
-  it("reports error for heading nested inside block-level element after text", () => {
-    const [, errors] = compile(
-      markitWithContent("{#1}", '""text £1 heading £1""'),
-    );
-
-    expect(errors).toContainEqual(
-      expect.objectContaining({
-        message: "Block-level elements cannot be nested",
-      }),
-    );
-  });
-
-  it("reports error for block-level wrapper at start of heading content", () => {
-    const [, errors] = compile(markitWithContent("{#1}", '£1 ""nested"" £1'));
-
-    const nestingErrors = errors.filter(
-      (e) => e.message === "Block-level elements cannot be nested",
-    );
-    expect(nestingErrors.length).toBeGreaterThanOrEqual(1);
-  });
-
   it("transliterates Greek text with nested formatting", () => {
-    const [document] = compile(markitWithContent("{#1}", "$$*bold*$$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$$*bold*$$"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "greek",
@@ -509,8 +506,11 @@ describe("block content", () => {
   });
 
   it("transliterates Greek text with leaf elements", () => {
-    const [document] = compile(markitWithContent("{#1}", "$$text//more$$"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$$text//more$$"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "greek",
@@ -524,8 +524,9 @@ describe("block content", () => {
   });
 
   it("transliterates uppercase Greek letters", () => {
-    const [document] = compile(markitWithContent("{#1}", "$$Alpha$$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$$Alpha$$"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "greek",
@@ -535,50 +536,60 @@ describe("block content", () => {
   });
 
   it("treats angle bracket without closing as plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "a < b"));
+    const [document, errors] = compile(markitWithContent("{#1}", "a < b"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "a < b" },
     ]);
   });
 
   it("treats angle brackets with non-footnote content as plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "a <b> c"));
+    const [document, errors] = compile(markitWithContent("{#1}", "a <b> c"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "a <b> c" },
     ]);
   });
 
   it("treats pound sign not followed by 1-6 as plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "costs £50"));
+    const [document, errors] = compile(markitWithContent("{#1}", "costs £50"));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "costs £50" },
     ]);
   });
 
   it("treats pound sign followed by non-level digit as plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "symbol £x here"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "symbol £x here"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "symbol £x here" },
     ]);
   });
 
   it("removes trailing space at end of content block", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#1}", "text with trailing space "),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "plainText", content: "text with trailing space" },
     ]);
   });
 
   it("preserves space between inline elements", () => {
-    const [document] = compile(markitWithContent("{#1}", "*bold* text"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "*bold* text"),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "strong", content: [{ type: "plainText", content: "bold" }] },
       { type: "plainText", content: " text" },
@@ -586,18 +597,20 @@ describe("block content", () => {
   });
 
   it("removes trailing space after inline element at end of content", () => {
-    const [document] = compile(markitWithContent("{#1}", "*bold* "));
+    const [document, errors] = compile(markitWithContent("{#1}", "*bold* "));
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       { type: "strong", content: [{ type: "plainText", content: "bold" }] },
     ]);
   });
 
   it("removes space between block-level elements", () => {
-    const [document] = compile(
+    const [document, errors] = compile(
       markitWithContent("{#1}", "£1 first £1 £2 second £2"),
     );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "heading",
@@ -613,14 +626,107 @@ describe("block content", () => {
   });
 
   it("removes trailing space after block-level element at end of content", () => {
-    const [document] = compile(markitWithContent("{#1}", "£1 heading £1 "));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "£1 heading £1 "),
+    );
 
+    expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       {
         type: "heading",
         level: 1,
         content: [{ type: "plainText", content: "heading" }],
       },
+    ]);
+  });
+
+  it("parses heading content spanning multiple lines within the same block", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "£1 Title", "continued £1"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "heading",
+        level: 1,
+        content: [{ type: "plainText", content: "Title continued" }],
+      },
+    ]);
+  });
+
+  it("parses escaped pipe as literal pipe character", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "price: \\| tax"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      { type: "plainText", content: "price: | tax" },
+    ]);
+  });
+
+  it("parses Greek digraph mixed-case variants", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$$Thalassa Ph Ph CH PS$$"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "Θαλασσα Φ Φ Χ Ψ" }],
+      },
+    ]);
+  });
+
+  it("passes non-table characters through unchanged in Greek transliteration", () => {
+    // `c` is not in the single-char table (only `ch` as a digraph), so it passes through
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$$42! abc$$"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "42! αβc" }],
+      },
+    ]);
+  });
+
+  it("applies final sigma when followed by punctuation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$$logos, bios.$$"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      {
+        type: "greek",
+        content: [{ type: "plainText", content: "λογος, βιος." }],
+      },
+    ]);
+  });
+
+  it("parses multiple references to the same footnote", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "First ref <n1> and second ref <n1>.",
+        "",
+        "{#n1}",
+        "The footnote.",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      { type: "plainText", content: "First ref " },
+      { type: "footnoteReference", id: "n1" },
+      { type: "plainText", content: " and second ref " },
+      { type: "footnoteReference", id: "n1" },
+      { type: "plainText", content: "." },
     ]);
   });
 });
@@ -637,6 +743,7 @@ describe("block content errors", () => {
       column: 14,
       endLine: 4,
       endColumn: 21,
+      severity: "error",
     });
   });
 
@@ -651,6 +758,7 @@ describe("block content errors", () => {
       column: 13,
       endLine: 4,
       endColumn: 14,
+      severity: "error",
     });
   });
 
@@ -665,6 +773,7 @@ describe("block content errors", () => {
       column: 10,
       endLine: 4,
       endColumn: 11,
+      severity: "error",
     });
   });
 
@@ -679,6 +788,7 @@ describe("block content errors", () => {
       column: 12,
       endLine: 4,
       endColumn: 15,
+      severity: "error",
     });
   });
 
@@ -693,6 +803,22 @@ describe("block content errors", () => {
       column: 19,
       endLine: 4,
       endColumn: 24,
+      severity: "error",
+    });
+  });
+
+  it("returns error for overlapping inline formatting", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "*bold _italic* wrong_", ""),
+    );
+
+    expect(errors[0]).toEqual({
+      message: "Unclosed formatting: *",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 2,
+      severity: "error",
     });
   });
 
@@ -712,16 +838,41 @@ describe("block content errors", () => {
       line: 4,
       column: 17,
       endLine: 4,
-      endColumn: 19,
+      endColumn: 31,
+      severity: "error",
     });
+  });
 
-    // The closing "" also generates an error
-    expect(errors[1]).toEqual({
+  it("returns error for unclosed nested block-level elements", () => {
+    const [, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "{#6}",
+        '£1 Heading with ""unclosed blockquote inside £1',
+        "",
+      ),
+    );
+
+    expect(errors[0]).toEqual({
       message: "Block-level elements cannot be nested",
       line: 4,
-      column: 29,
+      column: 17,
       endLine: 4,
-      endColumn: 31,
+      endColumn: 19,
+      severity: "error",
     });
+  });
+
+  it("reports error for heading nested inside block-level element after text", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", '""text £1 heading £1""'),
+    );
+
+    expect(errors).toContainEqual(
+      expect.objectContaining({
+        message: "Block-level elements cannot be nested",
+      }),
+    );
   });
 });
