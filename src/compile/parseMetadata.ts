@@ -318,7 +318,7 @@ const parseBlockMetadata = (
   const errors: MarkitError[] = [];
 
   const [firstLine, ...otherLines] = block.lines;
-  const blockTagMatch = firstLine.content.match(/^{#(.+)}/);
+  const blockTagMatch = firstLine.content.match(/^\{#(.+?)\}/);
 
   if (!blockTagMatch) {
     const message = firstLine.content.trim().startsWith("{#")
