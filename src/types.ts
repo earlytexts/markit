@@ -11,8 +11,9 @@ export type MarkitError = Readonly<{
 
 // Compile options
 export type CompileOptions = Readonly<{
-  loadFile?: (path: string) => string;
-  currentFilePath?: string;
+  fileLoader: (path: string) => string;
+  filePath: string;
+  embedExternalChildren: boolean;
 }>;
 
 // Document type

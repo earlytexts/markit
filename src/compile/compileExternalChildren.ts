@@ -37,18 +37,6 @@ export default (
     return [[], [error]];
   }
 
-  // Also check we have what we need to load external children
-  if (!options.loadFile || !options.currentFilePath) {
-    const error = makeError({
-      message:
-        "Cannot load external children: no file loader provided to compile()",
-      line: childrenPositions.line,
-      column: childrenPositions.column,
-      length: "children".length,
-    });
-    return [[], [error]];
-  }
-
   // Okay, now we can start loading and compiling them
   const errors: MarkitError[] = [];
   const externalChildren: MarkitDocument[] = [];
@@ -72,7 +60,7 @@ export default (
     }
 
     // Resolve path relative to parent file
-    const resolvedPath = resolvePath(options.currentFilePath, childPath);
+    const resolvedPath = resolvePath(options.filePath, childPath);
     const normalizedPath = normalizePath(resolvedPath);
 
     // Check for circular dependencies
@@ -96,25 +84,30 @@ export default (
     let actualPath = resolvedPath;
     try {
       // Try as given first
-      fileContent = options.loadFile(resolvedPath);
+      fileContent = options.fileLoader(resolvedPath);
     } catch {
       // Then try with .mit extension
-      const pathWithExtension = resolvedPath.endsWith(".mit")
-        ? resolvedPath
-        : `${resolvedPath}.mit`;
+      const pathWithExtension = `${resolvedPath}.mit`;
       try {
-        fileContent = options.loadFile(pathWithExtension);
+        fileContent = options.fileLoader(pathWithExtension);
         actualPath = pathWithExtension;
-      } catch (error) {
-        errors.push(
-          makeError({
-            message: `Cannot load external child: ${childPath}`,
-            line: elementPosition.line,
-            column: elementPosition.column,
-            length: elementPosition.length,
-          }),
-        );
-        continue;
+      } catch {
+        // Then try resolving against an index.mit in a directory with the given name
+        const indexPath = `${resolvedPath}/index.mit`;
+        try {
+          fileContent = options.fileLoader(indexPath);
+          actualPath = indexPath;
+        } catch (error) {
+          errors.push(
+            makeError({
+              message: `Cannot load external child: ${childPath}`,
+              line: elementPosition.line,
+              column: elementPosition.column,
+              length: elementPosition.length,
+            }),
+          );
+          continue;
+        }
       }
     }
 
@@ -123,7 +116,7 @@ export default (
       fileContent,
       {
         ...options,
-        currentFilePath: actualPath,
+        filePath: actualPath,
       },
       loadingStack,
     );
