@@ -1,4 +1,3 @@
-import { readFileSync } from "fs";
 import { compileToHTML } from "markit";
 import {
   ExtensionContext,
@@ -95,12 +94,9 @@ const updatePreview = (
   previewPanel: WebviewPanel,
   context: ExtensionContext,
   content: string,
-  currentFilePath: string,
+  filePath: string,
 ): void => {
-  const [html] = compileToHTML(content, {
-    loadFile: (path: string) => readFileSync(path, "utf-8"),
-    currentFilePath,
-  });
+  const [html] = compileToHTML(content, { filePath });
 
   // Get webview URIs for CSS and JS files
   const cssUri = previewPanel.webview.asWebviewUri(

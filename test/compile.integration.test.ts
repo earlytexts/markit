@@ -5,17 +5,12 @@ import compile from "../src/compile.js";
 
 const fixturesDir = path.resolve(process.cwd(), "test/fixtures");
 
-const loadFile = (filePath: string): string => readFileSync(filePath, "utf-8");
-
 describe("external children integration", () => {
   it("loads external children from real fixture files", () => {
-    const parentPath = path.join(fixturesDir, "parent.mit");
-    const parentContent = readFileSync(parentPath, "utf-8");
+    const filePath = path.join(fixturesDir, "parent.mit");
+    const fileContent = readFileSync(filePath, "utf-8");
 
-    const [document, errors] = compile(parentContent, {
-      loadFile,
-      currentFilePath: parentPath,
-    });
+    const [document, errors] = compile(fileContent, { filePath: filePath });
 
     expect(errors).toEqual([]);
     expect(document.id).toBe("Parent");

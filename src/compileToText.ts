@@ -9,7 +9,7 @@ import type {
 
 export default (
   input: string,
-  options?: CompileOptions,
+  options?: Partial<CompileOptions>,
 ): [string, MarkitError[]] => {
   const [markit, errors] = compile(input, options);
   return [markitToText(markit) + "\n", errors];
@@ -26,7 +26,7 @@ const blockToText = (block: Block): string =>
     ? `[^${block.id}]: ${contentToText(block.content)}`.trim()
     : contentToText(block.content).trim();
 
-const contentToText = (content: ReadonlyArray<Element>): string =>
+const contentToText = (content: Element[]): string =>
   content.map(elementToText).join("");
 
 const elementToText = (element: Element): string => {

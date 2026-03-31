@@ -1,5 +1,5 @@
 // Error type
-export type MarkitError = Readonly<{
+export type MarkitError = {
   message: string;
   line: number;
   column: number;
@@ -7,30 +7,25 @@ export type MarkitError = Readonly<{
   endColumn: number;
   file?: string;
   severity: "error" | "warning";
-}>;
+};
 
 // Compile options
-export type CompileOptions = Readonly<{
-  loadFile?: (path: string) => string;
-  currentFilePath?: string;
-}>;
+export type CompileOptions = {
+  fileLoader: (path: string) => string;
+  filePath: string;
+  embedExternalChildren: boolean;
+};
 
 // Document type
-export type MarkitDocument = Readonly<
-  {
-    id: string;
-    blocks: ReadonlyArray<Block>;
-    children: ReadonlyArray<MarkitDocument>;
-    [startLine]: number; // used by the language server
-    [endLine]: number; // used by the language server
-  } & Record<string, MetadataValue>
->; // allow any other metadata fields
+export type MarkitDocument = {
+  id: string;
+  blocks: Block[];
+  children: MarkitDocument[];
+  [startLine]: number; // used by the language server
+  [endLine]: number; // used by the language server
+} & Record<string, MetadataValue>; // allow any other metadata fields
 
-export const RESERVED_TEXT_KEYS: ReadonlyArray<string> = [
-  "id",
-  "blocks",
-  "children",
-];
+export const RESERVED_TEXT_KEYS = ["id", "blocks", "children"];
 
 // Metadata types
 export type MetadataValue =
@@ -42,16 +37,14 @@ export type MetadataValue =
   | string[];
 
 // Block types
-export type Block = Readonly<
-  {
-    id: string;
-    content: ReadonlyArray<Element>;
-    [startLine]: number; // used by the language server
-    [endLine]: number; // used by the language server
-  } & Record<string, MetadataValue>
->; // allow any other metadata fields
+export type Block = {
+  id: string;
+  content: Element[];
+  [startLine]: number; // used by the language server
+  [endLine]: number; // used by the language server
+} & Record<string, MetadataValue>; // allow any other metadata fields
 
-export const RESERVED_BLOCK_KEYS: ReadonlyArray<string> = ["id", "content"];
+export const RESERVED_BLOCK_KEYS = ["id", "content"];
 
 // Source range symbols (used by the language server)
 export const startLine = Symbol("startLine");
@@ -61,14 +54,14 @@ export const endLine = Symbol("endLine");
 // Content types
 export type Element = PlainText | Leaf | Heading | FootnoteReference | Wrapper;
 
-export type PlainText = Readonly<{
+export type PlainText = {
   type: "plainText";
   content: string;
-}>;
+};
 
-export type Leaf = Readonly<{
+export type Leaf = {
   type: LeafType;
-}>;
+};
 
 export const leafElements = [
   { trigger: "~~", type: "emSpace" },
@@ -79,11 +72,11 @@ export const leafElements = [
 
 export type LeafType = (typeof leafElements)[number]["type"];
 
-export type Heading = Readonly<{
+export type Heading = {
   type: "heading";
   level: number;
-  content: ReadonlyArray<Element>;
-}>;
+  content: Element[];
+};
 
 export const headingSpec = {
   marker: "£",
@@ -92,10 +85,10 @@ export const headingSpec = {
   blockLevel: true,
 } as const;
 
-export type FootnoteReference = Readonly<{
+export type FootnoteReference = {
   type: "footnoteReference";
   id: string;
-}>;
+};
 
 export const footnoteReferenceSpec = {
   open: "<",
@@ -104,10 +97,10 @@ export const footnoteReferenceSpec = {
   type: "footnoteReference",
 } as const;
 
-export type Wrapper = Readonly<{
+export type Wrapper = {
   type: WrapperType;
-  content: ReadonlyArray<Element>;
-}>;
+  content: Element[];
+};
 
 export const wrapperElements = [
   { open: '""', close: '""', type: "blockquote" },

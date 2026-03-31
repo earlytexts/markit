@@ -1,4 +1,3 @@
-import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { compile } from "markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -6,12 +5,9 @@ import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 
 export default (textDocument: TextDocument): Diagnostic[] => {
   const text = textDocument.getText();
-  const currentFilePath = fileURLToPath(textDocument.uri);
+  const filePath = fileURLToPath(textDocument.uri);
 
-  const [, errors] = compile(text, {
-    loadFile: (path: string) => readFileSync(path, "utf-8"),
-    currentFilePath,
-  });
+  const [, errors] = compile(text, { filePath });
   return errors
     .filter((err) => !err.file)
     .map((err): Diagnostic => {

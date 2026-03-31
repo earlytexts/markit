@@ -57,7 +57,7 @@ const isWordBoundary = (char: string | undefined): boolean => {
   );
 };
 
-const digraphs: ReadonlyArray<readonly [string, string]> = [
+const digraphs: [string, string][] = [
   ["th", "θ"],
   ["Th", "Θ"],
   ["TH", "Θ"],
@@ -72,7 +72,7 @@ const digraphs: ReadonlyArray<readonly [string, string]> = [
   ["PS", "Ψ"],
 ];
 
-const lowerMap: Readonly<Record<string, string>> = {
+const lowerMap: Record<string, string> = {
   a: "α",
   b: "β",
   g: "γ",
@@ -96,7 +96,7 @@ const lowerMap: Readonly<Record<string, string>> = {
   h: "η",
 };
 
-const upperMap: Readonly<Record<string, string>> = {
+const upperMap: Record<string, string> = {
   A: "Α",
   B: "Β",
   G: "Γ",
