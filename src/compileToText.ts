@@ -9,7 +9,7 @@ import type {
 
 export default (
   input: string,
-  options?: CompileOptions,
+  options?: Partial<CompileOptions>,
 ): [string, MarkitError[]] => {
   const [markit, errors] = compile(input, options);
   return [markitToText(markit) + "\n", errors];
