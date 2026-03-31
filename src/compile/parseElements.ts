@@ -313,7 +313,7 @@ const parseElements = (
  * Clean up whitespace-only plainText elements around block-level elements
  * and trim content inside block-level elements.
  */
-const cleanupElements = (elements: ReadonlyArray<Element>): Element[] => {
+const cleanupElements = (elements: Element[]): Element[] => {
   const result: Element[] = [];
 
   for (let i = 0; i < elements.length; i++) {

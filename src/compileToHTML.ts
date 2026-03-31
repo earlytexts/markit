@@ -39,7 +39,7 @@ const blockToHTML = (block: Block): string => {
   return outerHTML.replace(/<p><\/p>/g, "");
 };
 
-const contentToHTML = (content: ReadonlyArray<Element>): string =>
+const contentToHTML = (content: Element[]): string =>
   content.map(elementToHTML).join("");
 
 const elementToHTML = (element: Element): string => {
