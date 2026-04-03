@@ -1,23 +1,11 @@
-import compile from "./compile.js";
-import type {
-  Block,
-  CompileOptions,
-  Element,
-  MarkitDocument,
-  MarkitError,
-} from "./types.js";
+import type { Block, Element, MarkitDocument } from "./types.js";
 
-export default (
-  input: string,
-  options?: Partial<CompileOptions>,
-): [string, MarkitError[]] => {
-  const [markit, errors] = compile(input, options);
-  return [markitToText(markit) + "\n", errors];
-};
+export default (document: MarkitDocument): string =>
+  documentToText(document) + "\n";
 
-const markitToText = (markit: MarkitDocument): string => {
-  const blocks = markit.blocks.map(blockToText).join("\n\n");
-  const children = markit.children.map(markitToText).join("\n\n");
+const documentToText = (document: MarkitDocument): string => {
+  const blocks = document.blocks.map(blockToText).join("\n\n");
+  const children = document.children.map(documentToText).join("\n\n");
   return `${blocks}${children ? `\n\n${children}` : ""}`;
 };
 

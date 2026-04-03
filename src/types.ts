@@ -16,16 +16,8 @@ export type CompileOptions = {
   embedExternalChildren: boolean;
 };
 
-// Document type
-export type MarkitDocument = {
-  id: string;
-  blocks: Block[];
-  children: MarkitDocument[];
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-} & Record<string, MetadataValue>; // allow any other metadata fields
-
-export const RESERVED_TEXT_KEYS = ["id", "blocks", "children"];
+// Metadata base type
+export type Metadata = Record<string, MetadataValue>;
 
 // Metadata types
 export type MetadataValue =
@@ -36,13 +28,27 @@ export type MetadataValue =
   | boolean[]
   | string[];
 
+// Document type
+export type MarkitDocument<
+  TextMetadata extends Metadata = {},
+  BlockMetadata extends Metadata = {},
+> = {
+  id: string;
+  blocks: Block<BlockMetadata>[];
+  children: MarkitDocument<TextMetadata, BlockMetadata>[];
+  [startLine]: number; // used by the language server
+  [endLine]: number; // used by the language server
+} & TextMetadata; // allow custom metadata fields
+
+export const RESERVED_TEXT_KEYS = ["id", "blocks", "children"];
+
 // Block types
-export type Block = {
+export type Block<BlockMetadata extends Metadata = {}> = {
   id: string;
   content: Element[];
   [startLine]: number; // used by the language server
   [endLine]: number; // used by the language server
-} & Record<string, MetadataValue>; // allow any other metadata fields
+} & BlockMetadata; // allow custom metadata fields
 
 export const RESERVED_BLOCK_KEYS = ["id", "content"];
 

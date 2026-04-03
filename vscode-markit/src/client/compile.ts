@@ -1,11 +1,11 @@
 import * as fs from "fs";
-import type { MarkitError } from "markit";
+import { compile, type MarkitDocument } from "markit";
 import * as path from "path";
 import { window } from "vscode";
 
 export default async (
   extension: string,
-  compileFn: (input: string) => [string, MarkitError[]],
+  compileFn: (document: MarkitDocument) => string,
 ): Promise<void> => {
   const editor = window.activeTextEditor;
 
@@ -40,7 +40,8 @@ export default async (
 
   try {
     const inputText = document.getText();
-    const [outputText, errors] = compileFn(inputText);
+    const [markit, errors] = compile(inputText);
+    const outputText = compileFn(markit);
 
     fs.writeFileSync(outputPath, outputText, "utf-8");
 

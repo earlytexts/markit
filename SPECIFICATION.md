@@ -50,6 +50,9 @@ of YAML key-value pairs that attach arbitrary metadata to the text. See the
 (see [Child texts](#child-texts)), and `id` and `blocks` may not be used as
 metadata keys at all.
 
+Child texts inherit all the metadata from their parent texts, but they can also
+override inherited metadata by declaring their own metadata block.
+
 ### Content blocks
 
 After the metadata block (or id block, if there is no metadata), a text may have

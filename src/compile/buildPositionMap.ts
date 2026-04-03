@@ -1,3 +1,4 @@
+import type { Metadata } from "../types.js";
 import type { BlockWithMetadata } from "./parseMetadata.js";
 
 export type PositionInfo = {
@@ -10,7 +11,9 @@ export type PositionInfo = {
  * its original line and column in the source file.
  * (Used for error reporting in the language server.)
  */
-export default (block: BlockWithMetadata): PositionInfo[] => {
+export default <BlockMetadata extends Metadata>(
+  block: BlockWithMetadata<BlockMetadata>,
+): PositionInfo[] => {
   const map: PositionInfo[] = [];
 
   // Determine if the tag line was removed

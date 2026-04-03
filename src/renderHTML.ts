@@ -1,31 +1,17 @@
-import compile from "./compile.js";
-import type {
-  Block,
-  CompileOptions,
-  Element,
-  MarkitDocument,
-  MarkitError,
-} from "./types.js";
+import type { Block, Element, MarkitDocument } from "./types.js";
 import { startLine } from "./types.js";
 
-export default (
-  input: string,
-  options?: Partial<CompileOptions>,
-): [string, MarkitError[]] => {
-  const [markit, errors] = compile(input, options);
-  return [
-    `<!doctype html><html><head><meta charset="UTF-8"><title>${markit.id}</title></head><body>${textToHTML(
-      markit,
-    )}</body></html>`,
-    errors,
-  ];
+export default (document: MarkitDocument): string => {
+  return `<!doctype html><html><head><meta charset="UTF-8"><title>${document.id}</title></head><body>${documentToHTML(
+    document,
+  )}</body></html>`;
 };
 
-const textToHTML = (text: MarkitDocument): string => {
-  const line = text[startLine];
-  const blocks = text.blocks.map(blockToHTML).join("");
-  const children = text.children.map(textToHTML).join("");
-  return `<section id="${text.id}" data-line="${line}">${blocks}${
+const documentToHTML = (document: MarkitDocument): string => {
+  const line = document[startLine];
+  const blocks = document.blocks.map(blockToHTML).join("");
+  const children = document.children.map(documentToHTML).join("");
+  return `<section id="${document.id}" data-line="${line}">${blocks}${
     children.length > 0 ? children : ""
   }</section>`;
 };

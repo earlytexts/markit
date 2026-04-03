@@ -1,4 +1,9 @@
-import type { CompileOptions, MarkitDocument, MarkitError } from "../types.js";
+import type {
+  CompileOptions,
+  MarkitDocument,
+  MarkitError,
+  Metadata,
+} from "../types.js";
 import makeError from "./makeError.js";
 import type { TextTreeWithMetadata } from "./parseMetadata.js";
 
@@ -6,16 +11,16 @@ import type { TextTreeWithMetadata } from "./parseMetadata.js";
  * Recursively compile external children from the children metadata field.
  * (Takes the same compile function as an argument to allow for recursion without circular imports.)
  */
-export default (
-  treeWithMetadata: TextTreeWithMetadata,
+export default <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
+  treeWithMetadata: TextTreeWithMetadata<TextMetadata, BlockMetadata>,
   options: CompileOptions,
   loadingStack: Set<string>,
   compile: (
     text: string,
     options: CompileOptions,
     loadingStack: Set<string>,
-  ) => [MarkitDocument, MarkitError[]],
-): [MarkitDocument[], MarkitError[]] => {
+  ) => [MarkitDocument<TextMetadata, BlockMetadata>, MarkitError[]],
+): [MarkitDocument<TextMetadata, BlockMetadata>[], MarkitError[]] => {
   // Look for children metadata array
   const childrenPaths = treeWithMetadata.metadata.children;
 
@@ -39,7 +44,7 @@ export default (
 
   // Okay, now we can start loading and compiling them
   const errors: MarkitError[] = [];
-  const externalChildren: MarkitDocument[] = [];
+  const externalChildren: MarkitDocument<TextMetadata, BlockMetadata>[] = [];
 
   for (let i = 0; i < childrenPaths.length; i++) {
     const childPath = childrenPaths[i];

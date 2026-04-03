@@ -1,8 +1,8 @@
-import type { MarkitError, MetadataValue } from "../types.js";
+import type { MarkitError, Metadata, MetadataValue } from "../types.js";
 import {
+  footnoteReferenceSpec,
   RESERVED_BLOCK_KEYS,
   RESERVED_TEXT_KEYS,
-  footnoteReferenceSpec,
 } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
@@ -11,16 +11,22 @@ import type { Line, RawBlock } from "./splitIntoBlocks.js";
 /**
  * Parse the TextTree into a tree with metadata.
  */
-export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
-  metadata: Record<string, MetadataValue>;
-  metadataPositions: Record<string, MetadataPosition>; // expose this for error reporting when compiling external children
-  blocks: BlockWithMetadata[];
-  children: TextTreeWithMetadata[];
+export type TextTreeWithMetadata<
+  TextMetadata extends Metadata,
+  BlockMetadata extends Metadata,
+> = Omit<TextTree, "blocks" | "children"> & {
+  metadata: TextMetadata;
+  metadataPositions: Record<keyof TextMetadata, MetadataPosition>; // expose this for error reporting when compiling external children
+  blocks: BlockWithMetadata<BlockMetadata>[];
+  children: TextTreeWithMetadata<TextMetadata, BlockMetadata>[];
 };
 
-export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
+export type BlockWithMetadata<BlockMetadata extends Metadata> = Omit<
+  RawBlock,
+  "lines"
+> & {
   id: string;
-  metadata: Record<string, MetadataValue>;
+  metadata: BlockMetadata;
   lines: Line[];
 };
 
@@ -35,13 +41,18 @@ export type MetadataPosition = {
   }>;
 };
 
-export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
-  return parseTextMetadata(textTree);
+export default <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
+  textTree: TextTree,
+): [TextTreeWithMetadata<TextMetadata, BlockMetadata>, MarkitError[]] => {
+  return parseTextMetadata<TextMetadata, BlockMetadata>(textTree);
 };
 
-const parseTextMetadata = (
+const parseTextMetadata = <
+  TextMetadata extends Metadata,
+  BlockMetadata extends Metadata,
+>(
   text: TextTree,
-): [TextTreeWithMetadata, MarkitError[]] => {
+): [TextTreeWithMetadata<TextMetadata, BlockMetadata>, MarkitError[]] => {
   // Check if first block is a metadata block (if it exists)
   const firstBlock = text.blocks[0];
   const firstLine = firstBlock?.lines[0];
@@ -58,14 +69,15 @@ const parseTextMetadata = (
   // Parse metadata for each block, passing in previously parsed blocks for duplicate ID checking
   const parseBlockMetadataResult = contentBlocks.reduce(
     (acc, block) => {
-      const [blockWithMetadata, blockErrors] = parseBlockMetadata(
-        block,
-        acc.map((b) => b[0]),
-      );
+      const [blockWithMetadata, blockErrors] =
+        parseBlockMetadata<BlockMetadata>(
+          block,
+          acc.map((b) => b[0]),
+        );
       acc.push([blockWithMetadata, blockErrors]);
       return acc;
     },
-    [] as [BlockWithMetadata, MarkitError[]][],
+    [] as [BlockWithMetadata<BlockMetadata>, MarkitError[]][],
   );
   const blocksWithMetadata = parseBlockMetadataResult.map(
     (result) => result[0],
@@ -108,7 +120,7 @@ const parseTextMetadata = (
     metadataPositions,
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
-  };
+  } as TextTreeWithMetadata<TextMetadata, BlockMetadata>;
   const errors = [
     ...metadataErrors,
     ...blockErrors,
@@ -118,16 +130,16 @@ const parseTextMetadata = (
   return [textWithMetadata, errors];
 };
 
-const parseMetadataBlock = (
+const parseMetadataBlock = <TextMetadata extends Metadata>(
   block: RawBlock,
 ): [
-  Record<string, MetadataValue>,
-  Record<string, MetadataPosition>,
+  TextMetadata,
+  Record<keyof TextMetadata, MetadataPosition>,
   MarkitError[],
 ] => {
   const errors: MarkitError[] = [];
-  const metadata: Record<string, MetadataValue> = {};
-  const metadataPositions: Record<string, MetadataPosition> = {};
+  const metadata = {} as TextMetadata;
+  const metadataPositions = {} as Record<keyof TextMetadata, MetadataPosition>;
 
   for (let index = 0; index < block.lines.length; index++) {
     const line = block.lines[index]!;
@@ -138,7 +150,7 @@ const parseMetadataBlock = (
       const key = multilineArrayMatch[1]!;
 
       // Track position for this key
-      metadataPositions[key] = {
+      metadataPositions[key as keyof TextMetadata] = {
         line: block.startLine + index,
         column: line.charOffset,
         length: line.content.length,
@@ -163,11 +175,13 @@ const parseMetadataBlock = (
           arrayLine.charOffset + arrayLine.content.indexOf(itemString);
 
         // Track position for this array element
-        metadataPositions[key].arrayElementPositions.push({
-          line: block.startLine + arrayIndex,
-          column: itemStartColumn,
-          length: itemString.length,
-        });
+        metadataPositions[key as keyof TextMetadata].arrayElementPositions.push(
+          {
+            line: block.startLine + arrayIndex,
+            column: itemStartColumn,
+            length: itemString.length,
+          },
+        );
 
         let itemValue: number | boolean | string;
         try {
@@ -211,7 +225,8 @@ const parseMetadataBlock = (
             }),
           );
         }
-        metadata[key] = arrayItems as MetadataValue;
+        metadata[key as keyof TextMetadata] =
+          arrayItems as TextMetadata[keyof TextMetadata];
       }
 
       // Skip the lines we've just processed
@@ -250,7 +265,7 @@ const parseMetadataBlock = (
     }
 
     // Track position for this key
-    metadataPositions[key] = {
+    metadataPositions[key as keyof TextMetadata] = {
       line: block.startLine + index,
       column: line.charOffset,
       length: line.content.length,
@@ -281,7 +296,9 @@ const parseMetadataBlock = (
           itemString,
           arrayOpeningBracketIndex,
         );
-        metadataPositions[key]!.arrayElementPositions.push({
+        metadataPositions[
+          key as keyof TextMetadata
+        ]!.arrayElementPositions.push({
           line: block.startLine + index,
           column: line.charOffset + itemStartIndex,
           length: itemString.length,
@@ -305,16 +322,17 @@ const parseMetadataBlock = (
       }
     }
 
-    metadata[key] = value;
+    metadata[key as keyof TextMetadata] =
+      value as TextMetadata[keyof TextMetadata];
   }
 
   return [metadata, metadataPositions, errors];
 };
 
-const parseBlockMetadata = (
+const parseBlockMetadata = <BlockMetadata extends Metadata>(
   block: RawBlock,
-  previousBlocks: BlockWithMetadata[],
-): [BlockWithMetadata, MarkitError[]] => {
+  previousBlocks: BlockWithMetadata<BlockMetadata>[],
+): [BlockWithMetadata<BlockMetadata>, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
   const [firstLine, ...otherLines] = block.lines;
@@ -447,7 +465,7 @@ const parseBlockMetadata = (
     id,
     metadata,
     lines,
-  };
+  } as BlockWithMetadata<BlockMetadata>;
 
   return [blockWithMetadata, errors];
 };
