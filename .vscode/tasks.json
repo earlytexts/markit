@@ -5,12 +5,6 @@
       "label": "build-extension",
       "type": "shell",
       "command": "npm run build:vscode",
-      "options": {
-        "shell": {
-          "executable": "cmd.exe",
-          "args": ["/d", "/c"]
-        }
-      },
       "group": "build",
       "presentation": {
         "reveal": "silent"

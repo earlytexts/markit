@@ -1,4 +1,4 @@
-import { compileToHTML, compileToJson, compileToText } from "markit";
+import { renderHTML, renderText } from "markit";
 import * as path from "path";
 import { ExtensionContext, commands } from "vscode";
 import {
@@ -45,19 +45,19 @@ export const activate = (context: ExtensionContext): void => {
 
   context.subscriptions.push(
     commands.registerCommand("markit.compileToHTML", async () => {
-      await compileCommand("html", compileToHTML);
+      await compileCommand("html", renderHTML);
     }),
   );
 
   context.subscriptions.push(
     commands.registerCommand("markit.compileToJSON", async () => {
-      await compileCommand("json", compileToJson);
+      await compileCommand("json", (document) => JSON.stringify(document));
     }),
   );
 
   context.subscriptions.push(
     commands.registerCommand("markit.compileToText", async () => {
-      await compileCommand("txt", compileToText);
+      await compileCommand("txt", renderText);
     }),
   );
 };

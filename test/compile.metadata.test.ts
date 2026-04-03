@@ -142,6 +142,51 @@ describe("text metadata", () => {
       }),
     );
   });
+
+  it("embeds parent metadata in child texts", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        'parentKey: "parentValue"',
+        "",
+        "## Child.Text",
+        "",
+        'childKey: "childValue"',
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    const section1 = document.children[0]!;
+    expect(section1).toEqual(
+      expect.objectContaining({
+        parentKey: "parentValue",
+        childKey: "childValue",
+      }),
+    );
+  });
+
+  it("overrides parent metadata with child metadata", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        'key: "parentValue"',
+        "",
+        "## Child.Text",
+        "",
+        'key: "childValue"',
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    const section1 = document.children[0]!;
+    expect(section1).toEqual(
+      expect.objectContaining({
+        key: "childValue",
+      }),
+    );
+  });
 });
 
 describe("text metadata errors", () => {

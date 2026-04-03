@@ -1,4 +1,4 @@
-import { compileToHTML } from "markit";
+import { compile, renderHTML } from "markit";
 import {
   ExtensionContext,
   TextEditor,
@@ -96,7 +96,8 @@ const updatePreview = (
   content: string,
   filePath: string,
 ): void => {
-  const [html] = compileToHTML(content, { filePath });
+  const [document] = compile(content, { filePath });
+  const html = renderHTML(document);
 
   // Get webview URIs for CSS and JS files
   const cssUri = previewPanel.webview.asWebviewUri(
