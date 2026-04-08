@@ -65,7 +65,7 @@ describe("formatter", () => {
       );
     });
 
-    it("ensures blank line before children ID blocks", () => {
+    it("ensures blank line before children IDs", () => {
       const input = markit(
         "# parent",
         "",
@@ -94,7 +94,7 @@ describe("formatter", () => {
       );
     });
 
-    it("ensures blank line between metadata block and first block tag", () => {
+    it("ensures blank line between metadata and first block tag", () => {
       const input = markit(
         "# mytext",
         "",
@@ -123,14 +123,14 @@ describe("formatter", () => {
     });
   });
 
-  describe("ID block normalization", () => {
-    it("removes surrounding whitespace from ID blocks", () => {
+  describe("ID normalization", () => {
+    it("removes surrounding whitespace from IDs", () => {
       const input = markitWithId("   # Text   ");
       const result = formatDocument(input);
       expect(result).toBe(markitWithId("# Text"));
     });
 
-    it("collapses extra spaces inside ID blocks", () => {
+    it("collapses extra spaces inside IDs", () => {
       const input = markitWithId("#   Text");
       const result = formatDocument(input);
       expect(result).toBe(markitWithId("# Text"));
@@ -242,10 +242,10 @@ describe("formatter", () => {
       );
     });
 
-    it("handles block tag with quoted values containing commas", () => {
-      const input = markitWithContent('{#1, label="a, b"}', "Content");
+    it("doesn't change string values containing commas", () => {
+      const input = markitWithContent('{#1, label="a , b"}', "Content");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent('{#1, label="a, b"}', "Content"));
+      expect(result).toBe(markitWithContent('{#1, label="a , b"}', "Content"));
     });
 
     it("handles multiple key-value pairs with various spacing", () => {
@@ -397,6 +397,18 @@ describe("formatter", () => {
       );
     });
 
+    it("doesn't collapse block quotations containing unordered lists", () => {
+      const input = markitWithContent("{#1}", "> - Item 1", "> - Item 2");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("doesn't collapse block quotations containing ordered lists", () => {
+      const input = markitWithContent("{#1}", "> 1. Item 1", "> 2. Item 2");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
     it("preserves blank lines between paragraphs in block quotations", () => {
       const input = markitWithContent(
         "{#1}",
@@ -410,7 +422,6 @@ describe("formatter", () => {
           "{#1}",
           "> First paragraph of block quote.",
           ">",
-          "",
           "> Second paragraph of block quote.",
         ),
       );
@@ -444,6 +455,27 @@ describe("formatter", () => {
           "> This is a block quote with two paragraphs.",
           ">",
           "> But there's extra space in between them.",
+        ),
+      );
+    });
+
+    it("collapses paragraphs in block quotations to a single line while preserving lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> This is a block quote with a list.",
+        "> It has multiple paragraphs, but they should be collapsed.",
+        ">",
+        "> - List item 1",
+        "> - List item 2",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "> This is a block quote with a list. It has multiple paragraphs, but they should be collapsed.",
+          ">",
+          "> - List item 1",
+          "> - List item 2",
         ),
       );
     });
@@ -493,6 +525,36 @@ describe("formatter", () => {
           "- list item 2",
           "",
           "Even more text.",
+        ),
+      );
+    });
+
+    it("adds blank lines between block-level elements in block quotations", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> First paragraph.",
+        "> - list item 1",
+        "> - list item 2",
+        "> More text.",
+        "> 1. Numbered item 1",
+        "> 2. Numbered item 2",
+        "> Even more text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "> First paragraph.",
+          ">",
+          "> - list item 1",
+          "> - list item 2",
+          ">",
+          "> More text.",
+          ">",
+          "> 1. Numbered item 1",
+          "> 2. Numbered item 2",
+          ">",
+          "> Even more text.",
         ),
       );
     });

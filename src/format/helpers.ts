@@ -59,10 +59,14 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
   const flushBlockquote = (): void => {
     if (blockquoteLines.length === 0) return;
-    const collapsed = blockquoteLines.join(" ").replace(/\s+/g, " ").trim();
-    output.push(
-      ...splitOnLineBreakMarker(collapsed).map((part) => `> ${part}`),
-    );
+    const inner = extractBlockElements(blockquoteLines);
+    // Add blank line before blockquote if needed
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+    for (const line of inner) {
+      output.push(line === "" ? ">" : `> ${line}`);
+    }
     blockquoteLines = [];
   };
 
@@ -142,46 +146,10 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushHeading();
       const inner = trimmed.slice(1).trim();
       if (inner) {
-        // Check if we should add a blank line before this blockquote content
-        // Don't add if the previous output is a bare ">" that was part of consecutive bare ">" lines
-        let shouldAddBlank = false;
-        if (
-          blockquoteLines.length === 0 &&
-          output.length > 0 &&
-          output.at(-1) !== ""
-        ) {
-          if (output.at(-1) === ">") {
-            // Only add blank if the bare ">" wasn't from consecutive bare ">" lines
-            // Check backwards in buffer to see if there were multiple consecutive ">"
-            let consecutiveBareCount = 0;
-            for (let j = i - 1; j >= 0; j--) {
-              const prevTrimmed = buffer[j]!.trim();
-              if (prevTrimmed === ">") {
-                consecutiveBareCount++;
-              } else {
-                break;
-              }
-            }
-            // If there was only one bare ">", add a blank line
-            shouldAddBlank = consecutiveBareCount === 1;
-          } else {
-            shouldAddBlank = true;
-          }
-        }
-        if (shouldAddBlank) {
-          output.push("");
-        }
         blockquoteLines.push(inner);
       } else {
         // Bare ">" acts as a paragraph separator within blockquotes
-        flushBlockquote();
-        if (
-          output.length > 0 &&
-          output.at(-1) !== "" &&
-          output.at(-1) !== ">"
-        ) {
-          output.push(">");
-        }
+        blockquoteLines.push("");
       }
       continue;
     }
