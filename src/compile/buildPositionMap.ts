@@ -1,5 +1,4 @@
-import type { Metadata } from "../types.js";
-import type { BlockWithMetadata } from "./parseMetadata.js";
+import type { Line } from "./splitIntoBlocks.js";
 
 export type PositionInfo = {
   line: number;
@@ -7,35 +6,25 @@ export type PositionInfo = {
 };
 
 /**
- * Build a position map for the block's content, mapping each character back to
- * its original line and column in the source file.
+ * Build a position map for a sequence of content lines, mapping each character
+ * back to its original line and column in the source file.
  * (Used for error reporting in the language server.)
+ *
+ * Lines are joined with a single space separator (blank lines are skipped).
+ * The returned array has one entry per character in that joined string.
  */
-export default <BlockMetadata extends Metadata>(
-  block: BlockWithMetadata<BlockMetadata>,
-): PositionInfo[] => {
+const buildPositionMap = (lines: Line[]): PositionInfo[] => {
   const map: PositionInfo[] = [];
+  const nonBlank = lines.filter((l) => l.content !== "");
 
-  // Determine if the tag line was removed
-  const originalLineCount = block.endLine - block.startLine + 1;
-  const contentLineCount = block.lines.length;
-  const tagOnOwnLine = contentLineCount < originalLineCount;
-
-  // If tag was on its own line, content starts on the next line
-  const lineOffset = tagOnOwnLine ? 1 : 0;
-
-  block.lines.forEach((line, lineIndex) => {
-    const actualLine = block.startLine + lineOffset + lineIndex;
+  nonBlank.forEach((line, lineIndex) => {
     for (let i = 0; i < line.content.length; i++) {
-      map.push({
-        line: actualLine,
-        column: line.charOffset + i,
-      });
+      map.push({ line: line.lineNumber, column: line.charOffset + i });
     }
-    // Add position for the space separator (except after the last line)
-    if (lineIndex < block.lines.length - 1) {
+    // Space separator between lines (except after the last line)
+    if (lineIndex < nonBlank.length - 1) {
       map.push({
-        line: actualLine,
+        line: line.lineNumber,
         column: line.charOffset + line.content.length,
       });
     }
@@ -43,3 +32,5 @@ export default <BlockMetadata extends Metadata>(
 
   return map;
 };
+
+export default buildPositionMap;

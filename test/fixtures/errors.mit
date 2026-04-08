@@ -38,10 +38,4 @@ This has an {unclosed brace code.
 This has *unclosed bold.
 
 {#4}
-This has a £1 heading without end.
-
-{#5}
-This has a ref to <n99>.
-
-{#6}
-£1 Heading with ""blockquote"" inside £1
+This has a ref to a non-existent footnote <n99>.

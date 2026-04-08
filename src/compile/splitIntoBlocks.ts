@@ -1,6 +1,15 @@
 /**
- * Parse the input text into blocks of lines, where blocks are separated by one or more blank lines.
- * Store the starting line number of each block for later error reporting.
+ * Parse the input text into blocks of lines.
+ *
+ * Blocks are delimited by:
+ *   - Text ID lines (# id, ## id, etc.) — always start a new block
+ *   - Block tag lines ({#id}) — always start a new block
+ *   - Blank lines *outside* a content block — act as separators, so the next
+ *     non-blank line starts a new block (same behaviour as the old splitter)
+ *
+ * Blank lines *inside* a content block (i.e. after a {#id} tag and before the
+ * next {#id} tag or text-ID line) are preserved as empty Line entries so that
+ * the content parser can use them as block-level element boundaries.
  */
 export type RawBlock = {
   startLine: number;
@@ -9,40 +18,101 @@ export type RawBlock = {
 };
 
 export type Line = {
+  lineNumber: number;
   charOffset: number;
-  content: string;
+  content: string; // empty string represents a blank line inside a content block
 };
 
 export default (text: string): RawBlock[] => {
   const lines = text.split("\n");
 
-  let blankLines = 0;
+  let insideContentBlock = false;
+  // True when we've just seen one or more blank lines outside a content block.
+  // The next non-blank, non-ID, non-blockTag line should start a new block.
+  let blankBreak = false;
+
   const blocks: RawBlock[] = [];
+
   lines.forEach((line, index) => {
     const trimmed = line.trim();
+
+    // Text ID line: one or more # followed by whitespace
+    if (/^#+\s/.test(trimmed)) {
+      insideContentBlock = false;
+      blankBreak = false;
+      blocks.push({
+        startLine: index,
+        endLine: index,
+        lines: [
+          {
+            lineNumber: index,
+            charOffset: line.indexOf(trimmed),
+            content: trimmed,
+          },
+        ],
+      });
+      return;
+    }
+
+    // Block tag line: starts with {#
+    if (trimmed.startsWith("{#")) {
+      insideContentBlock = true;
+      blankBreak = false;
+      blocks.push({
+        startLine: index,
+        endLine: index,
+        lines: [
+          {
+            lineNumber: index,
+            charOffset: line.indexOf(trimmed),
+            content: trimmed,
+          },
+        ],
+      });
+      return;
+    }
+
+    // Blank line
     if (trimmed === "") {
-      blankLines++;
-    } else {
-      const lineObject = {
+      if (insideContentBlock) {
+        // Preserve blank lines inside content blocks as element separators
+        const lastBlock = blocks.at(-1)!;
+        lastBlock.lines.push({
+          lineNumber: index,
+          charOffset: 0,
+          content: "",
+        });
+      } else {
+        // Outside content blocks, record the break so the next line starts fresh
+        blankBreak = true;
+      }
+      return;
+    }
+
+    // Regular content line
+    const lastBlock = blocks.at(-1);
+    if (lastBlock && !blankBreak) {
+      // Append to current block
+      lastBlock.lines.push({
+        lineNumber: index,
         charOffset: line.indexOf(trimmed),
         content: trimmed,
-      };
-      if (blankLines > 0) {
-        blocks.push({ startLine: index, endLine: index, lines: [lineObject] });
-        blankLines = 0;
-      } else {
-        const lastBlock = blocks.at(-1);
-        if (!lastBlock) {
-          blocks.push({
-            startLine: index,
-            endLine: index,
-            lines: [lineObject],
-          });
-        } else {
-          lastBlock.lines.push(lineObject);
-          lastBlock.endLine = index;
-        }
-      }
+      });
+      lastBlock.endLine = index;
+    } else {
+      // Start a new block (either no block yet, or a blank break occurred)
+      blankBreak = false;
+      blocks.push({
+        startLine: index,
+        endLine: index,
+        lines: [
+          {
+            lineNumber: index,
+            charOffset: line.indexOf(trimmed),
+            content: trimmed,
+          },
+        ],
+      });
     }
   });
 

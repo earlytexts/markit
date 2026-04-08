@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import { markit, markitWithContent } from "./utils/factories.js";
 
-describe("block metadata", () => {
+describe("blocks", () => {
   it("parses blocks with their ids", () => {
     const [document, errors] = compile(
       markitWithContent(
@@ -11,6 +11,21 @@ describe("block metadata", () => {
         "",
         "{#1}",
         "This is the second block.",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks).toHaveLength(2);
+    expect(document.blocks[0]!.id).toBe("0");
+    expect(document.blocks[1]!.id).toBe("1");
+  });
+
+  it("parses block tags on the same line as content", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#0} This is the first block.",
+        "",
+        "{#1} This is the second block.",
       ),
     );
 
@@ -36,7 +51,7 @@ describe("block metadata", () => {
   });
 });
 
-describe("block metadata errors", () => {
+describe("block errors", () => {
   it("returns error for block with no tag", () => {
     const [, errors] = compile(
       markit("# Text", "", "This block has no tag.", ""),
@@ -244,5 +259,115 @@ describe("block metadata errors", () => {
       endColumn: 6,
       severity: "error",
     });
+  });
+
+  it("returns error for reserved block tag key 'type'", () => {
+    const [, errors] = compile(
+      markit("# Text", "", '{#1, type="paragraph"}', "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message:
+        "Block tag key 'type' is reserved and cannot be used in metadata",
+      line: 3,
+      column: 6,
+      endLine: 3,
+      endColumn: 10,
+      severity: "error",
+    });
+  });
+});
+
+describe("title blocks", () => {
+  it("assigns type 'title' to title blocks", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#title}", "Main Title"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.id).toBe("title");
+    expect(document.blocks[0]!.type).toBe("title");
+  });
+
+  it("returns error if more than one title block", () => {
+    const [, errors] = compile(
+      markitWithContent("{#title}", "Title 1", "", "{#title}", "Title 2", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe("Only one title block is allowed per text");
+  });
+
+  it("returns error if title block is not the first block", () => {
+    const [, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "Paragraph first",
+        "",
+        "{#title}",
+        "Too late",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe(
+      "Title block must be the first block in the text",
+    );
+  });
+});
+
+describe("subtitle blocks", () => {
+  it("assigns type 'subtitle' to subtitle blocks", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#subtitle}", "Subtitle"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.type).toBe("subtitle");
+  });
+
+  it("auto-numbers subtitle blocks in compiled output", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#subtitle}",
+        "Sub 1",
+        "",
+        "{#subtitle}",
+        "Sub 2",
+        "",
+        "{#subtitle}",
+        "Sub 3",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.id).toBe("subtitle1");
+    expect(document.blocks[1]!.id).toBe("subtitle2");
+    expect(document.blocks[2]!.id).toBe("subtitle3");
+  });
+
+  it("allows multiple subtitle blocks without error", () => {
+    const [, errors] = compile(
+      markitWithContent("{#subtitle}", "Sub 1", "", "{#subtitle}", "Sub 2", ""),
+    );
+
+    expect(errors).toHaveLength(0);
+  });
+});
+
+describe("block types", () => {
+  it("assigns type 'paragraph' to regular blocks", () => {
+    const [document] = compile(markitWithContent("{#1}", "Content"));
+
+    expect(document.blocks[0]!.type).toBe("paragraph");
+  });
+
+  it("assigns type 'footnote' to footnote blocks", () => {
+    const [document] = compile(markitWithContent("{#n1}", "Footnote"));
+
+    expect(document.blocks[0]!.type).toBe("footnote");
   });
 });

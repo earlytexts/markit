@@ -13,8 +13,8 @@ metadataMultilineArray:
   - 2
   - 3
 
-{#0}
-£1 Markit Example £1
+{#title}
+^1 Markit Example
 
 {#1}
 This is an example Markit document, which illustrates all the features of the language.
@@ -23,67 +23,70 @@ This is an example Markit document, which illustrates all the features of the la
 
 note: "Child texts can contain metadata too."
 
-{#0}
-£1 Markit Document Structure £1
+{#title}
+^1 Markit Document Structure
 
 {#1}
-A Markit document is made up of a series of _blocks_, which are separated by one or more blank lines.
+A Markit document is made up of a series of _blocks_, which are separated by \{#id\} block tags.
 
-{#2}
-There are three types of blocks: ID blocks, metadata blocks, and content blocks.
+{#2, blockMetadataIsPossible=true, what="really?", yes="really"}
+Block tags can optionally include block metadata, as a comma-separated list of `key=value` pairs.
+
+{#subtitle}
+^2 Types of Blocks
 
 {#3}
-ID blocks consist of one or more hash symbols followed by an identifier. They are used to give a text (or any of its child texts) a unique ID, and encode the hierarchical structure of the document. The number of hash symbols indicates the level of the block in the hierarchy. Every document must have a single top-level ID block. Other level documents can be nested inside, to arbitrary depth.
-
-{#4}
-ID blocks _may_ (but need not) be followed by a _metadata block_. Metadata blocks consist of one or more lines of the form `key: value` (see the metadata block at the top of this document for examples). Metadata blocks are used to attach arbitrary metadata to the text (or any of its child texts).
-
-{#5}
-Content blocks _must_ begin with a _block tag_, e.g. `\{#1\}`. A block tag gives a unique ID to the block (relative to the text it is in). Typically IDs are consecutive numbers, but they can be any alphanumeric string.
-
-{#6, blockMetadataIsPossible=true, what="really?", yes="really"}
-Block tags can optionally include block metadata, as a comma-separated list of `key=value` pairs (see the example block tag above).
-
-{#7}
-After the block tag, the content of the block follows. Various markup and formatting can be used in the content, as described in the next section.
+There are four types of blocks: title blocks, subtitle blocks, paragraph blocks, and footnote blocks. Footnote blocks begin with an "n" in their ID, and must be placed at the end of the text, after all other blocks.
 
 ## Markit.Example.Markup
 
-{#0}
-£1 Markit Markup £1
+{#title}
+^1 Markit Markup
 
 ### Markit.Example.Markup.Headings
 
-{#0}
-£1 Headings £1
-£1 The 0th Block is the Title £1
-£2 Use Pounds on Either Side to Create Headings £2
-£3 The Number Indicates the Heading Level £3
-£6 The Heading Level Can Go Up to 6 £6
-You can include regular (non-heading) content in the same block as the heading.
+{#title}
+^1 Use carat symbols to create headings
+^3 The number after the carat indicates the size of the heading text, with 1 being the largest and 6 being the smallest
+^6 The heading level can go up to 6
 
-{#1}
-£4 You can also include headings in subsequent blocks £4
-if you want
+You can only include headings inside title or subtitle blocks, but title and subtitle blocks can include both headings and regular content.
 
 ### Markit.Example.Markup.Formatting
 
-{#0}
-£1 Formatting £1
+{#title}
+^1 Formatting
 
 {#1}
 This is a paragraph with *some* _inline markup_, and also _some *nested* formatting_. Asterisks indicate bold text, and underscores indicate italic text.
 
-{#2}
-£2 *Bold* and _italic_ text can be used in headings £2
+{#subtitle}
+^2 *Bold* and _italic_ text can also be used in headings
 
-{#3}
+{#2}
 You can indicate that some text is an inline quotation by surrounding it in double quotation marks: "like this".
 
+{#3}
+You can indicate that some text is a block quotation using the `>` marker:
+
+> This is a block quotation.
+
+You can include blank lines before and after the `>` marker for readability.
+
 {#4}
-You can indicate that some text is a block quotation by surrounding it in two double quotation marks:
-    ""This is a block quotation""
-You can optionally add single line breaks and indentation around block quotation marks (as shown here), for readability. But don't include multiple line breaks, because a blank line will indicate the start of a new content block.
+You can create unordered lists using hyphens:
+
+- Item 1
+- Item 2
+- Item 3
+
+And you can create numbered lists using numbers followed by full-stops:
+
+1. Item 1
+2. Item 2
+3. Item 3
+
+The actual numbers that you use in the source Markit code for numbered lists don't matter. You can just use "1." for every item if you like.
 
 {#5}
 You can mark up text as a citation by enclosing it in square brackets: [like this].
@@ -92,12 +95,15 @@ You can mark up text as a citation by enclosing it in square brackets: [like thi
 You can indicate editorial changes by surrounding --deleted text in double hyphens-- and ++inserted text in double plus signs++.
 
 {#7}
+You can indicate that some text is highlighted by surrounding it in double equals signs: ==like this==.
+
+{#8}
 You can indicate that some text is a margin comment by surrounding it in "at" symbols: @like this@.
 
 ### Markit.Example.Markup.WhiteSpace
 
-{#0}
-£1 Whitespace £1
+{#title}
+^1 Whitespace
 
 {#1}
 Whitespace inside content is generally ignored by Markit - line breaks are treated as spaces, and multiple consecutive spaces are treated as a single space.
@@ -111,8 +117,8 @@ If you want to include multiple consecutive spaces, you can use the tilde charac
 
 ### Markit.Example.Markup.ForeignText
 
-{#0}
-£1 Foreign Text £1
+{#title}
+^1 Foreign Text
 
 {#1}
 Source texts often include foreign text, and it is often useful to be able to indicate that a particular piece of text is in a different language. Foreign text should be enclosed in dollar symbols: $like this$.
@@ -122,8 +128,8 @@ Text enclosed in _pairs_ of dollar symbols - $$like this$$ - is treated as Greek
 
 ### Markit.Example.Markup.BraceCodes
 
-{#0}
-£1 Brace Codes £1
+{#title}
+^1 Brace Codes
 
 {#1}
 Some characters commonly found in source texts are difficult to input using standard keyboards. Markit provides a convenient way to input these characters, using "brace codes".
@@ -133,19 +139,19 @@ A brace code consists of a sequence of characters enclosed in curly braces: \{li
 
 ### Markit.Example.Markup.PageBreaks
 
-{#0}
-£1 Page Breaks £1
+{#title}
+^1 Page Breaks
 
 {#1}
 Page breaks in the copytext can be indicated using the pipe character "|". In plain text output, page breaks are removed. In HTML output, page breaks are rendered as `\<span class=\"page-break\"\>\</span\>`, and you can use CSS styling to determine whether or how to render them.
 
 ### Markit.Example.Markup.Footnotes
 
-{#0}
-£1 Footnotes £1
+{#title}
+^1 Footnotes
 
 {#1}
-Footnotes should be represented as content blocks line any other, except that their ID should being with an "n", and they should all be placed at the end of the text.
+Footnotes should be represented as content blocks like any other, except that their ID should begin with an "n", and they should all be placed at the end of the text.
 
 {#2}
 Footnotes are referred to in the main text using a footnote marker, which consists of the footnote ID enclosed in angle brackets: <n1>.
@@ -155,8 +161,8 @@ This is a footnote.
 
 ### Markit.Example.Markup.Escaping
 
-{#0}
-£1 Escaping £1
+{#title}
+^1 Escaping
 
 {#1}
 If you want to include any of the special characters used in Markit markup (e.g. `\*`, `\_`, `\"`, `\[`, `\]`, etc.) as literal characters in the content, you can escape them using a backslash, e.g. `\\\*`, `\\\_`, `\\\"`, `\\\[`, `\\\]`, etc.

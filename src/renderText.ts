@@ -1,4 +1,9 @@
-import type { Block, Element, MarkitDocument } from "./types.js";
+import type {
+  Block,
+  BlockElement,
+  InlineElement,
+  MarkitDocument,
+} from "./types.js";
 
 export default (document: MarkitDocument): string =>
   documentToText(document) + "\n";
@@ -9,15 +14,62 @@ const documentToText = (document: MarkitDocument): string => {
   return `${blocks}${children ? `\n\n${children}` : ""}`;
 };
 
-const blockToText = (block: Block): string =>
-  block.id.startsWith("n")
-    ? `[^${block.id}]: ${contentToText(block.content)}`.trim()
-    : contentToText(block.content).trim();
+const blockToText = (block: Block): string => {
+  const footnoteId = block.type === "footnote" ? block.id : null;
+  let blockPrefix = "";
+  if (block.type === "paragraph") {
+    const b = block as Record<string, unknown>;
+    if (typeof b["subsection"] === "number") {
+      blockPrefix += `${b["subsection"]}. `;
+    }
+    if (typeof b["speaker"] === "string") {
+      blockPrefix += `${b["speaker"]}. `;
+    }
+  }
+  const parts = block.content.map((el, i) =>
+    blockElementToText(el, footnoteId, i === 0 ? blockPrefix : ""),
+  );
+  return parts.join("\n\n").trim();
+};
 
-const contentToText = (content: Element[]): string =>
-  content.map(elementToText).join("");
+const blockElementToText = (
+  element: BlockElement,
+  footnoteId: string | null,
+  blockPrefix: string = "",
+): string => {
+  switch (element.type) {
+    case "paragraph": {
+      const text = inlineElementsToText(element.content);
+      return footnoteId !== null
+        ? `[^${footnoteId}]: ${blockPrefix}${text}`
+        : `${blockPrefix}${text}`;
+    }
+    case "heading":
+      return element.content
+        .map((l) => inlineElementsToText(l.content))
+        .join("\n");
+    case "blockquote":
+      return element.content
+        .map(
+          (el, i) =>
+            `    ${blockElementToText(el, null, i === 0 ? blockPrefix : "")}`,
+        )
+        .join("\n\n");
+    case "list":
+      return element.content
+        .map((item, i) =>
+          element.ordered
+            ? `${i + 1}. ${i === 0 ? blockPrefix : ""}${inlineElementsToText(item.content)}`
+            : `${i === 0 ? blockPrefix : ""}${inlineElementsToText(item.content)}`,
+        )
+        .join("\n");
+  }
+};
 
-const elementToText = (element: Element): string => {
+const inlineElementsToText = (content: InlineElement[]): string =>
+  content.map(inlineElementToText).join("");
+
+const inlineElementToText = (element: InlineElement): string => {
   switch (element.type) {
     case "plainText":
       return element.content;
@@ -29,30 +81,28 @@ const elementToText = (element: Element): string => {
       return " ";
     case "emSpace":
       return "  ";
-    case "heading":
-      return `${contentToText(element.content)}\n\n`;
     case "footnoteReference":
       return `<${element.id}>`;
     case "strong":
-      return contentToText(element.content);
+      return inlineElementsToText(element.content);
     case "emphasis":
-      return contentToText(element.content);
+      return inlineElementsToText(element.content);
     case "quote":
-      return `"${contentToText(element.content)}"`;
-    case "blockquote":
-      return `\n\n    ${contentToText(element.content)}\n\n`;
+      return `"${inlineElementsToText(element.content)}"`;
     case "foreign":
-      return contentToText(element.content);
+      return inlineElementsToText(element.content);
     case "greek":
-      return contentToText(element.content);
+      return inlineElementsToText(element.content);
     case "aside":
       return "";
     case "insertion":
-      return contentToText(element.content);
+      return inlineElementsToText(element.content);
     case "deletion":
       return "";
+    case "highlight":
+      return inlineElementsToText(element.content);
     case "citation":
-      return `[${contentToText(element.content)}]`;
+      return `[${inlineElementsToText(element.content)}]`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;
