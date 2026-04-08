@@ -5,7 +5,7 @@
     { "include": "#id" },
     { "include": "#metadataBlock" },
     { "include": "#blockTag" },
-    { "include": "#heading" },
+    { "include": "#headingLine" },
     { "include": "#blockquoteLine" },
     { "include": "#unorderedListItem" },
     { "include": "#orderedListItem" },
@@ -23,56 +23,56 @@
     "metadataBlock": {
       "begin": "^(?=\\s*[a-zA-Z_][a-zA-Z0-9_-]*\\s*:)",
       "end": "^(?=\\s*$|\\s*\\{#)",
-      "name": "meta.embedded.block.yaml",
+      "name": "meta.block.metadata.markit",
       "patterns": [
         {
           "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(:)",
           "captures": {
-            "1": { "name": "entity.name.tag.yaml" },
-            "2": { "name": "punctuation.separator.key-value.yaml" }
+            "1": { "name": "entity.name.tag.markit" },
+            "2": { "name": "punctuation.separator.key-value.markit" }
           }
         },
         {
           "match": "\\b(true|false)\\b",
-          "name": "constant.language.yaml"
+          "name": "constant.language.boolean.markit"
         },
         {
           "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
-          "name": "constant.numeric.yaml"
+          "name": "constant.numeric.markit"
         },
         {
           "match": "\"[^\"]*\"",
-          "name": "string.quoted.double.yaml"
+          "name": "string.quoted.double.markit"
         },
         {
           "match": "\\s*-\\s+",
-          "name": "punctuation.definition.list.begin.yaml"
+          "name": "punctuation.definition.list.begin.markit"
         }
       ]
     },
     "blockTag": {
-      "begin": "(\\{)(#)",
+      "begin": "(\\{)(#)([a-zA-Z0-9.]+)",
       "end": "(\\})",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.tag.begin.markit" },
-        "2": { "name": "punctuation.definition.tag.hash.markit" }
+        "1": { "name": "punctuation.definition.block-tag.begin.markit" },
+        "2": { "name": "entity.name.tag.block-tag.hash.markit" },
+        "3": { "name": "constant.character.block-tag.id.markit" }
       },
       "endCaptures": {
-        "1": { "name": "punctuation.definition.tag.end.markit" }
+        "1": { "name": "punctuation.definition.block-tag.end.markit" }
       },
       "name": "meta.block-tag.markit",
       "patterns": [
         {
-          "match": "[a-zA-Z0-9.]+",
-          "name": "entity.name.tag.block-id.markit"
+          "match": "\\s*([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)",
+          "captures": {
+            "1": { "name": "entity.name.tag.block-id.markit" },
+            "2": { "name": "punctuation.operator.key-value.markit" }
+          }
         },
         {
           "match": ",",
           "name": "punctuation.separator.comma.markit"
-        },
-        {
-          "match": "=",
-          "name": "keyword.operator.assignment.markit"
         },
         {
           "match": "\"[^\"]*\"",
@@ -83,19 +83,52 @@
           "name": "constant.language.boolean.markit"
         },
         {
-          "match": "\\b\\d+(\\.\\d+)?\\b",
+          "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
           "name": "constant.numeric.markit"
         }
       ]
     },
+    "headingLine": {
+      "match": "^(\\^[1-6])\\s+(.*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.heading.markit" },
+        "2": { "name": "markup.heading.content.markit" }
+      },
+      "name": "markup.heading.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "blockquoteLine": {
+      "match": "^(>)\\s?(.*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.quote.begin.markit" },
+        "2": { "name": "markup.quote.block.content.markit" }
+      },
+      "name": "string.quoted.double.block.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "unorderedListItem": {
+      "match": "^(-)\\s+(.*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.list.begin.markit" },
+        "2": { "name": "markup.list.unnumbered.markit" }
+      },
+      "name": "markup.list.unnumbered.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "orderedListItem": {
+      "match": "^(\\d+\\.)\\s+(.*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.list.begin.markit" },
+        "2": { "name": "markup.list.numbered.markit" }
+      },
+      "name": "markup.list.numbered.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
     "inline": {
       "patterns": [
-        { "include": "#escape" },
-        { "include": "#braceCode" },
-        { "include": "#footnoteRef" },
+        { "include": "#quote" },
         { "include": "#strong" },
         { "include": "#emphasis" },
-        { "include": "#quote" },
         { "include": "#greek" },
         { "include": "#foreign" },
         { "include": "#aside" },
@@ -103,35 +136,26 @@
         { "include": "#deletion" },
         { "include": "#highlight" },
         { "include": "#citation" },
+        { "include": "#emSpace" },
+        { "include": "#nbSpace" },
         { "include": "#lineBreak" },
         { "include": "#pageBreak" },
-        { "include": "#emSpace" },
-        { "include": "#nbSpace" }
+        { "include": "#braceCode" },
+        { "include": "#footnoteRef" },
+        { "include": "#escape" }
       ]
     },
-    "escape": {
-      "match": "\\\\[\\\\*_\"$@+\\-=<>\\[\\]{}£~|/#]",
-      "name": "constant.character.escape.markit"
-    },
-    "braceCode": {
-      "match": "\\{(SS|--|-|ae|AE|oe|OE)\\}",
-      "name": "constant.character.braceCode.markit"
-    },
-    "footnoteRef": {
-      "match": "(<)(n[^\\s#{}]+)(>)",
-      "captures": {
-        "1": { "name": "punctuation.definition.footnote.begin.markit" },
-        "2": { "name": "entity.name.footnote.reference.markit" },
-        "3": { "name": "punctuation.definition.footnote.end.markit" }
-      }
-    },
-    "heading": {
-      "match": "^(£{1,6})\\s+(.*)",
-      "captures": {
-        "1": { "name": "punctuation.definition.heading.content.markit" },
-        "2": { "name": "markup.heading.content.markit" }
+    "quote": {
+      "begin": "(?<!\\\\)(\")",
+      "end": "(?<!\\\\)(\")",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.quote.begin.markit" }
       },
-      "name": "markup.heading.markit"
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.quote.end.markit" }
+      },
+      "name": "string.quoted.double.inline.markit",
+      "patterns": [{ "include": "#inline" }]
     },
     "strong": {
       "begin": "(?<!\\\\)(\\*)",
@@ -157,62 +181,50 @@
       "name": "markup.italic.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "quote": {
-      "begin": "(?<!\\\\)(\")",
-      "end": "(?<!\\\\)(\")",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.quote.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.quote.end.markit" }
-      },
-      "name": "markup.quote.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
     "greek": {
       "begin": "(?<!\\\\)(\\$\\$)",
       "end": "(?<!\\\\)(\\$\\$)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.greek.begin.markit" }
+        "1": { "name": "punctuation.definition.italic.greek.begin.markit" }
       },
       "endCaptures": {
-        "1": { "name": "punctuation.definition.greek.end.markit" }
+        "1": { "name": "punctuation.definition.italic.greek.end.markit" }
       },
-      "name": "markup.other.greek.markit",
+      "name": "markup.italic.greek.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "foreign": {
       "begin": "(?<!\\\\)(\\$)",
       "end": "(?<!\\\\)(\\$)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.foreign.begin.markit" }
+        "1": { "name": "punctuation.definition.italic.foreign.begin.markit" }
       },
       "endCaptures": {
-        "1": { "name": "punctuation.definition.foreign.end.markit" }
+        "1": { "name": "punctuation.definition.italic.foreign.end.markit" }
       },
-      "name": "markup.other.foreign.markit",
+      "name": "markup.italic.foreign.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "aside": {
       "begin": "(?<!\\\\)(@)",
       "end": "(?<!\\\\)(@)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.aside.begin.markit" }
+        "1": { "name": "punctuation.definition.comment.begin.markit" }
       },
       "endCaptures": {
-        "1": { "name": "punctuation.definition.aside.end.markit" }
+        "1": { "name": "punctuation.definition.comment.end.markit" }
       },
-      "name": "markup.other.aside.markit",
+      "name": "comment.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "insertion": {
       "begin": "(?<!\\\\)(\\+\\+)",
       "end": "(?<!\\\\)(\\+\\+)",
       "beginCaptures": {
-        "1": { "name": "markup.inserted.begin.markit" }
+        "1": { "name": "punctuation.definition.inserted.begin.markit" }
       },
       "endCaptures": {
-        "1": { "name": "markup.inserted.end.markit" }
+        "1": { "name": "punctuation.definition.inserted.end.markit" }
       },
       "name": "markup.inserted.markit",
       "patterns": [{ "include": "#inline" }]
@@ -221,12 +233,24 @@
       "begin": "(?<!\\\\)(--)",
       "end": "(?<!\\\\)(--)",
       "beginCaptures": {
-        "1": { "name": "markup.deleted.begin.markit" }
+        "1": { "name": "punctuation.definition.deleted.begin.markit" }
       },
       "endCaptures": {
-        "1": { "name": "markup.deleted.end.markit" }
+        "1": { "name": "punctuation.definition.deleted.end.markit" }
       },
       "name": "markup.deleted.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "highlight": {
+      "begin": "(?<!\\\\)(==)",
+      "end": "(?<!\\\\)(==)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.highlight.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.highlight.end.markit" }
+      },
+      "name": "markup.changed.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "citation": {
@@ -241,14 +265,6 @@
       "name": "markup.other.citation.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "lineBreak": {
-      "match": "//",
-      "name": "constant.character.linebreak.markit"
-    },
-    "pageBreak": {
-      "match": "\\|",
-      "name": "constant.character.pagebreak.markit"
-    },
     "emSpace": {
       "match": "~~",
       "name": "constant.character.emspace.markit"
@@ -257,41 +273,29 @@
       "match": "~",
       "name": "constant.character.nbsp.markit"
     },
-    "highlight": {
-      "begin": "(?<!\\\\)(==)",
-      "end": "(?<!\\\\)(==)",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.highlight.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.highlight.end.markit" }
-      },
-      "name": "markup.other.highlight.markit",
-      "patterns": [{ "include": "#inline" }]
+    "lineBreak": {
+      "match": "//",
+      "name": "constant.character.linebreak.markit"
     },
-    "blockquoteLine": {
-      "match": "^(>)\\s?(.*)",
-      "captures": {
-        "1": { "name": "punctuation.definition.quote.markit" },
-        "2": { "name": "markup.quote.block.markit" }
-      },
-      "name": "markup.quote.block.line.markit"
+    "pageBreak": {
+      "match": "\\|",
+      "name": "constant.character.pagebreak.markit"
     },
-    "unorderedListItem": {
-      "match": "^(-)\\s+(.*)",
-      "captures": {
-        "1": { "name": "punctuation.definition.list.begin.markit" },
-        "2": { "name": "markup.list.unnumbered.markit" }
-      },
-      "name": "markup.list.unnumbered.line.markit"
+    "braceCode": {
+      "match": "\\{(SS|--|-|ae|AE|oe|OE)\\}",
+      "name": "constant.character.entity.markit"
     },
-    "orderedListItem": {
-      "match": "^(\\d+\\.)\\s+(.*)",
+    "footnoteRef": {
+      "match": "(<)(n[^\\s#{}]+)(>)",
       "captures": {
-        "1": { "name": "punctuation.definition.list.begin.markit" },
-        "2": { "name": "markup.list.numbered.markit" }
-      },
-      "name": "markup.list.numbered.line.markit"
+        "1": { "name": "punctuation.definition.footnote.begin.markit" },
+        "2": { "name": "entity.name.citation.markit" },
+        "3": { "name": "punctuation.definition.footnote.end.markit" }
+      }
+    },
+    "escape": {
+      "match": "\\\\[\\\\*_\"$@+\\-=<>\\[\\]{}£~|/#]",
+      "name": "constant.character.escape.markit"
     }
   }
 }
