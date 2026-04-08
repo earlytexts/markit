@@ -11,15 +11,18 @@ describe("document structure", () => {
         "",
         "## Test.Document.Child1", // line 2
         "",
-        "{#1} Child 1 content.",
+        "{#1}",
+        "Child 1 content.",
         "",
-        "## Test.Document.Child2", // line 6
+        "## Test.Document.Child2", // line 7
         "",
-        "{#1} Child 2 content.",
+        "{#1}",
+        "Child 2 content.",
         "",
-        "### Test.Document.Child2.Grandchild", // line 10
+        "### Test.Document.Child2.Grandchild", // line 12
         "",
-        "{#1} Grandchild content.", // line 12
+        "{#1}",
+        "Grandchild content.", // line 15
       ),
     );
 
@@ -28,25 +31,25 @@ describe("document structure", () => {
     expect(document.id).toBe("Test.Document");
     expect(document.children).toHaveLength(2);
     expect(document[startLine]).toBe(0);
-    expect(document[endLine]).toBe(12);
+    expect(document[endLine]).toBe(15);
 
     const child1 = document.children[0]!;
     expect(child1.id).toBe("Test.Document.Child1");
     expect(child1.children).toHaveLength(0);
     expect(child1[startLine]).toBe(2);
-    expect(child1[endLine]).toBe(4);
+    expect(child1[endLine]).toBe(5);
 
     const child2 = document.children[1]!;
     expect(child2.id).toBe("Test.Document.Child2");
     expect(child2.children).toHaveLength(1);
-    expect(child2[startLine]).toBe(6);
-    expect(child2[endLine]).toBe(12);
+    expect(child2[startLine]).toBe(7);
+    expect(child2[endLine]).toBe(15);
 
     const grandchild = child2.children[0]!;
     expect(grandchild.id).toBe("Test.Document.Child2.Grandchild");
     expect(grandchild.children).toHaveLength(0);
-    expect(grandchild[startLine]).toBe(10);
-    expect(grandchild[endLine]).toBe(12);
+    expect(grandchild[startLine]).toBe(12);
+    expect(grandchild[endLine]).toBe(15);
   });
 
   it("parses a text with only an ID block and no metadata or content", () => {

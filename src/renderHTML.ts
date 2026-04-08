@@ -1,4 +1,9 @@
-import type { Block, Element, MarkitDocument } from "./types.js";
+import type {
+  Block,
+  BlockElement,
+  InlineElement,
+  MarkitDocument,
+} from "./types.js";
 import { startLine } from "./types.js";
 
 export default (document: MarkitDocument): string => {
@@ -7,28 +12,93 @@ export default (document: MarkitDocument): string => {
   )}</body></html>`;
 };
 
-const documentToHTML = (document: MarkitDocument): string => {
+const documentToHTML = (
+  document: MarkitDocument,
+  depth: number = 0,
+): string => {
   const line = document[startLine];
-  const blocks = document.blocks.map(blockToHTML).join("");
-  const children = document.children.map(documentToHTML).join("");
+  const blocks = document.blocks
+    .map((block) => blockToHTML(block, depth))
+    .join("");
+  const children = document.children
+    .map((child) => documentToHTML(child, depth + 1))
+    .join("");
   return `<section id="${document.id}" data-line="${line}">${blocks}${
     children.length > 0 ? children : ""
   }</section>`;
 };
 
-const blockToHTML = (block: Block): string => {
+const blockToHTML = (block: Block, depth: number): string => {
   const line = block[startLine];
-  const innerHTML = block.id.startsWith("n")
-    ? `<sup>${block.id}</sup> ${contentToHTML(block.content)}`
-    : contentToHTML(block.content);
-  const outerHTML = `<div data-line="${line}"><p>${innerHTML}</p></div>`;
-  return outerHTML.replace(/<p><\/p>/g, "");
+  const headingDepth = block.type === "subtitle" ? depth + 1 : depth;
+  let blockPrefix = "";
+  if (block.type === "paragraph") {
+    const b = block as Record<string, unknown>;
+    if (typeof b["subsection"] === "number") {
+      blockPrefix += `<span class="subsection">${b["subsection"]}.</span> `;
+    }
+    if (typeof b["speaker"] === "string") {
+      blockPrefix += `<span class="speaker">${b["speaker"]}.</span> `;
+    }
+  }
+  const footnoteId = block.type === "footnote" ? block.id : null;
+  const inner = block.content
+    .map((el, i) =>
+      blockElementToHTML(
+        el,
+        footnoteId,
+        headingDepth,
+        i === 0 ? blockPrefix : "",
+      ),
+    )
+    .join("");
+  return `<div data-line="${line}">${inner}</div>`;
 };
 
-const contentToHTML = (content: Element[]): string =>
-  content.map(elementToHTML).join("");
+const blockElementToHTML = (
+  element: BlockElement,
+  footnotePrefix: string | null,
+  depth: number,
+  blockPrefix: string = "",
+): string => {
+  switch (element.type) {
+    case "paragraph": {
+      const fnPrefix =
+        footnotePrefix !== null ? `<sup>${footnotePrefix}</sup> ` : "";
+      return `<p>${blockPrefix}${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
+    }
+    case "heading": {
+      const hLevel = Math.min(depth + 1, 6);
+      const inner = element.content
+        .map(
+          (l) =>
+            `<span class="size-${l.level}">${inlineElementsToHTML(l.content)}</span>`,
+        )
+        .join("");
+      return `<h${hLevel}>${inner}</h${hLevel}>`;
+    }
+    case "blockquote":
+      return `<blockquote>${element.content
+        .map((el, i) =>
+          blockElementToHTML(el, null, depth, i === 0 ? blockPrefix : ""),
+        )
+        .join("")}</blockquote>`;
+    case "list": {
+      const tag = element.ordered ? "ol" : "ul";
+      return `<${tag}>${element.content
+        .map(
+          (item, i) =>
+            `<li>${i === 0 ? blockPrefix : ""}${inlineElementsToHTML(item.content)}</li>`,
+        )
+        .join("")}</${tag}>`;
+    }
+  }
+};
 
-const elementToHTML = (element: Element): string => {
+const inlineElementsToHTML = (content: InlineElement[]): string =>
+  content.map(inlineElementToHTML).join("");
+
+const inlineElementToHTML = (element: InlineElement): string => {
   switch (element.type) {
     case "plainText":
       return element.content.replace(/&/g, "&amp;");
@@ -40,34 +110,28 @@ const elementToHTML = (element: Element): string => {
       return "&nbsp;";
     case "emSpace":
       return "&emsp;";
-    case "heading":
-      return `</p><h${element.level}>${contentToHTML(
-        element.content,
-      )}</h${element.level}><p>`;
     case "footnoteReference":
       return `<a href="#footnote-${element.id}" id="footnote-ref-${element.id}"><sup>${element.id}</sup></a>`;
     case "strong":
-      return `<strong>${contentToHTML(element.content)}</strong>`;
+      return `<strong>${inlineElementsToHTML(element.content)}</strong>`;
     case "emphasis":
-      return `<em>${contentToHTML(element.content)}</em>`;
+      return `<em>${inlineElementsToHTML(element.content)}</em>`;
     case "quote":
-      return `<q>${contentToHTML(element.content)}</q>`;
-    case "blockquote":
-      return `</p><blockquote>${contentToHTML(
-        element.content,
-      )}</blockquote><p>`;
+      return `<q>${inlineElementsToHTML(element.content)}</q>`;
     case "foreign":
-      return `<em class="foreign">${contentToHTML(element.content)}</em>`;
+      return `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
     case "greek":
-      return `<em class="greek">${contentToHTML(element.content)}</em>`;
+      return `<em class="greek">${inlineElementsToHTML(element.content)}</em>`;
     case "aside":
-      return `<span class="aside">${contentToHTML(element.content)}</span>`;
+      return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
     case "insertion":
-      return `<ins>${contentToHTML(element.content)}</ins>`;
+      return `<ins>${inlineElementsToHTML(element.content)}</ins>`;
     case "deletion":
-      return `<del>${contentToHTML(element.content)}</del>`;
+      return `<del>${inlineElementsToHTML(element.content)}</del>`;
+    case "highlight":
+      return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
     case "citation":
-      return `<cite>${contentToHTML(element.content)}</cite>`;
+      return `<cite>${inlineElementsToHTML(element.content)}</cite>`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

@@ -359,7 +359,7 @@ const parseBlockMetadata = <BlockMetadata extends Metadata>(
 
   // fallback to start line as ID if ID not provided
   // error will be reported by blockTagMatch check above
-  const id = blockTagParts[0]!;
+  let id = blockTagParts[0]!;
 
   // Validate block ID characters (only when a block tag was matched, not the fallback)
   if (blockTagMatch && !/^[^\s#{}]+$/.test(id)) {
@@ -388,8 +388,37 @@ const parseBlockMetadata = <BlockMetadata extends Metadata>(
     );
   }
 
-  // check for duplicate block ID
-  if (previousBlocks.some((b) => b.id === id)) {
+  // Title block validation: only one allowed, and it must be first
+  if (id === "title") {
+    if (previousBlocks.some((b) => b.id === "title")) {
+      errors.push(
+        makeError({
+          message: "Only one title block is allowed per text",
+          line: block.startLine,
+          column: firstLine.charOffset,
+          length: firstLine.content.length,
+        }),
+      );
+    } else if (previousBlocks.length > 0) {
+      errors.push(
+        makeError({
+          message: "Title block must be the first block in the text",
+          line: block.startLine,
+          column: firstLine.charOffset,
+          length: firstLine.content.length,
+        }),
+      );
+    }
+  }
+
+  // Subtitle auto-numbering: multiple subtitle blocks are allowed; each gets a unique compiled ID
+  if (id === "subtitle") {
+    const n = previousBlocks.filter((b) => b.id.startsWith("subtitle")).length;
+    id = `subtitle${n + 1}`;
+  }
+
+  // check for duplicate block ID (title duplicates are already handled above)
+  if (id !== "title" && previousBlocks.some((b) => b.id === id)) {
     errors.push(
       makeError({
         message: `Duplicate block ID: #${id}`,

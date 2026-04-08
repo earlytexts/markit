@@ -1,9 +1,7 @@
-import type { Element, MarkitError } from "../types.js";
+import type { InlineElement, MarkitError } from "../types.js";
 import {
   braceCodes,
   footnoteReferenceSpec,
-  headingSpec,
-  isBlockLevelType,
   isWrapperElement,
   leafElements,
   wrapperElements,
@@ -16,22 +14,17 @@ export default (
   input: string,
   positionMap: PositionInfo[],
   footnoteIds: string[],
-): [Element[], MarkitError[]] => {
-  // Step 1: Parse content and collect errors
+): [InlineElement[], MarkitError[]] => {
   const errors: MarkitError[] = [];
   const [elements] = parseElements(
     input,
     0,
     null,
-    false,
     positionMap,
     footnoteIds,
     errors,
   );
-
-  // Step 2: Clean up whitespace around block-level elements
   const cleanedElements = cleanupElements(elements);
-
   return [cleanedElements, errors];
 };
 
@@ -39,12 +32,11 @@ const parseElements = (
   input: string,
   startPos: number,
   closeMarker: string | null,
-  insideBlockLevel: boolean,
   positionMap: PositionInfo[],
   footnoteIds: string[],
   errors: MarkitError[],
-): [Element[], number] => {
-  const result: Element[] = [];
+): [InlineElement[], number] => {
+  const result: InlineElement[] = [];
   let pos = startPos;
   let plainTextBuffer = "";
 
@@ -162,101 +154,16 @@ const parseElements = (
       }
     }
 
-    // 5. Heading
-    if (input[pos] === headingSpec.marker) {
-      const levelChar = input[pos + 1];
-      if (levelChar && /[1-6]/.test(levelChar)) {
-        const level = parseInt(levelChar, 10);
-        const hasSpace = input[pos + 2] === " ";
-
-        if (hasSpace) {
-          if (insideBlockLevel) {
-            const position = positionMap[pos]!;
-            errors.push(
-              makeError({
-                message: "Block-level elements cannot be nested",
-                line: position.line,
-                column: position.column,
-                length: 3,
-              }),
-            );
-            // Treat as literal
-            plainTextBuffer += input.slice(pos, pos + 3);
-            pos += 3;
-            continue;
-          }
-
-          const closeMarkerStr = `${headingSpec.marker}${level}`;
-          const [headingContent, newPos] = parseElements(
-            input,
-            pos + 3,
-            closeMarkerStr,
-            true,
-            positionMap,
-            footnoteIds,
-            errors,
-          );
-
-          if (
-            newPos === pos + 3 ||
-            !input.startsWith(closeMarkerStr, newPos - closeMarkerStr.length)
-          ) {
-            // Unclosed heading
-            const position = positionMap[pos]!;
-            errors.push(
-              makeError({
-                message: `Unclosed heading level ${level}`,
-                line: position.line,
-                column: position.column,
-                length: 3,
-              }),
-            );
-          }
-
-          flushPlainText();
-          result.push({ type: "heading", level, content: headingContent });
-          pos = newPos;
-          continue;
-        }
-      }
-    }
-
-    // 6. Wrapper elements (check longest first)
+    // 5. Wrapper elements (check longest first)
     let wrapperMatched = false;
     for (const wrapper of [...wrapperElements].sort(
       (a, b) => b.open.length - a.open.length,
     )) {
       if (input.startsWith(wrapper.open, pos)) {
-        if (isBlockLevelType(wrapper.type) && insideBlockLevel) {
-          const position = positionMap[pos]!;
-          const closeIdx = input.indexOf(
-            wrapper.close,
-            pos + wrapper.open.length,
-          );
-          const endPos =
-            closeIdx >= 0
-              ? closeIdx + wrapper.close.length
-              : pos + wrapper.open.length;
-          errors.push(
-            makeError({
-              message: "Block-level elements cannot be nested",
-              line: position.line,
-              column: position.column,
-              length: endPos - pos,
-            }),
-          );
-          // Treat as literal
-          plainTextBuffer += input.slice(pos, endPos);
-          pos = endPos;
-          wrapperMatched = true;
-          break;
-        }
-
         const [wrapperContent, newPos] = parseElements(
           input,
           pos + wrapper.open.length,
           wrapper.close,
-          isBlockLevelType(wrapper.type) || insideBlockLevel,
           positionMap,
           footnoteIds,
           errors,
@@ -294,14 +201,9 @@ const parseElements = (
     }
     if (wrapperMatched) continue;
 
-    // 7. Plain text
+    // 6. Plain text
     plainTextBuffer += input[pos];
     pos++;
-  }
-
-  // Check if we were expecting a close marker but reached end of input
-  if (closeMarker && pos >= input.length) {
-    // Error already reported in the calling context for unclosed markers
   }
 
   flushPlainText();
@@ -310,104 +212,67 @@ const parseElements = (
 };
 
 /**
- * Clean up whitespace-only plainText elements around block-level elements
- * and trim content inside block-level elements.
+ * Trim leading and trailing whitespace from the element list, trim whitespace
+ * adjacent to lineBreak elements, and recursively clean wrapper element content.
  */
-const cleanupElements = (elements: Element[]): Element[] => {
-  const result: Element[] = [];
+const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
+  const result: InlineElement[] = [];
 
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Skip whitespace-only plainText between block elements or at the end
-    if (element.type === "plainText" && /^\s+$/.test(element.content)) {
-      const prevElement = result[result.length - 1];
-      const nextElement = elements[i + 1];
-
-      // Remove if:
-      // - This is at the end with no next element, OR
-      // - This is between two block-level elements, OR
-      // - This is after a block-level element at the end
-      if (
-        !nextElement ||
-        (prevElement && isBlockLevelType(prevElement.type)) ||
-        (nextElement && isBlockLevelType(nextElement.type))
-      ) {
-        continue;
-      }
-    }
-
-    // Trim trailing space from plainText that comes before a block-level element
-    if (element.type === "plainText") {
-      const nextElement = elements[i + 1];
-      if (nextElement && isBlockLevelType(nextElement.type)) {
-        result.push({
-          type: "plainText",
-          content: element.content.trimEnd(),
-        });
-        continue;
-      }
-    }
-
-    // Trim leading space from plainText that comes after a block-level element
-    if (element.type === "plainText") {
-      const prevElement = result[result.length - 1];
-      if (prevElement && isBlockLevelType(prevElement.type)) {
-        result.push({
-          type: "plainText",
-          content: element.content.trimStart(),
-        });
-        continue;
-      }
-    }
-
-    // Recursively clean up content in wrapper elements and trim block-level elements
-    if (element.type === "heading" || isWrapperElement(element)) {
-      const cleanedContent = cleanupElements(element.content);
-
-      // Trim content inside block-level elements
-      if (isBlockLevelType(element.type)) {
-        // Remove leading whitespace-only plainText elements
-        while (
-          cleanedContent.length > 0 &&
-          cleanedContent[0]!.type === "plainText" &&
-          typeof cleanedContent[0]!.content === "string" &&
-          /^\s+$/.test(cleanedContent[0]!.content)
-        ) {
-          cleanedContent.shift();
-        }
-
-        // Trim leading space from the first element if it's plainText
-        const firstElement = cleanedContent[0];
-        if (
-          firstElement &&
-          firstElement.type === "plainText" &&
-          typeof firstElement.content === "string"
-        ) {
-          cleanedContent[0] = {
-            type: "plainText",
-            content: firstElement.content.trimStart(),
-          };
-        }
-
-        // Trim trailing space from the last element if it's plainText
-        const lastIndex = cleanedContent.length - 1;
-        const lastElement = cleanedContent[lastIndex];
-        if (
-          lastElement &&
-          lastElement.type === "plainText" &&
-          typeof lastElement.content === "string"
-        ) {
-          cleanedContent[lastIndex] = {
-            type: "plainText",
-            content: lastElement.content.trimEnd(),
-          };
-        }
-      }
-
-      result.push({ ...element, content: cleanedContent });
+    // Recursively clean wrapper element content
+    if (isWrapperElement(element)) {
+      result.push({ ...element, content: cleanupElements(element.content) });
     } else {
       result.push(element);
+    }
+  }
+
+  // Trim leading whitespace from the first plainText element
+  const first = result[0];
+  if (first && first.type === "plainText") {
+    const trimmed = first.content.trimStart();
+    if (trimmed.length === 0) {
+      result.shift();
+    } else {
+      result[0] = { type: "plainText", content: trimmed };
+    }
+  }
+
+  // Trim trailing whitespace from the last plainText element
+  const last = result[result.length - 1];
+  if (last && last.type === "plainText") {
+    const trimmed = last.content.trimEnd();
+    if (trimmed.length === 0) {
+      result.pop();
+    } else {
+      result[result.length - 1] = { type: "plainText", content: trimmed };
+    }
+  }
+
+  // Trim whitespace adjacent to lineBreak elements
+  for (let i = 0; i < result.length; i++) {
+    if (result[i]?.type === "lineBreak") {
+      const prev = result[i - 1];
+      if (prev?.type === "plainText") {
+        const trimmed = prev.content.trimEnd();
+        if (trimmed.length === 0) {
+          result.splice(i - 1, 1);
+          i--;
+        } else {
+          result[i - 1] = { type: "plainText", content: trimmed };
+        }
+      }
+      const next = result[i + 1];
+      if (next?.type === "plainText") {
+        const trimmed = next.content.trimStart();
+        if (trimmed.length === 0) {
+          result.splice(i + 1, 1);
+        } else {
+          result[i + 1] = { type: "plainText", content: trimmed };
+        }
+      }
     }
   }
 

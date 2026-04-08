@@ -1,9 +1,9 @@
-import type { Element } from "../types.js";
+import type { InlineElement } from "../types.js";
 
-export default (content: Element[]): Element[] =>
+export default (content: InlineElement[]): InlineElement[] =>
   content.map(transliterateElement);
 
-const transliterateElement = (element: Element): Element => {
+const transliterateElement = (element: InlineElement): InlineElement => {
   if (element.type === "plainText") {
     return { ...element, content: transliterateContent(element.content) };
   } else if ("content" in element && Array.isArray(element.content)) {

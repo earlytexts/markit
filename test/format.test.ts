@@ -94,7 +94,7 @@ describe("formatter", () => {
       );
     });
 
-    it("ensures blank line between metadata block and block tag", () => {
+    it("ensures blank line between metadata block and first block tag", () => {
       const input = markit(
         "# mytext",
         "",
@@ -293,7 +293,7 @@ describe("formatter", () => {
     });
   });
 
-  describe("content normalization", () => {
+  describe("content white space normalization", () => {
     it("removes surrounding whitespace from content lines", () => {
       const input = markitWithContent("   Content with surrounding spaces   ");
       const result = formatDocument(input);
@@ -311,19 +311,56 @@ describe("formatter", () => {
       const result = formatDocument(input);
       expect(result).toBe(markitWithContent("Content with extra spaces"));
     });
+  });
 
-    it("preserves inline markup in content", () => {
-      const input = markitWithContent("{#1}", "*bold* and _italic_ text");
+  describe("block content normalization", () => {
+    it("preserves heading groups with no blank lines between lines", () => {
+      const input = markitWithContent("{#0}", "^1 Title", "^2 Subtitle");
       const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent("{#1}", "*bold* and _italic_ text"),
-      );
+      expect(result).toBe(input);
     });
 
-    it("collapses content into a single line", () => {
+    it("preserves blank lines between separate heading groups", () => {
+      const input = markitWithContent("{#0}", "^1 Title", "", "^2 Subtitle");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves blockquote lines with > prefix", () => {
       const input = markitWithContent(
         "{#1}",
-        "This is a paragraph\nthat spans multiple lines.",
+        "A paragraph.",
+        "",
+        "> A blockquote.",
+        "",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves list items on their own lines", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "Unordered list:",
+        "",
+        "- List item 1",
+        "- List item 2",
+        "",
+        "Numbered list:",
+        "",
+        "1. List item 1",
+        "2. List item 2",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("collapses paragraphs into a single line", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "This is a paragraph",
+        "that spans multiple lines.",
       );
       const result = formatDocument(input);
       expect(result).toBe(
@@ -334,27 +371,139 @@ describe("formatter", () => {
       );
     });
 
-    it("puts headings on their own lines", () => {
-      const input = markitWithContent(
-        "{#0} £2 The £2 £1 Title £1 Subsequent content",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent("{#0}", "£2 The £2\n£1 Title £1\nSubsequent content"),
-      );
-    });
-
-    it("puts blockquotes on their own lines with spacing", () => {
+    it("preserves blank lines between paragraphs", () => {
       const input = markitWithContent(
         "{#1}",
-        'A paragraph with ""a blockquote inside it"" and some more text afterwards.',
+        "First paragraph.",
+        "",
+        "Second paragraph.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("collapses block quotations into a single line", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> This is a block quote",
+        "> that spans multiple lines.",
       );
       const result = formatDocument(input);
       expect(result).toBe(
         markitWithContent(
           "{#1}",
-          'A paragraph with\n    ""a blockquote inside it""\nand some more text afterwards.',
+          "> This is a block quote that spans multiple lines.",
         ),
+      );
+    });
+
+    it("preserves blank lines between paragraphs in block quotations", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> First paragraph of block quote.",
+        ">",
+        "> Second paragraph of block quote.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "> First paragraph of block quote.",
+          ">",
+          "",
+          "> Second paragraph of block quote.",
+        ),
+      );
+    });
+
+    it("strips leading and trailing blank lines from block quotations", () => {
+      const input = markitWithContent(
+        "{#1}",
+        ">",
+        "> This is a block quote.",
+        ">",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "> This is a block quote."),
+      );
+    });
+
+    it("collapses multiple blank lines in block quotations to a single blank line", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> This is a block quote with two paragraphs.",
+        ">",
+        ">",
+        "> But there's extra space in between them.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "> This is a block quote with two paragraphs.",
+          ">",
+          "> But there's extra space in between them.",
+        ),
+      );
+    });
+
+    it("corrects sequential numbering in lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "2. Item 1",
+        "5. Item 2",
+        "1. Item 3",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "1. Item 1", "2. Item 2", "3. Item 3"),
+      );
+    });
+
+    it("adds blank lines between block-level elements in content", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "^1 Heading 1",
+        "^2 Heading 2",
+        "First paragraph.",
+        "> A blockquote.",
+        "More text.",
+        "^3 Another heading",
+        "- list item 1",
+        "- list item 2",
+        "Even more text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "^1 Heading 1",
+          "^2 Heading 2",
+          "",
+          "First paragraph.",
+          "",
+          "> A blockquote.",
+          "",
+          "More text.",
+          "",
+          "^3 Another heading",
+          "",
+          "- list item 1",
+          "- list item 2",
+          "",
+          "Even more text.",
+        ),
+      );
+    });
+  });
+
+  describe("inline content normalization", () => {
+    it("preserves inline markup in content", () => {
+      const input = markitWithContent("{#1}", "*bold* and _italic_ text");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "*bold* and _italic_ text"),
       );
     });
 
@@ -370,18 +519,23 @@ describe("formatter", () => {
       expect(result).toBe(markitWithContent("{#1}", "Line one. //\nLine two."));
     });
 
-    it("handles line breaks inside block quotations", () => {
-      const input = markitWithContent(
-        "{#1}",
-        'This paragraph contains ""A blockquote with a line break.// Still the same blockquote."" And more content.',
-      );
+    it("handles line breaks inside blockquotes", () => {
+      const input = markitWithContent("{#1}", "> Line one. // Line two.");
       const result = formatDocument(input);
       expect(result).toBe(
-        markitWithContent(
-          "{#1}",
-          'This paragraph contains\n    ""A blockquote with a line break. //\n    Still the same blockquote.""\nAnd more content.',
-        ),
+        markitWithContent("{#1}", "> Line one. //", "> Line two."),
       );
+    });
+
+    it("preserves blank lines between paragraphs inside content blocks", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "First paragraph.",
+        "",
+        "Second paragraph.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
     });
   });
 
@@ -431,7 +585,7 @@ describe("formatter", () => {
         'author :  "Locke"  ',
         "",
         "",
-        "{# 0 } £1 Book One £1 £2 Of Ideas £2",
+        "{# 0 } ^1 Book One",
         "",
         "{#1 , margin = true}  *Important* paragraph.  ",
         "",
@@ -454,8 +608,7 @@ describe("formatter", () => {
           'author: "Locke"',
           "",
           "{#0}",
-          "£1 Book One £1",
-          "£2 Of Ideas £2",
+          "^1 Book One",
           "",
           "{#1, margin=true}",
           "*Important* paragraph.",
@@ -521,7 +674,7 @@ describe("formatter", () => {
         'author: "John"',
         "",
         "{#0}",
-        "£1 My Title £1",
+        "^1 My Title",
         "",
         "{#1}",
         "First paragraph.",

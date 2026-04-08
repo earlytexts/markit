@@ -19,74 +19,207 @@ export const emitBlank = (state: State): State => {
   };
 };
 
-// Flush content buffer
-// Calls extractBlockElements to handle block tags (headings and blockquotes) within content
+// Flush content buffer.
+// Block-level elements are line-based:
+//   - lines matching ^[1-6] space     → heading (consecutive heading lines form a group)
+//   - lines starting with >           → blockquote
+//   - blank lines                     → element separator
+//   - everything else                 → paragraph line (consecutive lines are collapsed)
+// Consecutive paragraph lines are joined and whitespace is collapsed.
 export const flushContent = (state: State): State => {
   if (state.contentBuffer.length === 0) return state;
 
-  const collapsedContent = state.contentBuffer.join(" ");
-  const extractedLines = extractBlockElements(collapsedContent);
+  const outputLines = extractBlockElements(state.contentBuffer);
 
   return {
     ...state,
-    acc: [...state.acc, ...extractedLines],
+    acc: [...state.acc, ...outputLines],
     contentBuffer: [],
     lastEmitted: "nonblank",
   };
 };
 
-// Extract block-level elements (headings and blockquotes) to separate lines
-const extractBlockElements = (content: string): string[] => {
-  const lines: string[] = [];
+// Process content buffer lines, preserving block-level structure and normalizing whitespace.
+const extractBlockElements = (buffer: string[]): string[] => {
+  const output: string[] = [];
+  let paragraphLines: string[] = [];
+  let blockquoteLines: string[] = [];
+  let listLines: string[] = [];
+  let headingLines: string[] = [];
 
-  // Find all block-level elements: £N...£N headings and ""..."" blockquotes
-  const blockRegex = /(£\d[^£]*£\d|""[^"]*"")/g;
+  const isUnorderedListItem = (line: string): boolean => /^-\s/.test(line);
+  const isOrderedListItem = (line: string): boolean => /^\d+\.\s/.test(line);
 
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const flushParagraph = (): void => {
+    if (paragraphLines.length === 0) return;
+    const collapsed = paragraphLines.join(" ").replace(/\s+/g, " ").trim();
+    output.push(...splitOnLineBreakMarker(collapsed));
+    paragraphLines = [];
+  };
 
-  while ((match = blockRegex.exec(content)) !== null) {
-    const beforeBlock = content.slice(lastIndex, match.index).trim();
-    const blockElement = match[0];
+  const flushBlockquote = (): void => {
+    if (blockquoteLines.length === 0) return;
+    const collapsed = blockquoteLines.join(" ").replace(/\s+/g, " ").trim();
+    output.push(
+      ...splitOnLineBreakMarker(collapsed).map((part) => `> ${part}`),
+    );
+    blockquoteLines = [];
+  };
 
-    // Add text before the block element
-    if (beforeBlock) {
-      lines.push(...splitOnLineBreakMarker(beforeBlock, 0));
+  const flushList = (): void => {
+    if (listLines.length === 0) return;
+    // Add blank line before list if we already have content
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+    // Renumber ordered list items sequentially
+    let orderCounter = 1;
+    for (const line of listLines) {
+      if (isOrderedListItem(line)) {
+        // Replace number with sequential counter
+        const content = line.replace(/^\d+\.\s/, "");
+        output.push(`${orderCounter}. ${content}`);
+        orderCounter++;
+      } else {
+        output.push(line);
+      }
+    }
+    listLines = [];
+  };
+
+  const flushHeading = (): void => {
+    if (headingLines.length === 0) return;
+    // Add blank line before heading group if we already have content
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+    // Emit all heading lines with no blank lines between them
+    for (const line of headingLines) {
+      output.push(line);
+    }
+    headingLines = [];
+  };
+
+  for (let i = 0; i < buffer.length; i++) {
+    const line = buffer[i]!;
+    const trimmed = line.trim();
+
+    // Blank line — separator between block-level elements
+    if (trimmed === "") {
+      flushParagraph();
+      flushBlockquote();
+      flushList();
+      flushHeading();
+      // Only emit a blank line if we've already output something
+      if (output.length > 0 && output.at(-1) !== "") {
+        output.push("");
+      }
+      continue;
     }
 
-    // Add the block element with appropriate formatting
-    if (blockElement.startsWith('"')) {
-      // Blockquote - indent with 4 spaces
-      lines.push(...splitOnLineBreakMarker(blockElement, 4));
-    } else {
-      // Heading - no indentation
-      lines.push(...splitOnLineBreakMarker(blockElement, 0));
+    // Heading line: ^ followed by digit 1-6 and a space
+    if (/^\^[1-6] /.test(trimmed)) {
+      flushParagraph();
+      flushBlockquote();
+      flushList();
+      headingLines.push(trimmed);
+      continue;
     }
 
-    lastIndex = match.index + blockElement.length;
+    // List item: unordered (-) or ordered (1., 2., etc.)
+    if (isUnorderedListItem(trimmed) || isOrderedListItem(trimmed)) {
+      flushParagraph();
+      flushBlockquote();
+      flushHeading();
+      listLines.push(trimmed);
+      continue;
+    }
+
+    // Blockquote line: starts with >
+    if (trimmed.startsWith(">")) {
+      flushParagraph();
+      flushList();
+      flushHeading();
+      const inner = trimmed.slice(1).trim();
+      if (inner) {
+        // Check if we should add a blank line before this blockquote content
+        // Don't add if the previous output is a bare ">" that was part of consecutive bare ">" lines
+        let shouldAddBlank = false;
+        if (
+          blockquoteLines.length === 0 &&
+          output.length > 0 &&
+          output.at(-1) !== ""
+        ) {
+          if (output.at(-1) === ">") {
+            // Only add blank if the bare ">" wasn't from consecutive bare ">" lines
+            // Check backwards in buffer to see if there were multiple consecutive ">"
+            let consecutiveBareCount = 0;
+            for (let j = i - 1; j >= 0; j--) {
+              const prevTrimmed = buffer[j]!.trim();
+              if (prevTrimmed === ">") {
+                consecutiveBareCount++;
+              } else {
+                break;
+              }
+            }
+            // If there was only one bare ">", add a blank line
+            shouldAddBlank = consecutiveBareCount === 1;
+          } else {
+            shouldAddBlank = true;
+          }
+        }
+        if (shouldAddBlank) {
+          output.push("");
+        }
+        blockquoteLines.push(inner);
+      } else {
+        // Bare ">" acts as a paragraph separator within blockquotes
+        flushBlockquote();
+        if (
+          output.length > 0 &&
+          output.at(-1) !== "" &&
+          output.at(-1) !== ">"
+        ) {
+          output.push(">");
+        }
+      }
+      continue;
+    }
+
+    // Regular content line — accumulate as paragraph
+    flushBlockquote();
+    flushList();
+    flushHeading();
+    // Add blank line before paragraph if we already have content
+    if (
+      paragraphLines.length === 0 &&
+      output.length > 0 &&
+      output.at(-1) !== ""
+    ) {
+      output.push("");
+    }
+    paragraphLines.push(trimmed);
   }
 
-  // Add any remaining text after the last block element
-  const afterLast = content.slice(lastIndex).trim();
-  if (afterLast) {
-    lines.push(...splitOnLineBreakMarker(afterLast, 0));
-  }
+  flushParagraph();
+  flushBlockquote();
+  flushList();
+  flushHeading();
 
-  // Return the lines (guaranteed to be at least one because contentBuffer is
-  // not empty when this is called)
-  return lines;
+  // Strip any trailing blank or bare blockquote separator lines
+  while (output.at(-1) === "" || output.at(-1) === ">") output.pop();
+
+  return output;
 };
 
 // Split content on '//' markers to create line breaks
-const splitOnLineBreakMarker = (text: string, offset: number): string[] => {
+const splitOnLineBreakMarker = (text: string): string[] => {
   return text
     .replace(/(\S)\/\//g, "$1 //")
     .split("//")
     .map((part, index, array) => {
       const trimmed = part.trim();
-      const withLineBreak =
-        index < array.length - 1 ? `${trimmed} //` : trimmed;
-      return " ".repeat(offset) + withLineBreak;
+      return index < array.length - 1 ? `${trimmed} //` : trimmed;
     })
-    .filter((part) => part !== "" && part !== "//");
+    .filter((part) => part !== "");
 };
