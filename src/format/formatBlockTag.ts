@@ -43,44 +43,7 @@ const formatBlockTag = (line: string) => {
   const inner = trimmed.slice(2, closingBrace);
   const rest = trimmed.slice(closingBrace + 1).trim();
 
-  // Split on commas, but respect quoted strings
-  const parts: string[] = [];
-  let current = "";
-  let inQuote = false;
-  let escapeNext = false;
-
-  for (let i = 0; i < inner.length; i++) {
-    const char = inner[i];
-
-    if (escapeNext) {
-      current += char;
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === "\\") {
-      current += char;
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inQuote = !inQuote;
-      current += char;
-      continue;
-    }
-
-    if (char === "," && !inQuote) {
-      parts.push(current);
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-  parts.push(current);
-
-  // Format each part
+  const parts = inner.split(",").map((s) => s.trim());
   const formattedParts = parts.map(formatBlockTagPart);
 
   const formattedTag = `{#${formattedParts.join(", ")}}`;

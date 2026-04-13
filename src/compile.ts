@@ -22,22 +22,19 @@ import { endLine, startLine } from "./types.js";
  *   [0] The parsed document (always produced, even if there are errors)
  *   [1] An array of any errors and warnings encountered during parsing and validation
  */
-export default <
-  TextMetadata extends Metadata = {},
-  BlockMetadata extends Metadata = {},
->(
+export default <TextMetadata extends Metadata = {}>(
   text: string,
   options: Partial<CompileOptions> = {},
-): [MarkitDocument<TextMetadata, BlockMetadata>, MarkitError[]] => {
+): [MarkitDocument<TextMetadata>, MarkitError[]] => {
   const loadingStack = new Set(options.filePath ? [options.filePath] : []);
-  return compile<TextMetadata, BlockMetadata>(text, options, loadingStack);
+  return compile<TextMetadata>(text, options, loadingStack);
 };
 
-const compile = <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
+const compile = <TextMetadata extends Metadata>(
   text: string,
   optionOverrides: Partial<CompileOptions>,
   loadingStack: Set<string> = new Set(),
-): [MarkitDocument<TextMetadata, BlockMetadata>, MarkitError[]] => {
+): [MarkitDocument<TextMetadata>, MarkitError[]] => {
   const options: CompileOptions = {
     embedExternalChildren: true,
     fileLoader: (path: string) => readFileSync(path, "utf-8"),
@@ -54,7 +51,7 @@ const compile = <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
       children: [],
       [startLine]: 0,
       [endLine]: 0,
-    } as unknown as MarkitDocument<TextMetadata, BlockMetadata>;
+    } as unknown as MarkitDocument<TextMetadata>;
 
     const emptyDocumentError = makeError({
       message: "Document is empty",
@@ -70,10 +67,8 @@ const compile = <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
   const [textTree, treeErrors] = generateTextTree([firstBlock, ...otherBlocks]);
 
   // Parse metadata for each text and block in the tree
-  const [treeWithMetadata, metaDataErrors] = parseMetadata<
-    TextMetadata,
-    BlockMetadata
-  >(textTree);
+  const [treeWithMetadata, metaDataErrors] =
+    parseMetadata<TextMetadata>(textTree);
 
   // Parse block content for each block, including for internal children recursively
   const [document, contentErrors] = parseContent(treeWithMetadata);
@@ -81,7 +76,7 @@ const compile = <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
   // Optionally compile external children recursively for embedding in the final document
   const [externalChildren, externalChildrenErrors] =
     options.embedExternalChildren
-      ? compileExternalChildren<TextMetadata, BlockMetadata>(
+      ? compileExternalChildren<TextMetadata>(
           treeWithMetadata,
           options,
           loadingStack,
@@ -95,7 +90,7 @@ const compile = <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
     children: [...document.children, ...externalChildren],
     [startLine]: document[startLine],
     [endLine]: document[endLine],
-  } as MarkitDocument<TextMetadata, BlockMetadata>;
+  } as MarkitDocument<TextMetadata>;
 
   // Merge and sort errors
   const errors = [

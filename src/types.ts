@@ -29,31 +29,37 @@ export type MetadataValue =
   | string[];
 
 // Document type
-export type MarkitDocument<
-  TextMetadata extends Metadata = {},
-  BlockMetadata extends Metadata = {},
-> = {
+export type MarkitDocument<TextMetadata extends Metadata = {}> = {
   id: string;
-  blocks: Block<BlockMetadata>[];
-  children: MarkitDocument<TextMetadata, BlockMetadata>[];
+  blocks: Block[];
+  children: MarkitDocument<TextMetadata>[];
   [startLine]: number; // used by the language server
   [endLine]: number; // used by the language server
 } & TextMetadata; // allow custom metadata fields
 
 export const RESERVED_TEXT_KEYS = ["id", "blocks", "children"];
 
+// Block metadata
+export const VALID_BLOCK_METADATA_KEYS = [
+  "pages",
+  "subsection",
+  "speaker",
+] as const;
+export type BlockMetadataKey = (typeof VALID_BLOCK_METADATA_KEYS)[number];
+
 // Block types
 export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
 
-export type Block<BlockMetadata extends Metadata = {}> = {
+export type Block = {
   id: string;
   type: BlockType;
   content: BlockElement[];
   [startLine]: number; // used by the language server
   [endLine]: number; // used by the language server
-} & BlockMetadata; // allow custom metadata fields
-
-export const RESERVED_BLOCK_KEYS = ["id", "type", "content"];
+  pages?: string;
+  subsection?: string;
+  speaker?: string;
+};
 
 // Source range symbols (used by the language server)
 export const startLine = Symbol("startLine");

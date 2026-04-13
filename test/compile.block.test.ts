@@ -37,15 +37,15 @@ describe("blocks", () => {
 
   it("parses block metadata", () => {
     const [document, errors] = compile(
-      markitWithContent('{#1, boolean=true, number=42, string="hello"}'),
+      markitWithContent("{#1, pages=12-15, subsection=3, speaker=John Smith}"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]).toEqual(
       expect.objectContaining({
-        boolean: true,
-        number: 42,
-        string: "hello",
+        pages: "12-15",
+        subsection: "3",
+        speaker: "John Smith",
       }),
     );
   });
@@ -114,32 +114,41 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for block with invalid metadata values", () => {
+  it("returns error for block with invalid metadata key", () => {
     const [, errors] = compile(
       markit(
         "# Text",
         "",
-        '{#3, badBoolean=troo, badString="no closing quote}',
-        "This block has badly formed metadata.",
+        "{#1, foo=bar}",
+        "This block has an invalid metadata key.",
         "",
       ),
     );
 
-    expect(errors).toHaveLength(2);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
-      message: "Invalid metadata value: troo",
+      message:
+        "Block tag key 'foo' is not a valid metadata key (valid keys: pages, subsection, speaker)",
       line: 3,
-      column: 17,
+      column: 6,
       endLine: 3,
-      endColumn: 21,
+      endColumn: 9,
       severity: "error",
     });
-    expect(errors[1]).toEqual({
-      message: 'Invalid metadata value: "no closing quote',
+  });
+
+  it("returns error for block with empty metadata value", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1, speaker=}", "Block content.", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message: "Invalid block metadata, expected 'key=value'",
       line: 3,
-      column: 33,
+      column: 6,
       endLine: 3,
-      endColumn: 50,
+      endColumn: 14,
       severity: "error",
     });
   });
@@ -169,14 +178,15 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for reserved block tag key 'id'", () => {
+  it("returns error for invalid block tag key 'id'", () => {
     const [, errors] = compile(
-      markit("# Text", "", '{#1, id="custom"}', "Block content.", ""),
+      markit("# Text", "", "{#1, id=custom}", "Block content.", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
-      message: "Block tag key 'id' is reserved and cannot be used in metadata",
+      message:
+        "Block tag key 'id' is not a valid metadata key (valid keys: pages, subsection, speaker)",
       line: 3,
       column: 6,
       endLine: 3,
@@ -185,15 +195,15 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for reserved block tag key 'content'", () => {
+  it("returns error for invalid block tag key 'content'", () => {
     const [, errors] = compile(
-      markit("# Text", "", '{#1, content="x"}', "Block content.", ""),
+      markit("# Text", "", "{#1, content=x}", "Block content.", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message:
-        "Block tag key 'content' is reserved and cannot be used in metadata",
+        "Block tag key 'content' is not a valid metadata key (valid keys: pages, subsection, speaker)",
       line: 3,
       column: 6,
       endLine: 3,
@@ -261,15 +271,15 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for reserved block tag key 'type'", () => {
+  it("returns error for invalid block tag key 'type'", () => {
     const [, errors] = compile(
-      markit("# Text", "", '{#1, type="paragraph"}', "Block content.", ""),
+      markit("# Text", "", "{#1, type=paragraph}", "Block content.", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message:
-        "Block tag key 'type' is reserved and cannot be used in metadata",
+        "Block tag key 'type' is not a valid metadata key (valid keys: pages, subsection, speaker)",
       line: 3,
       column: 6,
       endLine: 3,

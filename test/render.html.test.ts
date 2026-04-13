@@ -216,7 +216,7 @@ describe("subsection and speaker metadata", () => {
 
   it("renders speaker as span before first paragraph element", () => {
     const [document] = compile(
-      markitWithContent('{#1, speaker="Alice"}', "Hello"),
+      markitWithContent("{#1, speaker=Alice}", "Hello"),
     );
     expect(renderHTML(document)).toContain(
       '<p><span class="speaker">Alice.</span> Hello</p>',
@@ -225,7 +225,7 @@ describe("subsection and speaker metadata", () => {
 
   it("renders both subsection and speaker before first paragraph element", () => {
     const [document] = compile(
-      markitWithContent('{#1, subsection=3, speaker="Bob"}', "Hello"),
+      markitWithContent("{#1, subsection=3, speaker=Bob}", "Hello"),
     );
     expect(renderHTML(document)).toContain(
       '<p><span class="subsection">3.</span> <span class="speaker">Bob.</span> Hello</p>',

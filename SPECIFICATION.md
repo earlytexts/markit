@@ -114,19 +114,18 @@ There are four types of content block, determined by the block ID:
 Block tags can also include optional metadata as a comma-separated list of key-value pairs:
 
 ```
-{#1, page=12, language="en"}
+{#1, pages=12-15, speaker=Alice Smith}
 ```
 
-Values can be strings (enclosed in double quotes), numbers, or Booleans (`true` or `false`). The keys `id` and `content` are reserved and cannot be used in block metadata. The `id` key is reserved for the block's ID, and the `content` key is reserved for the block's content text.
+Three metadata keys are supported:
 
-### Special Metadata Keys
+- `pages` — the page reference for this block (e.g. `pages=12`, `pages=fo. 12`, `pages=12-15`)
+- `subsection` — a subsection number or label for paragraph blocks (e.g. `subsection=3`)
+- `speaker` — the name of a speaker in a dialogue, for paragraph blocks (e.g. `speaker=Alice Smith`)
 
-The keys `subsection` and `speaker` have a special meaning when used in paragraph blocks:
+Values are unquoted strings. Any characters are allowed except for commas (which separate key-value pairs) and `}` (which closes the block tag). Leading and trailing whitespace around values is trimmed. Any key other than the three listed above is an error.
 
-- `subsection` is used for a subsection number (and must be a number)
-- `speaker` is used for the name of a speaker in a dialogue (and must be a string)
-
-In the HTML or text output, these are rendered as a prefix to the block's first line, followed by a full-stop, i.e. `1. Rest of content...`, `Speaker. Rest of content...`.
+In the HTML or text output, `subsection` and `speaker` are rendered as a prefix to the block's first line, followed by a full-stop, i.e. `3. Rest of content...`, `Alice Smith. Rest of content...`.
 
 ## Content Text
 
@@ -287,7 +286,7 @@ Markit documents are compiled to a JSON format that captures the hierarchical st
 - `blocks`: an array of content blocks (see below)
 - `children`: an array of child texts (inline first, then external), each with the same top-level structure
 
-For example, a text with `author: "Jane"` metadata and a block `{#1, revised=true}` would produce:
+For example, a text with `author: "Jane"` metadata and a block `{#1, pages=12-15}` would produce:
 
 ```json
 {
@@ -296,7 +295,7 @@ For example, a text with `author: "Jane"` metadata and a block `{#1, revised=tru
   "blocks": [
     {
       "id": "My.Text.1",
-      "revised": true,
+      "pages": "12-15",
       "content": [...]
     }
   ],
