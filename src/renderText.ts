@@ -18,12 +18,11 @@ const blockToText = (block: Block): string => {
   const footnoteId = block.type === "footnote" ? block.id : null;
   let blockPrefix = "";
   if (block.type === "paragraph") {
-    const b = block as Record<string, unknown>;
-    if (typeof b["subsection"] === "number") {
-      blockPrefix += `${b["subsection"]}. `;
+    if (typeof block.subsection === "string") {
+      blockPrefix += `${block.subsection}. `;
     }
-    if (typeof b["speaker"] === "string") {
-      blockPrefix += `${b["speaker"]}. `;
+    if (typeof block.speaker === "string") {
+      blockPrefix += `${block.speaker}. `;
     }
   }
   const parts = block.content.map((el, i) =>

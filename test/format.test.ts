@@ -242,21 +242,15 @@ describe("formatter", () => {
       );
     });
 
-    it("doesn't change string values containing commas", () => {
-      const input = markitWithContent('{#1, label="a , b"}', "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent('{#1, label="a , b"}', "Content"));
-    });
-
     it("handles multiple key-value pairs with various spacing", () => {
       const input = markitWithContent(
-        '{#1,  margin=true ,   label="hello world" ,number=12}',
+        "{#1,  pages=12-15 ,   speaker=John Smith ,subsection=3}",
         "Content",
       );
       const result = formatDocument(input);
       expect(result).toBe(
         markitWithContent(
-          '{#1, margin=true, label="hello world", number=12}',
+          "{#1, pages=12-15, speaker=John Smith, subsection=3}",
           "Content",
         ),
       );
@@ -286,10 +280,10 @@ describe("formatter", () => {
       expect(result).toBe(markitWithContent("{#1, standalone}", "Content"));
     });
 
-    it("handles escaped characters in block tag values", () => {
-      const input = markitWithContent('{#1, key="a\\\\b"}', "Content");
+    it("trims whitespace around values", () => {
+      const input = markitWithContent("{#1, speaker=  Alice  }", "Content");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent('{#1, key="a\\\\b"}', "Content"));
+      expect(result).toBe(markitWithContent("{#1, speaker=Alice}", "Content"));
     });
   });
 

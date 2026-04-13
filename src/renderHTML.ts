@@ -33,12 +33,11 @@ const blockToHTML = (block: Block, depth: number): string => {
   const headingDepth = block.type === "subtitle" ? depth + 1 : depth;
   let blockPrefix = "";
   if (block.type === "paragraph") {
-    const b = block as Record<string, unknown>;
-    if (typeof b["subsection"] === "number") {
-      blockPrefix += `<span class="subsection">${b["subsection"]}.</span> `;
+    if (typeof block.subsection === "string") {
+      blockPrefix += `<span class="subsection">${block.subsection}.</span> `;
     }
-    if (typeof b["speaker"] === "string") {
-      blockPrefix += `<span class="speaker">${b["speaker"]}.</span> `;
+    if (typeof block.speaker === "string") {
+      blockPrefix += `<span class="speaker">${block.speaker}.</span> `;
     }
   }
   const footnoteId = block.type === "footnote" ? block.id : null;

@@ -190,14 +190,14 @@ describe("subsection and speaker metadata", () => {
 
   it("renders speaker before first paragraph element", () => {
     const [document] = compile(
-      markitWithContent('{#1, speaker="Alice"}', "Hello"),
+      markitWithContent("{#1, speaker=Alice}", "Hello"),
     );
     expect(renderText(document)).toContain("Alice. Hello");
   });
 
   it("renders both subsection and speaker before first paragraph element", () => {
     const [document] = compile(
-      markitWithContent('{#1, subsection=3, speaker="Bob"}', "Hello"),
+      markitWithContent("{#1, subsection=3, speaker=Bob}", "Hello"),
     );
     expect(renderText(document)).toContain("3. Bob. Hello");
   });

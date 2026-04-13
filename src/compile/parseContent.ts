@@ -28,21 +28,18 @@ import type {
 /**
  * Parse the content of each block in the TextTree, returning a fully parsed MarkitDocument.
  */
-export default <TextMetadata extends Metadata, BlockMetadata extends Metadata>(
-  tree: TextTreeWithMetadata<TextMetadata, BlockMetadata>,
-  externalChildren: MarkitDocument<TextMetadata, BlockMetadata>[] = [],
-): [MarkitDocument<TextMetadata, BlockMetadata>, MarkitError[]] => {
+export default <TextMetadata extends Metadata>(
+  tree: TextTreeWithMetadata<TextMetadata>,
+  externalChildren: MarkitDocument<TextMetadata>[] = [],
+): [MarkitDocument<TextMetadata>, MarkitError[]] => {
   return parseTextContent(tree, externalChildren, {} as TextMetadata);
 };
 
-const parseTextContent = <
-  TextMetadata extends Metadata,
-  BlockMetadata extends Metadata,
->(
-  text: TextTreeWithMetadata<TextMetadata, BlockMetadata>,
-  externalChildren: MarkitDocument<TextMetadata, BlockMetadata>[] = [],
+const parseTextContent = <TextMetadata extends Metadata>(
+  text: TextTreeWithMetadata<TextMetadata>,
+  externalChildren: MarkitDocument<TextMetadata>[] = [],
   parentMetadata: TextMetadata,
-): [MarkitDocument<TextMetadata, BlockMetadata>, MarkitError[]] => {
+): [MarkitDocument<TextMetadata>, MarkitError[]] => {
   // Get footnote reference ids to validate footnote references
   const footnoteIds = text.blocks
     .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
@@ -73,15 +70,15 @@ const parseTextContent = <
     children: [...children, ...externalChildren],
     [startLine]: text.startLine,
     [endLine]: text.endLine,
-  } as MarkitDocument<TextMetadata, BlockMetadata>;
+  } as MarkitDocument<TextMetadata>;
 
   return [document, [...blockErrors, ...childErrors]];
 };
 
-const parseBlockContent = <BlockMetadata extends Metadata>(
-  block: BlockWithMetadata<BlockMetadata>,
+const parseBlockContent = (
+  block: BlockWithMetadata,
   footnoteIds: string[],
-): [Block<BlockMetadata>, MarkitError[]] => {
+): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
   const blockType: BlockType =
@@ -103,14 +100,14 @@ const parseBlockContent = <BlockMetadata extends Metadata>(
     "Headings are only allowed in title or subtitle blocks.",
   );
 
-  const parsedBlock = {
+  const parsedBlock: Block = {
     ...block.metadata,
     id: block.id,
     type: blockType,
     content,
     [startLine]: block.startLine,
     [endLine]: block.endLine,
-  } as Block<BlockMetadata>;
+  };
 
   return [parsedBlock, errors];
 };
