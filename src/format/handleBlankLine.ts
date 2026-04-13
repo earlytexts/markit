@@ -20,6 +20,13 @@ export default (state: State): State => {
     };
   }
 
+  // Inside a multiline array: blank line ends the array, transition back to metadata
+  if (state.context === "inMetadataArray") {
+    let newState = flushContent(state);
+    newState = emitBlank(newState);
+    return { ...newState, context: "inMetadata" };
+  }
+
   // Outside content blocks: flush any buffered content and emit a blank.
   let newState = flushContent(state);
   return emitBlank(newState);

@@ -9,5 +9,6 @@ export type Context =
   | "start"
   | "afterId"
   | "inMetadata"
+  | "inMetadataArray"
   | "afterMetadata"
   | "inContent";

@@ -28,34 +28,44 @@ It is conventional (and recommended) to use dot notation for IDs, as in the exam
 
 ## Text Metadata
 
-Every text ID can optionally be followed by _metadata_ in a YAML-like format. It is conventional to leave a blank line between the ID and the metadata, but this is not required.
+Every text ID can optionally be followed by a _metadata block_. A metadata block begins with the header `[metadata]` and contains TOML-style key-value pairs:
 
 ```
 # Author.Title
 
-reviewed: true
-reviewedOn: "2024-06-01"
-firstPublished: 1721
-title: "The Full Title of the Work"
-tags: ["philosophy", "metaphysics"]
-otherEditions:
-  - "Author.Title.Edition1"
-  - "Author.Title.Edition2"
-  - "Author.Title.Edition3"
+[metadata]
+reviewed = true
+reviewedOn = "2024-06-01"
+firstPublished = 1721
+title = "The Full Title of the Work"
+tags = ["philosophy", "metaphysics"]
+otherEditions = [
+    "Author.Title.Edition1",
+    "Author.Title.Edition2",
+    "Author.Title.Edition3"
+]
 ```
 
-Only a subset of YAML is supported:
+Only a subset of TOML is supported. Booleans, numbers, strings, and arrays of these types are supported; dates and comments are not. Mixed arrays are not permitted (i.e. arrays can only contain one type of value).
 
-- Values can be strings, numbers, Booleans (`true` or `false`), or arrays of strings/numbers/Booleans. Objects and nested structures are not supported.
-- Strings _must_ be enclosed in double quotes. A double quote inside a string must be escaped with a backslash (e.g. `\"`).
-- Arrays cannot be of mixed types (e.g. `["string", 123]` is not allowed).
-- Arrays can be written in inline format (e.g. `tags` in the example above) or in block format (e.g. `otherEditions` in the example above).
+### Nested Metadata
 
-The keys `id`, `blocks`, and `children` are reserved and cannot be used in metadata. The `id` key is reserved for the text's ID, the `blocks` key is reserved for the text's content blocks (described below), and the `children` key is reserved for the text's child texts (described above).
+Nested objects are supported one level deep, using additional headers of the form `[metadata.<key>]`. These must appear after the top-level `[metadata]` block:
+
+```
+[metadata]
+title = "The Full Title of the Work"
+
+[metadata.links]
+googleBooks = "https://books.google.com/..."
+wikipedia = "https://en.wikipedia.org/wiki/..."
+```
+
+All metadata blocks must appear before the first content block.
 
 ## Content Blocks
 
-Following the metadata (or the text ID if there is no metadata), a text can have any number of _content blocks_. A content block starts with a _block tag_ on a new line. A block tag contains (at least) a block ID, marked with a `#` character:
+Following the metadata blocks (if any), a text can have any number of _content blocks_. A content block starts with a _block tag_ on a new line. A block tag contains (at least) a block ID, marked with a `#` character:
 
 ```
 {#title}
@@ -93,21 +103,15 @@ There are four types of content block, determined by the block ID:
 
 ### Block Metadata
 
-Block tags can also include optional metadata as a comma-separated list of key-value pairs:
+Block tags can also include the specifications for subsection, pages in the copy text, and speaker (for dialogue), as a comma-separated list of `key=value` pairs:
 
 ```
-{#1, pages=12-15, speaker=Alice Smith}
+{#1, subsection=2, pages=14-15, speaker=Philo}
 ```
-
-Three metadata keys are supported:
-
-- `pages` — the page reference for this block (e.g. `pages=12`, `pages=fo. 12`, `pages=12-15`)
-- `subsection` — a subsection number or label for paragraph blocks (e.g. `subsection=3`)
-- `speaker` — the name of a speaker in a dialogue, for paragraph blocks (e.g. `speaker=Alice Smith`)
 
 Values are unquoted strings. Any characters are allowed except for commas (which separate key-value pairs) and `}` (which closes the block tag). Leading and trailing whitespace around values is trimmed. Any key other than the three listed above is an error.
 
-In the HTML or text output, `subsection` and `speaker` are rendered as a prefix to the block's first line, followed by a full-stop, i.e. `3. Rest of content...`, `Alice Smith. Rest of content...`.
+In the HTML or text output, `subsection` and `speaker` are rendered as a prefix to the block's first line, followed by a full-stop, i.e. `2. Rest of content...`, `Philo. Rest of content...`.
 
 ## Content Text
 
@@ -119,7 +123,7 @@ A block-level element is either a heading, a paragraph, a block quotation, or a 
 
 - A line starting with `^1`-`^6` is a heading line. The number after the `^` character indicates how large the text on that line should be (1 being the largest, 6 being the smallest). Consecutive heading lines are treated as part of the same heading block. Heading lines are only permitted in `title` and `subtitle` blocks (`title` and `subtitle` blocks can also contain other block-level elements).
 - A line starting with `>` is a block quotation. Consecutive lines starting with `>` are part of the same block quotation.
-- A line starting with `-` is a list item. Consecutive lines starting with `-` are part of the same list. (Nested lists are not supported.)
+- A line starting with `-` is a list item. Consecutive lines starting with `-` are part of the same list. (Nested lists are not supported.) In the context of early texts, lists are predominantly intended for representing lines of verse.
 - A line starting with a number followed by a full stop (e.g. `1.`, `2.`, etc.) is a numbered list item. Consecutive lines starting with a number followed by a full stop are part of the same numbered list.
 - Anything else is a paragraph. Consecutive lines that don't start with any of the above are part of the same paragraph.
 
@@ -229,8 +233,9 @@ A blank line (i.e. a line containing only whitespace) is conventional to separat
 ```
 # Author.Title
 
-reviewed: true
-reviewedOn: "2024-06-01"
+[metadata]
+reviewed = true
+reviewedOn = "2024-06-01"
 
 {#title}
 ^1 Title
@@ -253,7 +258,7 @@ But blank lines are only strictly necessary between block-level elements of the 
 Markit is inspired by Markdown, and aims to be as similar as possible, while meeting the specific needs of early text preservation. The main differences are:
 
 - Markit uses `#` for document structure and text IDs. Headings from source texts typically span multiple lines, and are therefore marked up with `^` symbols in `title` and `subtitle` blocks instead.
-- Markit supports YAML-style metadata and block tags, neither of which have any Markdown equivalent.
+- Markit supports TOML-style metadata and block tags, neither of which have any Markdown equivalent.
 - Markit uses a slightly different syntax for `_italics_` and `*bold*` - distinguishing between these two on the basis of the character, not how many of them there are.
 - Markit has more special characters and inline formatting options than Markdown.
 - Markit has a built-in system for Greek transliteration.
@@ -264,16 +269,18 @@ Markit is inspired by Markdown, and aims to be as similar as possible, while mee
 Markit documents are compiled to a JSON format that captures the hierarchical structure of texts and their content. Each text is represented as a JSON object with the following properties:
 
 - `id`: the ID of the text (from the id block)
-- _(any metadata keys from the metadata block, as top-level properties)_
+- `metadata`: an object containing the text's metadata (omitted if no metadata block is present)
 - `blocks`: an array of content blocks (see below)
 - `children`: an array of child texts, each with the same top-level structure
 
-For example, a text with `author: "Jane"` metadata and a block `{#1, pages=12-15}` would produce:
+For example, a text with `author = "Jane"` metadata and a block `{#1, pages=12-15}` would produce:
 
 ```json
 {
   "id": "My.Text",
-  "author": "Jane",
+  "metadata": {
+    "author": "Jane"
+  },
   "blocks": [
     {
       "id": "My.Text.1",

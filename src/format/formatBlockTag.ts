@@ -8,7 +8,10 @@ export default (state: State, line: string): State => {
   // Add blank before block tag (unless just after ID or at start)
   if (newState.context === "inContent") {
     newState = emitBlank(newState);
-  } else if (newState.context === "inMetadata") {
+  } else if (
+    newState.context === "inMetadata" ||
+    newState.context === "inMetadataArray"
+  ) {
     newState = emitBlank(newState);
     newState = { ...newState, context: "afterMetadata" };
   }

@@ -63,9 +63,10 @@ const parseTextContent = <TextMetadata extends Metadata>(
   const childErrors = childResults.flatMap((result) => result[1]);
 
   // Put it all together
+  const hasMetadata = Object.keys(mergedMetadata).length > 0;
   const document = {
-    ...mergedMetadata,
     id: text.id,
+    ...(hasMetadata ? { metadata: mergedMetadata } : {}),
     blocks,
     children: [...children, ...externalChildren],
     [startLine]: text.startLine,

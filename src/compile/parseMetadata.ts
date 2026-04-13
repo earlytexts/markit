@@ -4,11 +4,7 @@ import type {
   Metadata,
   MetadataValue,
 } from "../types.js";
-import {
-  footnoteReferenceSpec,
-  RESERVED_TEXT_KEYS,
-  VALID_BLOCK_METADATA_KEYS,
-} from "../types.js";
+import { footnoteReferenceSpec, VALID_BLOCK_METADATA_KEYS } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
@@ -40,18 +36,53 @@ export default <TextMetadata extends Metadata>(
 const parseTextMetadata = <TextMetadata extends Metadata>(
   text: TextTree,
 ): [TextTreeWithMetadata<TextMetadata>, MarkitError[]] => {
-  // Check if first block is a metadata block (if it exists)
-  const firstBlock = text.blocks[0];
-  const firstLine = firstBlock?.lines[0];
-  const isMetadata = firstLine?.content.match(/^\w+:/);
+  // Consume all leading blocks that start with a [header] (before the first content block).
+  // Valid headers ([metadata] and [metadata.subkey]) are parsed; invalid ones produce errors.
+  let metadataBlockCount = 0;
+  for (const block of text.blocks) {
+    const firstLine = block.lines[0];
+    if (firstLine?.content.match(/^\[.+\]$/)) {
+      metadataBlockCount++;
+    } else {
+      break;
+    }
+  }
 
-  // If there's a metadata block, parse it - otherwise metadata is empty
-  const [metadata, metadataErrors] = isMetadata
-    ? parseMetadataBlock(firstBlock!)
-    : [{}, []];
+  // Parse all metadata blocks if any were found
+  const metadataBlocks = text.blocks.slice(0, metadataBlockCount);
+  const contentBlocks = text.blocks.slice(metadataBlockCount);
 
-  // If it was a metadata block, remove it from the blocks array for the rest of the parsing
-  const contentBlocks = isMetadata ? text.blocks.slice(1) : text.blocks;
+  const allMetadataErrors: MarkitError[] = [];
+  const metadata = {} as TextMetadata;
+  let hasTopLevelBlock = false;
+
+  for (const block of metadataBlocks) {
+    const [subkey, parsedMetadata, errors] = parseMetadataBlock(block);
+    allMetadataErrors.push(...errors);
+
+    if (subkey === null) {
+      // Top-level [metadata] block
+      hasTopLevelBlock = true;
+      Object.assign(metadata, parsedMetadata);
+    } else {
+      // Nested [metadata.subkey] block
+      if (!hasTopLevelBlock) {
+        const firstLine = block.lines[0]!;
+        allMetadataErrors.push(
+          makeError({
+            message: `Nested metadata block '[metadata.${subkey}]' must appear after the top-level '[metadata]' block`,
+            line: block.startLine,
+            column: firstLine.charOffset,
+            length: firstLine.content.length,
+          }),
+        );
+      }
+      (metadata as Metadata)[subkey] = parsedMetadata as Record<
+        string,
+        MetadataValue
+      >;
+    }
+  }
 
   // Parse metadata for each block, passing in previously parsed blocks for duplicate ID checking
   const parseBlockMetadataResult = contentBlocks.reduce(
@@ -107,7 +138,7 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
     children: childrenWithMetadata,
   } as TextTreeWithMetadata<TextMetadata>;
   const errors = [
-    ...metadataErrors,
+    ...allMetadataErrors,
     ...blockErrors,
     ...footnoteErrors,
     ...childrenErrors,
@@ -115,95 +146,132 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   return [textWithMetadata, errors];
 };
 
-const parseMetadataBlock = <TextMetadata extends Metadata>(
+/**
+ * Parse a single metadata block (starting with [metadata] or [metadata.subkey]).
+ * Returns [subkey, parsedObject, errors] where subkey is null for top-level [metadata].
+ */
+const parseMetadataBlock = (
   block: RawBlock,
-): [TextMetadata, MarkitError[]] => {
+): [string | null, Record<string, MetadataValue>, MarkitError[]] => {
   const errors: MarkitError[] = [];
-  const metadata = {} as TextMetadata;
+  const result: Record<string, MetadataValue> = {};
 
-  for (let index = 0; index < block.lines.length; index++) {
-    const line = block.lines[index]!;
+  const firstLine = block.lines[0]!;
+  const headerMatch = firstLine.content.match(/^\[metadata(?:\.(\w+))?\]$/);
 
-    // Check if this is a multiline array key (key: with no value or empty value)
-    const multilineArrayMatch = line.content.match(/^(\w+)\s*:\s*$/);
+  // Header must be valid — caller already checked, but guard anyway
+  if (!headerMatch) {
+    errors.push(
+      makeError({
+        message: `Invalid metadata header '${firstLine.content.trim()}' — only '[metadata]' and '[metadata.<key>]' are allowed`,
+        line: block.startLine,
+        column: firstLine.charOffset,
+        length: firstLine.content.length,
+      }),
+    );
+    return [null, result, errors];
+  }
+
+  const subkey = headerMatch[1] ?? null;
+
+  // Parse lines after the header
+  const lines = block.lines.slice(1);
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!;
+
+    // Check if this is a multiline array key (key = [ with no closing ] on same line)
+    const multilineArrayMatch = line.content.match(/^(\w+)\s*=\s*\[(.*)$/);
     if (multilineArrayMatch) {
       const key = multilineArrayMatch[1]!;
+      const rest = multilineArrayMatch[2]!.trim();
 
-      // Collect array items from subsequent lines
-      const arrayItems: (number | boolean | string)[] = [];
-      let arrayIndex = index + 1;
+      // If the opening [ has content or a closing ], treat as inline — fall through to regular key=value
+      if (rest === "" || rest === ",") {
+        // Collect array items from subsequent lines until we hit ] or ],
+        const arrayItems: (number | boolean | string)[] = [];
+        let arrayIndex = index + 1;
 
-      while (arrayIndex < block.lines.length) {
-        const arrayLine = block.lines[arrayIndex]!;
-        const arrayItemMatch = arrayLine.content.match(/^- (.+)$/);
+        while (arrayIndex < lines.length) {
+          const arrayLine = lines[arrayIndex]!;
+          const trimmed = arrayLine.content.trim();
 
-        if (!arrayItemMatch) {
-          // Not an array item, stop collecting
-          break;
+          // End of array
+          if (trimmed === "]" || trimmed === "],") {
+            arrayIndex++;
+            break;
+          }
+
+          // Strip trailing comma from item
+          const itemString = trimmed.replace(/,$/, "").trim();
+          const itemStartColumn =
+            arrayLine.charOffset + arrayLine.content.indexOf(itemString);
+
+          let itemValue: number | boolean | string;
+          try {
+            itemValue = JSON.parse(itemString) as number | boolean | string;
+            if (
+              typeof itemValue !== "number" &&
+              typeof itemValue !== "boolean" &&
+              typeof itemValue !== "string"
+            ) {
+              throw new Error("invalid type");
+            }
+          } catch {
+            itemValue = itemString;
+            errors.push(
+              makeError({
+                message: `Invalid metadata value: ${itemString}`,
+                line: block.startLine + 1 + arrayIndex,
+                column: itemStartColumn,
+                length: itemString.length,
+              }),
+            );
+          }
+
+          arrayItems.push(itemValue);
+          arrayIndex++;
         }
 
-        const itemString = arrayItemMatch[1]!.trim();
-        const itemStartColumn =
-          arrayLine.charOffset + arrayLine.content.indexOf(itemString);
-
-        let itemValue: number | boolean | string;
-        try {
-          itemValue = JSON.parse(itemString);
-        } catch {
-          itemValue = itemString;
+        if (arrayItems.length === 0) {
           errors.push(
             makeError({
-              message: `Invalid metadata value: ${itemString}`,
-              line: block.startLine + arrayIndex,
-              column: itemStartColumn,
-              length: itemString.length,
-            }),
-          );
-        }
-
-        arrayItems.push(itemValue);
-        arrayIndex++;
-      }
-
-      if (arrayItems.length === 0) {
-        errors.push(
-          makeError({
-            message: "Multiline array must have at least one item",
-            line: block.startLine + index,
-            column: line.charOffset,
-            length: line.content.length,
-          }),
-        );
-      } else {
-        // Check for mixed types in the array
-        const types = new Set(arrayItems.map((item) => typeof item));
-        if (types.size > 1) {
-          errors.push(
-            makeError({
-              message:
-                "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-              line: block.startLine + index,
+              message: "Multiline array must have at least one item",
+              line: block.startLine + 1 + index,
               column: line.charOffset,
               length: line.content.length,
             }),
           );
+        } else {
+          const types = new Set(arrayItems.map((item) => typeof item));
+          if (types.size > 1) {
+            errors.push(
+              makeError({
+                message:
+                  "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+                line: block.startLine + 1 + index,
+                column: line.charOffset,
+                length: line.content.length,
+              }),
+            );
+          } else {
+            result[key] = arrayItems as MetadataValue;
+          }
         }
-        metadata[key as keyof TextMetadata] =
-          arrayItems as TextMetadata[keyof TextMetadata];
-      }
 
-      // Skip the lines we've just processed
-      index = arrayIndex - 1;
-      continue;
+        index = arrayIndex - 1;
+        continue;
+      }
+      // else fall through to regular key=value parsing (inline array on one line)
     }
 
-    // Regular key: value line
-    const match = line.content.match(/^(\w+)\s*:\s*(.+)$/);
+    // Regular key = value line
+    const match = line.content.match(/^(\w+)\s*=\s*(.+)$/);
     if (!match) {
       errors.push(
         makeError({
-          message: "Invalid metadata line, expected 'key: value'",
-          line: block.startLine + index,
+          message: "Invalid metadata line, expected 'key = value'",
+          line: block.startLine + 1 + index,
           column: line.charOffset,
           length: line.content.length,
         }),
@@ -214,28 +282,23 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
     const key = match[1]!;
     const valueString = match[2]!.trim();
 
-    // Check for reserved keys
-    if (RESERVED_TEXT_KEYS.includes(key)) {
-      errors.push(
-        makeError({
-          message: `The '${key}' metadata key is reserved and cannot be used in the document metadata`,
-          line: block.startLine + index,
-          column: line.charOffset,
-          length: key.length,
-        }),
-      );
-      continue;
-    }
-
     let value: MetadataValue;
     try {
-      value = JSON.parse(valueString);
+      value = JSON.parse(valueString) as MetadataValue;
+      if (
+        typeof value !== "number" &&
+        typeof value !== "boolean" &&
+        typeof value !== "string" &&
+        !Array.isArray(value)
+      ) {
+        throw new Error("invalid type");
+      }
     } catch {
       value = valueString;
       errors.push(
         makeError({
           message: `Invalid metadata value: ${valueString}`,
-          line: block.startLine + index,
+          line: block.startLine + 1 + index,
           column: line.charOffset + line.content.indexOf(valueString),
           length: valueString.length,
         }),
@@ -244,13 +307,15 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
 
     // Check for mixed types in inline arrays
     if (Array.isArray(value)) {
-      const types = new Set(value.map((item) => typeof item));
+      const types = new Set(
+        (value as (number | boolean | string)[]).map((item) => typeof item),
+      );
       if (types.size > 1) {
         errors.push(
           makeError({
             message:
               "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-            line: block.startLine + index,
+            line: block.startLine + 1 + index,
             column: line.charOffset,
             length: line.content.length,
           }),
@@ -258,11 +323,10 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
       }
     }
 
-    metadata[key as keyof TextMetadata] =
-      value as TextMetadata[keyof TextMetadata];
+    result[key] = value;
   }
 
-  return [metadata, errors];
+  return [subkey, result, errors];
 };
 
 const parseBlockMetadata = (

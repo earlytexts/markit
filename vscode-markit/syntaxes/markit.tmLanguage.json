@@ -21,12 +21,15 @@
       }
     },
     "metadataBlock": {
-      "begin": "^(?=\\s*[a-zA-Z_][a-zA-Z0-9_-]*\\s*:)",
-      "end": "^(?=\\s*$|\\s*\\{#)",
+      "begin": "^\\[metadata(?:\\.\\w+)?\\]\\s*$",
+      "end": "^(?=\\s*$|\\s*\\{#|\\s*\\[metadata)",
       "name": "meta.block.metadata.markit",
+      "beginCaptures": {
+        "0": { "name": "keyword.other.metadata-header.markit" }
+      },
       "patterns": [
         {
-          "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(:)",
+          "match": "^(\\w+)\\s*(=)",
           "captures": {
             "1": { "name": "entity.name.tag.markit" },
             "2": { "name": "punctuation.separator.key-value.markit" }
@@ -41,12 +44,12 @@
           "name": "constant.numeric.markit"
         },
         {
-          "match": "\"[^\"]*\"",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\"",
           "name": "string.quoted.double.markit"
         },
         {
-          "match": "\\s*-\\s+",
-          "name": "punctuation.definition.list.begin.markit"
+          "match": "[\\[\\],]",
+          "name": "punctuation.definition.array.markit"
         }
       ]
     },

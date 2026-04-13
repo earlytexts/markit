@@ -1,7 +1,7 @@
 import { emitLine } from "./helpers.js";
 import type { State } from "./types.js";
 
-// Context aware formatter for metadata lines (key: value pairs)
+// Context-aware formatter for TOML metadata lines (key = value pairs)
 export default (state: State, line: string): State => {
   const formattedMetadata = formatMetadata(line);
   const newState = emitLine(state, formattedMetadata);
@@ -9,17 +9,12 @@ export default (state: State, line: string): State => {
 };
 
 const formatMetadata = (line: string): string => {
-  // Preserve leading whitespace for YAML indentation
-  const leadingSpace = line.match(/^\s*/)?.[0] || "";
-  const trimmed = line.trim();
+  const eqIndex = line.indexOf("=");
+  const key = line.slice(0, eqIndex).trim();
+  const value = line.slice(eqIndex + 1).trimStart();
 
-  // This function is only called if there is a colon
-  const colonIndex = trimmed.indexOf(":");
-  const key = trimmed.slice(0, colonIndex).trim();
-  const value = trimmed.slice(colonIndex + 1).trimStart();
+  // If no value, just return key =
+  if (!value) return `${key} =`;
 
-  // If no value, just return key: (e.g., "draft:")
-  if (!value) return `${leadingSpace}${key}:`;
-
-  return `${leadingSpace}${key}: ${value}`;
+  return `${key} = ${value}`;
 };
