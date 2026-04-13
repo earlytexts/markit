@@ -48,12 +48,7 @@ export default async (context: ExtensionContext): Promise<void> => {
     // Watch for document changes
     const changeSubscription = workspace.onDidChangeTextDocument((e) => {
       if (e.document === document && previewPanel) {
-        updatePreview(
-          previewPanel,
-          context,
-          e.document.getText(),
-          e.document.uri.fsPath,
-        );
+        updatePreview(previewPanel, context, e.document.getText());
       }
     });
 
@@ -87,16 +82,15 @@ export default async (context: ExtensionContext): Promise<void> => {
   }
 
   // Update preview content
-  updatePreview(previewPanel, context, document.getText(), document.uri.fsPath);
+  updatePreview(previewPanel, context, document.getText());
 };
 
 const updatePreview = (
   previewPanel: WebviewPanel,
   context: ExtensionContext,
   content: string,
-  filePath: string,
 ): void => {
-  const [document] = compile(content, { filePath });
+  const [document] = compile(content);
   const html = renderHTML(document);
 
   // Get webview URIs for CSS and JS files

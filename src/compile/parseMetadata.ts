@@ -21,7 +21,6 @@ export type TextTreeWithMetadata<TextMetadata extends Metadata> = Omit<
   "blocks" | "children"
 > & {
   metadata: TextMetadata;
-  metadataPositions: Record<keyof TextMetadata, MetadataPosition>; // expose this for error reporting when compiling external children
   blocks: BlockWithMetadata[];
   children: TextTreeWithMetadata<TextMetadata>[];
 };
@@ -30,17 +29,6 @@ export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
   metadata: Partial<Record<BlockMetadataKey, string>>;
   lines: Line[];
-};
-
-export type MetadataPosition = {
-  line: number;
-  column: number;
-  length: number;
-  arrayElementPositions: Array<{
-    line: number;
-    column: number;
-    length: number;
-  }>;
 };
 
 export default <TextMetadata extends Metadata>(
@@ -58,9 +46,9 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   const isMetadata = firstLine?.content.match(/^\w+:/);
 
   // If there's a metadata block, parse it - otherwise metadata is empty
-  const [metadata, metadataPositions, metadataErrors] = isMetadata
+  const [metadata, metadataErrors] = isMetadata
     ? parseMetadataBlock(firstBlock!)
-    : [{}, {}, []];
+    : [{}, []];
 
   // If it was a metadata block, remove it from the blocks array for the rest of the parsing
   const contentBlocks = isMetadata ? text.blocks.slice(1) : text.blocks;
@@ -115,7 +103,6 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   const textWithMetadata = {
     ...text,
     metadata,
-    metadataPositions,
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
   } as TextTreeWithMetadata<TextMetadata>;
@@ -130,14 +117,9 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
 
 const parseMetadataBlock = <TextMetadata extends Metadata>(
   block: RawBlock,
-): [
-  TextMetadata,
-  Record<keyof TextMetadata, MetadataPosition>,
-  MarkitError[],
-] => {
+): [TextMetadata, MarkitError[]] => {
   const errors: MarkitError[] = [];
   const metadata = {} as TextMetadata;
-  const metadataPositions = {} as Record<keyof TextMetadata, MetadataPosition>;
 
   for (let index = 0; index < block.lines.length; index++) {
     const line = block.lines[index]!;
@@ -146,14 +128,6 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
     const multilineArrayMatch = line.content.match(/^(\w+)\s*:\s*$/);
     if (multilineArrayMatch) {
       const key = multilineArrayMatch[1]!;
-
-      // Track position for this key
-      metadataPositions[key as keyof TextMetadata] = {
-        line: block.startLine + index,
-        column: line.charOffset,
-        length: line.content.length,
-        arrayElementPositions: [],
-      };
 
       // Collect array items from subsequent lines
       const arrayItems: (number | boolean | string)[] = [];
@@ -171,15 +145,6 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
         const itemString = arrayItemMatch[1]!.trim();
         const itemStartColumn =
           arrayLine.charOffset + arrayLine.content.indexOf(itemString);
-
-        // Track position for this array element
-        metadataPositions[key as keyof TextMetadata].arrayElementPositions.push(
-          {
-            line: block.startLine + arrayIndex,
-            column: itemStartColumn,
-            length: itemString.length,
-          },
-        );
 
         let itemValue: number | boolean | string;
         try {
@@ -249,8 +214,8 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
     const key = match[1]!;
     const valueString = match[2]!.trim();
 
-    // Check for reserved keys (excluding 'children' which has its own handling)
-    if (RESERVED_TEXT_KEYS.includes(key) && key !== "children") {
+    // Check for reserved keys
+    if (RESERVED_TEXT_KEYS.includes(key)) {
       errors.push(
         makeError({
           message: `The '${key}' metadata key is reserved and cannot be used in the document metadata`,
@@ -261,14 +226,6 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
       );
       continue;
     }
-
-    // Track position for this key
-    metadataPositions[key as keyof TextMetadata] = {
-      line: block.startLine + index,
-      column: line.charOffset,
-      length: line.content.length,
-      arrayElementPositions: [],
-    };
 
     let value: MetadataValue;
     try {
@@ -283,25 +240,6 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
           length: valueString.length,
         }),
       );
-    }
-
-    // Track array element positions for inline arrays
-    if (Array.isArray(value)) {
-      const arrayOpeningBracketIndex = line.content.indexOf(valueString);
-      value.forEach((item) => {
-        const itemString = JSON.stringify(item);
-        const itemStartIndex = line.content.indexOf(
-          itemString,
-          arrayOpeningBracketIndex,
-        );
-        metadataPositions[
-          key as keyof TextMetadata
-        ]!.arrayElementPositions.push({
-          line: block.startLine + index,
-          column: line.charOffset + itemStartIndex,
-          length: itemString.length,
-        });
-      });
     }
 
     // Check for mixed types in inline arrays
@@ -324,7 +262,7 @@ const parseMetadataBlock = <TextMetadata extends Metadata>(
       value as TextMetadata[keyof TextMetadata];
   }
 
-  return [metadata, metadataPositions, errors];
+  return [metadata, errors];
 };
 
 const parseBlockMetadata = (

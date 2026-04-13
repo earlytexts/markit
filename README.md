@@ -43,11 +43,7 @@ Then you can import the compiler functions in your code:
 import { compile, renderHTML, renderText } from "@earlytexts/markit";
 
 const markitInput = `...`; // your Markit document as a string
-const options = {
-  filePath: "path/to/your/document.mit", // required for resolving relative paths to external children
-  embedExternalChildren: true, // defaults to true, set to false to not embed external children
-};
-const [document, errors] = compile(markitInput, options);
+const [document, errors] = compile(markitInput);
 const htmlOutput = renderHTML(document);
 const textOutput = renderText(document);
 ```
@@ -59,17 +55,12 @@ are errors, so you can choose to use it anyway (e.g. for a best-effort preview),
 but you should always check the `errors` array to see if there were any issues
 with the input.
 
-The second `options` argument is optional, but the `filePath` is required if you
-are using (and want to embed) external children, since paths to external children
-are relative to the parent document.
-
 The two functions `renderHTML` and `renderText` take a compiled document and
 return a string - either an HTML representation of the document or plain text.
 
-For working with metadata in TypeScript, you can pass `TextMetadata` and
-`BlockMetadata` types as type parameters to the `compile` function, which will
-allow you to have type safety when accessing metadata in the compiled document.
-For example:
+For working with metadata in TypeScript, you can pass a `TextMetadata` type
+parameter to the `compile` function, which will allow you to have type safety
+when accessing metadata in the compiled document. For example:
 
 ```typescript
 import { compile } from "@earlytexts/markit";
@@ -80,17 +71,12 @@ type TextMetadata = {
   published: number;
 };
 
-type BlockMetadata = {
-  type: string;
-};
-
 const markitInput = `...`; // your Markit document as a string
-const [document, errors] = compile<TextMetadata, BlockMetadata>(markitInput);
+const [document, errors] = compile<TextMetadata>(markitInput);
 
 document.title; // TypeScript knows this is a string
 document.author; // TypeScript knows this is a string
 document.published; // TypeScript knows this is a number
-document.blocks[0].type; // TypeScript knows this is a string
 ```
 
 Note there is no built-in validation of metadata values - this just tells

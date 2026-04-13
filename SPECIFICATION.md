@@ -51,25 +51,7 @@ Only a subset of YAML is supported:
 - Arrays cannot be of mixed types (e.g. `["string", 123]` is not allowed).
 - Arrays can be written in inline format (e.g. `tags` in the example above) or in block format (e.g. `otherEditions` in the example above).
 
-The keys `id` and `blocks` are reserved and cannot be used in metadata. The `id` key is reserved for the text's ID, and the `blocks` key is reserved for the text's content blocks (described below).
-
-## External Children
-
-The `children` key is reserved for the text's children. These can either be defined _internally_ (i.e. in the same file, as above), or _externally_ (i.e. in separate files). The `children` key is used to declare external children:
-
-```
-# Author.Title
-
-children:
-  - "chapters/chapter1"
-  - "chapters/chapter2"
-```
-
-External children are declared as file paths relative to the parent text's file. Including the `.mit` extension is optional. You can also link to a directory, in which case the compiler looks for an `index.mit` file in that directory.
-
-External children must be valid Markit documents in their own right. In particular, they must start with a _top-level_ text ID (i.e. one that starts with a single `#` character); when embedded, they will have a level one lower than their parent. External children can themselves declare further external children, to arbitrary depth. These will all be embedded in the parent text's tree of children.
-
-Internal and external children can be included in the same text. When this is the case, internal children come first, followed by external children in the order they appear in the `children` array.
+The keys `id`, `blocks`, and `children` are reserved and cannot be used in metadata. The `id` key is reserved for the text's ID, the `blocks` key is reserved for the text's content blocks (described below), and the `children` key is reserved for the text's child texts (described above).
 
 ## Content Blocks
 
@@ -284,7 +266,7 @@ Markit documents are compiled to a JSON format that captures the hierarchical st
 - `id`: the ID of the text (from the id block)
 - _(any metadata keys from the metadata block, as top-level properties)_
 - `blocks`: an array of content blocks (see below)
-- `children`: an array of child texts (inline first, then external), each with the same top-level structure
+- `children`: an array of child texts, each with the same top-level structure
 
 For example, a text with `author: "Jane"` metadata and a block `{#1, pages=12-15}` would produce:
 
