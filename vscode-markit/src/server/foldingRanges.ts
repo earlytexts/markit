@@ -1,13 +1,11 @@
-import { fileURLToPath } from "url";
 import { compile, endLine, startLine, type MarkitDocument } from "markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 
 export default (textDocument: TextDocument): FoldingRange[] => {
   const text = textDocument.getText();
-  const filePath = fileURLToPath(textDocument.uri);
 
-  const [doc] = compile(text, { filePath });
+  const [doc] = compile(text);
   const ranges: FoldingRange[] = [];
   collectFoldingRanges(doc, ranges);
   return ranges;

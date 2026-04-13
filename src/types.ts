@@ -5,15 +5,7 @@ export type MarkitError = {
   column: number;
   endLine: number;
   endColumn: number;
-  file?: string;
   severity: "error" | "warning";
-};
-
-// Compile options
-export type CompileOptions = {
-  fileLoader: (path: string) => string;
-  filePath: string;
-  embedExternalChildren: boolean;
 };
 
 // Metadata base type
