@@ -36,7 +36,8 @@ describe("formatter", () => {
     it("ensures blank line after ID blocks", () => {
       const input = markit(
         "# parent",
-        "metadata: value",
+        "[metadata]",
+        "metadata = value",
         "",
         "{#1}",
         "Parent content",
@@ -51,7 +52,8 @@ describe("formatter", () => {
         markit(
           "# parent",
           "",
-          "metadata: value",
+          "[metadata]",
+          "metadata = value",
           "",
           "{#1}",
           "Parent content",
@@ -98,14 +100,24 @@ describe("formatter", () => {
       const input = markit(
         "# mytext",
         "",
-        "metadata: value",
+        "[metadata]",
+        "metadata = value",
         "{#1}",
         "Content",
         "",
       );
       const result = formatDocument(input);
       expect(result).toBe(
-        markit("# mytext", "", "metadata: value", "", "{#1}", "Content", ""),
+        markit(
+          "# mytext",
+          "",
+          "[metadata]",
+          "metadata = value",
+          "",
+          "{#1}",
+          "Content",
+          "",
+        ),
       );
     });
 
@@ -138,69 +150,63 @@ describe("formatter", () => {
   });
 
   describe("metadata normalization", () => {
-    it("collapses extra spaces after colon", () => {
-      const input = markitWithMetadata('title:   "Hello"');
+    it("collapses extra spaces around equals sign", () => {
+      const input = markitWithMetadata('title =   "Hello"');
       const result = formatDocument(input);
-      expect(result).toBe(markitWithMetadata('title: "Hello"'));
+      expect(result).toBe(markitWithMetadata('title = "Hello"'));
     });
 
-    it("adds space after colon if missing", () => {
-      const input = markitWithMetadata('title:"Hello"');
+    it("adds spaces around equals sign if missing", () => {
+      const input = markitWithMetadata('title="Hello"');
       const result = formatDocument(input);
-      expect(result).toBe(markitWithMetadata('title: "Hello"'));
+      expect(result).toBe(markitWithMetadata('title = "Hello"'));
     });
 
-    it("removes spaces before colon", () => {
-      const input = markitWithMetadata('title : "Hello"');
+    it("removes spaces before equals sign", () => {
+      const input = markitWithMetadata('title  = "Hello"');
       const result = formatDocument(input);
-      expect(result).toBe(markitWithMetadata('title: "Hello"'));
+      expect(result).toBe(markitWithMetadata('title = "Hello"'));
     });
 
     it("passes over metadata with no value", () => {
-      const input = markitWithMetadata("draft:");
+      const input = markitWithMetadata("draft =");
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
 
     it("removes trailing whitespace after values", () => {
-      // removing leading whitespace would be nice too, but it would be
-      // difficult to distinguish from intentional indentation in YAML
-      const input = markitWithMetadata('title: "Hello"   ');
+      const input = markitWithMetadata('title = "Hello"   ');
       const result = formatDocument(input);
-      expect(result).toBe(markitWithMetadata('title: "Hello"'));
+      expect(result).toBe(markitWithMetadata('title = "Hello"'));
     });
 
-    it("preserves indentation in YAML continuation lines", () => {
+    it("normalizes spacing in multiline array key line", () => {
+      const input = markitWithMetadata("tags=[", "    philosophy,", "]");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithMetadata("tags = [", "    philosophy,", "]"),
+      );
+    });
+
+    it("preserves multiline array items as-is", () => {
       const input = markitWithMetadata(
-        "tags:",
-        "  - philosophy",
-        "  - epistemology",
+        "tags = [",
+        "    philosophy,",
+        "    epistemology,",
+        "]",
       );
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
 
-    it("normalizes indented metadata keys", () => {
-      const input = markitWithMetadata(
-        "author:",
-        '  name:"John"',
-        '  email:   "foo@bar.com"',
-      );
+    it("passes through [metadata] header unchanged", () => {
+      const input = markitWithMetadata('title = "Hello"');
       const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithMetadata(
-          "author:",
-          '  name: "John"',
-          '  email: "foo@bar.com"',
-        ),
-      );
+      expect(result).toBe(input);
     });
 
-    it("does NOT normalize colon-like lines in content blocks", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "In the beginning:something was said.",
-      );
+    it("does NOT normalize equals-like content in content blocks", () => {
+      const input = markitWithContent("{#1}", "x = 1 is the solution.");
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
@@ -607,9 +613,12 @@ describe("formatter", () => {
     });
 
     it("handles Windows-style line endings", () => {
-      const input = '# Text\r\ntitle: "Hello"\r\n\r\n{#1} Content\r\n';
+      const input =
+        '# Text\r\n[metadata]\r\ntitle = "Hello"\r\n\r\n{#1} Content\r\n';
       const result = formatDocument(input);
-      expect(result).toBe('# Text\n\ntitle: "Hello"\n\n{#1}\nContent\n');
+      expect(result).toBe(
+        '# Text\n\n[metadata]\ntitle = "Hello"\n\n{#1}\nContent\n',
+      );
     });
 
     it("handles a single id block with no content", () => {
@@ -630,6 +639,24 @@ describe("formatter", () => {
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
+
+    it("handles blank line inside multiline array", () => {
+      const input = markit(
+        "# Text",
+        "",
+        "[metadata]",
+        "key = [",
+        "    item1,",
+        "",
+        "]",
+        "",
+        "{#0}",
+        "Title",
+        "",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
   });
 
   describe("full document", () => {
@@ -637,8 +664,9 @@ describe("formatter", () => {
       const input = markit(
         "",
         "  # book1   ",
-        'title:"Book One"',
-        'author :  "Locke"  ',
+        "[metadata]",
+        'title="Book One"',
+        'author =  "Locke"  ',
         "",
         "",
         "{# 0 } ^1 Book One",
@@ -649,7 +677,8 @@ describe("formatter", () => {
         "{#n1} A footnote.",
         "",
         "  ## book1.ch1",
-        'title:"Chapter One"',
+        "[metadata]",
+        'title="Chapter One"',
         "",
         "{#1} Chapter content here.  ",
         "",
@@ -660,8 +689,9 @@ describe("formatter", () => {
         markit(
           "# book1",
           "",
-          'title: "Book One"',
-          'author: "Locke"',
+          "[metadata]",
+          'title = "Book One"',
+          'author = "Locke"',
           "",
           "{#0}",
           "^1 Book One",
@@ -674,7 +704,8 @@ describe("formatter", () => {
           "",
           "## book1.ch1",
           "",
-          'title: "Chapter One"',
+          "[metadata]",
+          'title = "Chapter One"',
           "",
           "{#1}",
           "Chapter content here.",
@@ -726,8 +757,9 @@ describe("formatter", () => {
       const input = markit(
         "# mytext",
         "",
-        'title: "Hello"',
-        'author: "John"',
+        "[metadata]",
+        'title = "Hello"',
+        'author = "John"',
         "",
         "{#0}",
         "^1 My Title",
@@ -740,7 +772,8 @@ describe("formatter", () => {
         "",
         "## sub",
         "",
-        'title: "Subsection"',
+        "[metadata]",
+        'title = "Subsection"',
         "",
         '{#1, with="metadata"}',
         "Sub content.",

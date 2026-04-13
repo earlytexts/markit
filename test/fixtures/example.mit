@@ -1,17 +1,19 @@
 # Markit.Example
 
-metadataBooleans1: true
-metadataBooleans2: false
-metadataNumbers: 42
-metadataStrings: "strings must be enclosed with double quotes"
-metadataStringsEscape: "quotations marks can be \"escaped\" with a backslash"
-metadataBooleanArray: [true, false]
-metadataNumberArray: [1, 2, 3]
-metadataStringArray: ["a", "b", "c"]
-metadataMultilineArray:
-  - 1
-  - 2
-  - 3
+[metadata]
+metadataBooleans1 = true
+metadataBooleans2 = false
+metadataNumbers = 42
+metadataStrings = "strings must be enclosed with double quotes"
+metadataStringsEscape = "quotations marks can be \"escaped\" with a backslash"
+metadataBooleanArray = [true, false]
+metadataNumberArray = [1, 2, 3]
+metadataStringArray = ["a", "b", "c"]
+metadataMultilineArray = [
+  1,
+  2,
+  3
+]
 
 {#title}
 ^1 Markit Example
@@ -29,8 +31,8 @@ note: "Child texts can contain metadata too."
 {#1}
 A Markit document is made up of a series of _blocks_, which are separated by \{#id\} block tags.
 
-{#2, blockMetadataIsPossible=true, what="really?", yes="really"}
-Block tags can optionally include block metadata, as a comma-separated list of `key=value` pairs.
+{#2, subsection=2, pages=14-15, speaker=Philo}
+Block tags can include specification of the subsection, the pages in the source text where the block content can be found, and the speaker (for dialogue). These are all interpreted as strings, but they are not quoted (as there is no ambiguity).
 
 {#subtitle}
 ^2 Types of Blocks

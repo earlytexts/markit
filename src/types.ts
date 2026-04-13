@@ -9,9 +9,6 @@ export type MarkitError = {
 };
 
 // Metadata base type
-export type Metadata = Record<string, MetadataValue>;
-
-// Metadata types
 export type MetadataValue =
   | number
   | boolean
@@ -20,16 +17,20 @@ export type MetadataValue =
   | boolean[]
   | string[];
 
+export type Metadata = Record<
+  string,
+  MetadataValue | Record<string, MetadataValue>
+>;
+
 // Document type
-export type MarkitDocument<TextMetadata extends Metadata = {}> = {
+export type MarkitDocument<TextMetadata extends Metadata = Metadata> = {
   id: string;
+  metadata?: TextMetadata;
   blocks: Block[];
   children: MarkitDocument<TextMetadata>[];
   [startLine]: number; // used by the language server
   [endLine]: number; // used by the language server
-} & TextMetadata; // allow custom metadata fields
-
-export const RESERVED_TEXT_KEYS = ["id", "blocks", "children"];
+};
 
 // Block metadata
 export const VALID_BLOCK_METADATA_KEYS = [

@@ -14,12 +14,9 @@ Example: [test/fixtures/example.mit](../test/fixtures/example.mit)
 - [src/compile/](../src/compile/): Pipeline stage implementations
 - [src/format.ts](../src/format.ts): Formatter entrypoint (state machine)
 - [src/format/](../src/format/): Handlers for each formatter state
-- [src/compileToHTML.ts](../src/compileToHTML.ts): HTML renderer (depends on `compile`)
-- [src/compileToText.ts](../src/compileToText.ts): Plain text renderer (depends on `compile`)
-- [src/compileToJSON.ts](../src/compileToJSON.ts): JSON renderer (depends on `compile`)
+- [src/renderHTML.ts](../src/renderHTML.ts): Converts compiler output to HTML
+- [src/renderText.ts](../src/renderText.ts): Converts compiler output to plain text
 - [vscode-markit/](../vscode-markit/): VS Code LSP extension — thin wrapper, delegates to core, has no tests
-
-All public APIs return `[output, errors]` tuples.
 
 ## Source Code Conventions
 
@@ -35,27 +32,23 @@ All public APIs return `[output, errors]` tuples.
 - **Symbol metadata**: editor-only data (e.g. `startLine`/`endLine`) goes on symbols, not JSON keys
 - **Grammar**: define element types and specs as constants in [src/types.ts](../src/types.ts), consumed by parsers
 
-## Language and Output Conventions
-
-- **Reserved keys** — document: `id`, `metadata`, `blocks`, `children`; block: `id`, `type`, `content`, `metadata`
-- **Whitespace**: trim content, collapse line breaks and spaces to single space (except `~`, `//`)
-
-## Adding a New Language Feature
-
-1. Read [SPECIFICATION.md](../SPECIFICATION.md) to understand the syntax being added
-2. Write a failing test in `test/` — use only public APIs (`compile`, `format`, `compileToHTML`, `compileToText`, `compileToJSON`); cover valid cases and error cases
-3. Add element type and spec constants to [src/types.ts](../src/types.ts)
-4. Implement parsing in the relevant [src/compile/](../src/compile/) stage
-5. Add rendering support in affected renderers
-6. Run `npm test` — all tests must pass with 100% coverage
-
 ## Commands
 
 ```bash
-npm test                                     # Type check, format, and run all tests
-npx vitest run test/compile.tag.test.ts      # Run a single test file
-npm run test:coverage                        # Coverage report
-npm run build                                # Build compiler
-npm run build:vscode                         # Build VS Code extension
-npm run format                               # Format with Prettier
+npm run format                             # Format with Prettier
+npm test                                   # Type check, format, and run all tests
+npx vitest run test/compile.tag.test.ts    # Run a single test file
+npm run test:coverage                      # Coverage report
+npm run build                              # Build compiler
+npm run build:vscode                       # Build VS Code extension
 ```
+
+## Coding Guidelines
+
+- Tests check for correct formatting. Always run `npm run format` before testing.
+- Tests must always have 100% coverage. Use `npm run test:coverage` to check - then either add tests or remove dead/defensive code if less than 100%.
+- Write the tests first, then implement the code to make them pass. This ensures test coverage and helps clarify requirements.
+
+## Conversation Guidelines
+
+Be direct at all times. You have been trained on an enormous amount of collective wisdom, and the person you are speaking to wants the benefit of that wisdom. They do not want you to reinforce or put a positive spin on their ideas if you think they are flawed.
