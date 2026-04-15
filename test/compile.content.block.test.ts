@@ -168,6 +168,7 @@ describe("block content", () => {
     ]);
   });
 
+  // TODO: make this an error
   it("treats ^7 (invalid level) as paragraph text", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "^7 not a heading"),
@@ -177,6 +178,7 @@ describe("block content", () => {
     expect(document.blocks[0]!.content).toEqual([p([pt("^7 not a heading")])]);
   });
 
+  // TODO: make this an error
   it("treats ^ without a level digit as paragraph text", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "^ not a heading"),
@@ -345,7 +347,7 @@ describe("block content", () => {
 });
 
 describe("block content errors", () => {
-  it("returns error for heading inside block quotation", () => {
+  it("returns error for heading inside a block quotation", () => {
     const [, errors] = compile(
       markitWithContent("{#1}", "> ^1 Heading inside block quote"),
     );

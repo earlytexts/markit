@@ -4,7 +4,12 @@ import type {
   Metadata,
   MetadataValue,
 } from "../types.js";
-import { footnoteReferenceSpec, VALID_BLOCK_METADATA_KEYS } from "../types.js";
+import {
+  endLine,
+  footnoteReferenceSpec,
+  startLine,
+  VALID_BLOCK_METADATA_KEYS,
+} from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
@@ -12,13 +17,10 @@ import type { Line, RawBlock } from "./splitIntoBlocks.js";
 /**
  * Parse the TextTree into a tree with metadata.
  */
-export type TextTreeWithMetadata<TextMetadata extends Metadata> = Omit<
-  TextTree,
-  "blocks" | "children"
-> & {
-  metadata: TextMetadata;
+export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
+  metadata?: Metadata;
   blocks: BlockWithMetadata[];
-  children: TextTreeWithMetadata<TextMetadata>[];
+  children: TextTreeWithMetadata[];
 };
 
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
@@ -27,15 +29,13 @@ export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   lines: Line[];
 };
 
-export default <TextMetadata extends Metadata>(
-  textTree: TextTree,
-): [TextTreeWithMetadata<TextMetadata>, MarkitError[]] => {
-  return parseTextMetadata<TextMetadata>(textTree);
+export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
+  return parseTextMetadata(textTree);
 };
 
-const parseTextMetadata = <TextMetadata extends Metadata>(
+const parseTextMetadata = (
   text: TextTree,
-): [TextTreeWithMetadata<TextMetadata>, MarkitError[]] => {
+): [TextTreeWithMetadata, MarkitError[]] => {
   // Consume all leading blocks that start with a [header] (before the first content block).
   // Valid headers ([metadata] and [metadata.subkey]) are parsed; invalid ones produce errors.
   let metadataBlockCount = 0;
@@ -53,7 +53,13 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   const contentBlocks = text.blocks.slice(metadataBlockCount);
 
   const allMetadataErrors: MarkitError[] = [];
-  const metadata = {} as TextMetadata;
+  const metadata: Metadata | undefined =
+    metadataBlocks.length > 0
+      ? {
+          [startLine]: metadataBlocks[0]!.startLine,
+          [endLine]: metadataBlocks.at(-1)!.endLine,
+        }
+      : undefined;
   let hasTopLevelBlock = false;
 
   for (const block of metadataBlocks) {
@@ -63,7 +69,7 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
     if (subkey === null) {
       // Top-level [metadata] block
       hasTopLevelBlock = true;
-      Object.assign(metadata, parsedMetadata);
+      Object.assign(metadata!, parsedMetadata);
     } else {
       // Nested [metadata.subkey] block
       if (!hasTopLevelBlock) {
@@ -77,10 +83,10 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
           }),
         );
       }
-      (metadata as Metadata)[subkey] = parsedMetadata as Record<
-        string,
-        MetadataValue
-      >;
+      metadata![subkey] = Object.assign(
+        parsedMetadata as Record<string, MetadataValue>,
+        { [startLine]: block.startLine, [endLine]: block.endLine },
+      );
     }
   }
 
@@ -133,10 +139,10 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   // Put it all together and return
   const textWithMetadata = {
     ...text,
-    metadata,
+    ...(metadata ? { metadata } : {}),
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
-  } as TextTreeWithMetadata<TextMetadata>;
+  };
   const errors = [
     ...allMetadataErrors,
     ...blockErrors,

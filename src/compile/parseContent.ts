@@ -8,7 +8,6 @@ import type {
   ListItem,
   MarkitDocument,
   MarkitError,
-  Metadata,
   Paragraph,
 } from "../types.js";
 import {
@@ -28,18 +27,15 @@ import type {
 /**
  * Parse the content of each block in the TextTree, returning a fully parsed MarkitDocument.
  */
-export default <TextMetadata extends Metadata>(
-  tree: TextTreeWithMetadata<TextMetadata>,
-  externalChildren: MarkitDocument<TextMetadata>[] = [],
-): [MarkitDocument<TextMetadata>, MarkitError[]] => {
-  return parseTextContent(tree, externalChildren, {} as TextMetadata);
+export default (
+  tree: TextTreeWithMetadata,
+): [MarkitDocument, MarkitError[]] => {
+  return parseTextContent(tree);
 };
 
-const parseTextContent = <TextMetadata extends Metadata>(
-  text: TextTreeWithMetadata<TextMetadata>,
-  externalChildren: MarkitDocument<TextMetadata>[] = [],
-  parentMetadata: TextMetadata,
-): [MarkitDocument<TextMetadata>, MarkitError[]] => {
+const parseTextContent = (
+  text: TextTreeWithMetadata,
+): [MarkitDocument, MarkitError[]] => {
   // Get footnote reference ids to validate footnote references
   const footnoteIds = text.blocks
     .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
@@ -52,26 +48,20 @@ const parseTextContent = <TextMetadata extends Metadata>(
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
 
-  // Merge parent metadata with this text's own metadata (child overrides parent)
-  const mergedMetadata = { ...parentMetadata, ...text.metadata };
-
   // Parse blocks for all internal children recursively, passing merged metadata down
-  const childResults = text.children.map((child) =>
-    parseTextContent(child, [], mergedMetadata),
-  );
+  const childResults = text.children.map((child) => parseTextContent(child));
   const children = childResults.map((result) => result[0]);
   const childErrors = childResults.flatMap((result) => result[1]);
 
   // Put it all together
-  const hasMetadata = Object.keys(mergedMetadata).length > 0;
   const document = {
     id: text.id,
-    ...(hasMetadata ? { metadata: mergedMetadata } : {}),
+    ...(text.metadata ? { metadata: text.metadata } : {}),
     blocks,
-    children: [...children, ...externalChildren],
+    children,
     [startLine]: text.startLine,
     [endLine]: text.endLine,
-  } as MarkitDocument<TextMetadata>;
+  };
 
   return [document, [...blockErrors, ...childErrors]];
 };

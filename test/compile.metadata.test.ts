@@ -154,17 +154,16 @@ describe("text metadata", () => {
     expect(document.metadata).toEqual(
       expect.objectContaining({
         title: "The Full Title",
-        links: {
+        links: expect.objectContaining({
           googleBooks: "https://books.google.com/",
           wikipedia: "https://en.wikipedia.org/",
-        },
+        }),
       }),
     );
   });
 
   it("parses [metadata.subkey] without a top-level [metadata] block", () => {
-    // It's an error, but the compiler should still produce output
-    const [document, errors] = compile(
+    const [, errors] = compile(
       markit(
         "# Text",
         "",
@@ -180,11 +179,6 @@ describe("text metadata", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!.message).toContain(
       "Nested metadata block '[metadata.links]' must appear after the top-level '[metadata]' block",
-    );
-    expect(document.metadata).toEqual(
-      expect.objectContaining({
-        links: { googleBooks: "https://books.google.com/" },
-      }),
     );
   });
 
@@ -205,55 +199,6 @@ describe("text metadata", () => {
     expect(section1.metadata).toEqual(
       expect.objectContaining({
         note: "Child texts can contain metadata too.",
-      }),
-    );
-  });
-
-  it("embeds parent metadata in child texts", () => {
-    const [document, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "[metadata]",
-        'parentKey = "parentValue"',
-        "",
-        "## Child.Text",
-        "",
-        "[metadata]",
-        'childKey = "childValue"',
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    const section1 = document.children[0]!;
-    expect(section1.metadata).toEqual(
-      expect.objectContaining({
-        parentKey: "parentValue",
-        childKey: "childValue",
-      }),
-    );
-  });
-
-  it("overrides parent metadata with child metadata", () => {
-    const [document, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "[metadata]",
-        'key = "parentValue"',
-        "",
-        "## Child.Text",
-        "",
-        "[metadata]",
-        'key = "childValue"',
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    const section1 = document.children[0]!;
-    expect(section1.metadata).toEqual(
-      expect.objectContaining({
-        key: "childValue",
       }),
     );
   });
@@ -358,7 +303,7 @@ describe("text metadata errors", () => {
     });
   });
 
-  it("returns error for invalid JSON values in multiline arrays", () => {
+  it("returns error for invalid values in multiline arrays", () => {
     const [, errors] = compile(
       markitWithMetadata("badArray = [", "    troo,", '    "unclosed,', "]"),
     );

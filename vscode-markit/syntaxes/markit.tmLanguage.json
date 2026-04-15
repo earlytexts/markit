@@ -78,16 +78,8 @@
           "name": "punctuation.separator.comma.markit"
         },
         {
-          "match": "\"[^\"]*\"",
+          "match": "\b[^},]*\b",
           "name": "string.quoted.double.markit"
-        },
-        {
-          "match": "\\b(true|false)\\b",
-          "name": "constant.language.boolean.markit"
-        },
-        {
-          "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
-          "name": "constant.numeric.markit"
         }
       ]
     },
@@ -95,9 +87,9 @@
       "match": "^(\\^[1-6])\\s+(.*)",
       "captures": {
         "1": { "name": "punctuation.definition.heading.markit" },
-        "2": { "name": "markup.heading.content.markit" }
+        "2": { "name": "markup.bold.markit" }
       },
-      "name": "markup.heading.markit",
+      "name": "markup.bold.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "blockquoteLine": {

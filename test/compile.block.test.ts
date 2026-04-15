@@ -49,6 +49,66 @@ describe("blocks", () => {
       }),
     );
   });
+
+  it("assigns type 'title' to title blocks", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#title}", "Main Title"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.id).toBe("title");
+    expect(document.blocks[0]!.type).toBe("title");
+  });
+
+  it("assigns type 'subtitle' to subtitle blocks", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#subtitle}", "Subtitle"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.type).toBe("subtitle");
+  });
+
+  it("auto-numbers subtitle blocks in compiled output", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#subtitle}",
+        "Sub 1",
+        "",
+        "{#subtitle}",
+        "Sub 2",
+        "",
+        "{#subtitle}",
+        "Sub 3",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.id).toBe("subtitle1");
+    expect(document.blocks[1]!.id).toBe("subtitle2");
+    expect(document.blocks[2]!.id).toBe("subtitle3");
+  });
+
+  it("allows multiple subtitle blocks without error", () => {
+    const [, errors] = compile(
+      markitWithContent("{#subtitle}", "Sub 1", "", "{#subtitle}", "Sub 2", ""),
+    );
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it("assigns type 'paragraph' to regular blocks", () => {
+    const [document] = compile(markitWithContent("{#1}", "Content"));
+
+    expect(document.blocks[0]!.type).toBe("paragraph");
+  });
+
+  it("assigns type 'footnote' to footnote blocks", () => {
+    const [document] = compile(markitWithContent("{#n1}", "Footnote"));
+
+    expect(document.blocks[0]!.type).toBe("footnote");
+  });
 });
 
 describe("block errors", () => {
@@ -89,27 +149,19 @@ describe("block errors", () => {
       markit(
         "# Text",
         "",
-        '{#2, nothing, string: "hello"}',
+        "{#2, pages}",
         "This block has badly formed metadata.",
         "",
       ),
     );
 
-    expect(errors).toHaveLength(2);
+    expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       message: "Invalid block metadata, expected 'key=value'",
       line: 3,
       column: 6,
       endLine: 3,
-      endColumn: 13,
-      severity: "error",
-    });
-    expect(errors[1]).toEqual({
-      message: "Invalid block metadata, expected 'key=value'",
-      line: 3,
-      column: 15,
-      endLine: 3,
-      endColumn: 30,
+      endColumn: 11,
       severity: "error",
     });
   });
@@ -178,40 +230,6 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for invalid block tag key 'id'", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1, id=custom}", "Block content.", ""),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Block tag key 'id' is not a valid metadata key (valid keys: pages, subsection, speaker)",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 8,
-      severity: "error",
-    });
-  });
-
-  it("returns error for invalid block tag key 'content'", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1, content=x}", "Block content.", ""),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Block tag key 'content' is not a valid metadata key (valid keys: pages, subsection, speaker)",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 13,
-      severity: "error",
-    });
-  });
-
   it("returns error for block ID with invalid characters", () => {
     const [, errors] = compile(
       markit("# Text", "", "{#id#bad}", "Block content.", ""),
@@ -271,36 +289,7 @@ describe("block errors", () => {
     });
   });
 
-  it("returns error for invalid block tag key 'type'", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1, type=paragraph}", "Block content.", ""),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Block tag key 'type' is not a valid metadata key (valid keys: pages, subsection, speaker)",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 10,
-      severity: "error",
-    });
-  });
-});
-
-describe("title blocks", () => {
-  it("assigns type 'title' to title blocks", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#title}", "Main Title"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.id).toBe("title");
-    expect(document.blocks[0]!.type).toBe("title");
-  });
-
-  it("returns error if more than one title block", () => {
+  it("returns error if there is more than one title block", () => {
     const [, errors] = compile(
       markitWithContent("{#title}", "Title 1", "", "{#title}", "Title 2", ""),
     );
@@ -309,7 +298,7 @@ describe("title blocks", () => {
     expect(errors[0]!.message).toBe("Only one title block is allowed per text");
   });
 
-  it("returns error if title block is not the first block", () => {
+  it("returns error if the title block is not the first block", () => {
     const [, errors] = compile(
       markitWithContent(
         "{#1}",
@@ -325,59 +314,5 @@ describe("title blocks", () => {
     expect(errors[0]!.message).toBe(
       "Title block must be the first block in the text",
     );
-  });
-});
-
-describe("subtitle blocks", () => {
-  it("assigns type 'subtitle' to subtitle blocks", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#subtitle}", "Subtitle"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.type).toBe("subtitle");
-  });
-
-  it("auto-numbers subtitle blocks in compiled output", () => {
-    const [document, errors] = compile(
-      markitWithContent(
-        "{#subtitle}",
-        "Sub 1",
-        "",
-        "{#subtitle}",
-        "Sub 2",
-        "",
-        "{#subtitle}",
-        "Sub 3",
-        "",
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.id).toBe("subtitle1");
-    expect(document.blocks[1]!.id).toBe("subtitle2");
-    expect(document.blocks[2]!.id).toBe("subtitle3");
-  });
-
-  it("allows multiple subtitle blocks without error", () => {
-    const [, errors] = compile(
-      markitWithContent("{#subtitle}", "Sub 1", "", "{#subtitle}", "Sub 2", ""),
-    );
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-describe("block types", () => {
-  it("assigns type 'paragraph' to regular blocks", () => {
-    const [document] = compile(markitWithContent("{#1}", "Content"));
-
-    expect(document.blocks[0]!.type).toBe("paragraph");
-  });
-
-  it("assigns type 'footnote' to footnote blocks", () => {
-    const [document] = compile(markitWithContent("{#n1}", "Footnote"));
-
-    expect(document.blocks[0]!.type).toBe("footnote");
   });
 });

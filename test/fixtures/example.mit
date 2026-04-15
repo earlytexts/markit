@@ -23,7 +23,8 @@ This is an example Markit document, which illustrates all the features of the la
 
 ## Markit.Example.Structure
 
-note: "Child texts can contain metadata too."
+[metadata]
+note = "Child texts can contain metadata too."
 
 {#title}
 ^1 Markit Document Structure

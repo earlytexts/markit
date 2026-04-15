@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import { endLine, startLine } from "../src/types.js";
-import { markit } from "./utils/factories.js";
+import { markit, markitWithMetadata } from "./utils/factories.js";
 
 describe("document structure", () => {
   it("parses the document tree and text IDs, with correct line numbers for folding", () => {
@@ -59,6 +59,83 @@ describe("document structure", () => {
     expect(document.id).toBe("Text.Only");
     expect(document.blocks).toHaveLength(0);
     expect(document.children).toHaveLength(0);
+  });
+});
+
+describe("metadata block ranges", () => {
+  it("returns no metadata for a document with no metadata blocks", () => {
+    const [document] = compile(markit("# Text", "", "{#0}", "Content"));
+
+    expect(document.metadata).toBeUndefined();
+  });
+
+  it("returns [startLine] and [endLine] on metadata for a single metadata block", () => {
+    // line 0: # Text
+    // line 1: (blank)
+    // line 2: [metadata]
+    // line 3: key = value
+    // line 4: (blank)
+    // line 5: {#0}
+    // line 6: Title
+    const [document] = compile(markitWithMetadata('key = "value"'));
+
+    expect(document.metadata![startLine]).toBe(2);
+    expect(document.metadata![endLine]).toBe(3);
+  });
+
+  it("spans all blocks and attaches sub-ranges for multiple metadata blocks", () => {
+    // line 0: # Text
+    // line 1: (blank)
+    // line 2: [metadata]
+    // line 3: key1 = "a"
+    // line 4: (blank)
+    // line 5: [metadata.sub]
+    // line 6: key2 = "b"
+    // line 7: (blank)
+    // line 8: {#0}
+    // line 9: Title
+    const [document] = compile(
+      markit(
+        "# Text",
+        "",
+        "[metadata]",
+        'key1 = "a"',
+        "",
+        "[metadata.sub]",
+        'key2 = "b"',
+        "",
+        "{#0}",
+        "Title",
+      ),
+    );
+
+    expect(document.metadata![startLine]).toBe(2);
+    expect(document.metadata![endLine]).toBe(6);
+
+    const sub = document.metadata!["sub"] as {
+      [startLine]: number;
+      [endLine]: number;
+    };
+    expect(sub[startLine]).toBe(5);
+    expect(sub[endLine]).toBe(6);
+  });
+
+  it("tracks metadata ranges for child documents independently", () => {
+    // line 0: # Root
+    // line 1: (blank)
+    // line 2: ## Root.Child
+    // line 3: (blank)
+    // line 4: [metadata]
+    // line 5: key = "val"
+    const [document] = compile(
+      markit("# Root", "", "## Root.Child", "", "[metadata]", 'key = "val"'),
+    );
+
+    expect(document.metadata).toBeUndefined();
+
+    const child = document.children[0]!;
+    expect(child.metadata![startLine]).toBe(4);
+    expect(child.metadata![endLine]).toBe(5);
   });
 });
 

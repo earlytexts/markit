@@ -8,7 +8,17 @@ export type MarkitError = {
   severity: "error" | "warning";
 };
 
-// Metadata base type
+// Ranges type (used by the language server for code folding)
+export type Ranges = {
+  [startLine]: number;
+  [endLine]: number;
+};
+
+export const startLine = Symbol("startLine");
+
+export const endLine = Symbol("endLine");
+
+// Metadata types
 export type MetadataValue =
   | number
   | boolean
@@ -19,18 +29,17 @@ export type MetadataValue =
 
 export type Metadata = Record<
   string,
-  MetadataValue | Record<string, MetadataValue>
->;
+  MetadataValue | (Record<string, MetadataValue> & Ranges)
+> &
+  Ranges;
 
 // Document type
-export type MarkitDocument<TextMetadata extends Metadata = Metadata> = {
+export type MarkitDocument = {
   id: string;
-  metadata?: TextMetadata;
+  metadata?: Metadata;
   blocks: Block[];
-  children: MarkitDocument<TextMetadata>[];
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-};
+  children: MarkitDocument[];
+} & Ranges;
 
 // Block metadata
 export const VALID_BLOCK_METADATA_KEYS = [
@@ -47,17 +56,10 @@ export type Block = {
   id: string;
   type: BlockType;
   content: BlockElement[];
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
   pages?: string;
   subsection?: string;
   speaker?: string;
-};
-
-// Source range symbols (used by the language server)
-export const startLine = Symbol("startLine");
-
-export const endLine = Symbol("endLine");
+} & Ranges;
 
 // Block-level element types
 export type BlockElement = Heading | Paragraph | Blockquote | List;
