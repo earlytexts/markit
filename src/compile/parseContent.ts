@@ -92,7 +92,6 @@ const parseBlockContent = (
   );
 
   const parsedBlock: Block = {
-    ...block.metadata,
     id: block.id,
     type: blockType,
     content,

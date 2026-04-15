@@ -8,7 +8,7 @@ import {
 } from "../types.js";
 import type { PositionInfo } from "./buildPositionMap.js";
 import makeError from "./makeError.js";
-import transliterateGreek from "./transliterateGreek.js";
+import transliterateGreek, { applyDiacritics } from "./transliterateGreek.js";
 
 export default (
   input: string,
@@ -23,10 +23,13 @@ export default (
     positionMap,
     footnoteIds,
     errors,
+    false,
   );
   const cleanedElements = cleanupElements(elements);
   return [cleanedElements, errors];
 };
+
+const languageWrapperTypes = new Set(["greek", "latin", "french"]);
 
 const parseElements = (
   input: string,
@@ -35,6 +38,7 @@ const parseElements = (
   positionMap: PositionInfo[],
   footnoteIds: string[],
   errors: MarkitError[],
+  suppressEscape: boolean,
 ): [InlineElement[], number] => {
   const result: InlineElement[] = [];
   let pos = startPos;
@@ -54,8 +58,8 @@ const parseElements = (
       return [result, pos + closeMarker.length];
     }
 
-    // 1. Escape character
-    if (input[pos] === "\\") {
+    // 1. Escape character (suppressed inside language wrappers)
+    if (!suppressEscape && input[pos] === "\\") {
       if (pos + 1 < input.length) {
         plainTextBuffer += input[pos + 1];
         pos += 2;
@@ -95,21 +99,29 @@ const parseElements = (
         result.push({ type: "plainText", content: braceCode.result });
         pos = closeBracePos + 1;
         continue;
-      } else {
-        const position = positionMap[pos + 1]!;
-        errors.push(
-          makeError({
-            message: `Unknown brace code: ${code}`,
-            line: position.line,
-            column: position.column,
-            length: code.length,
-          }),
-        );
-        // Treat as literal
-        plainTextBuffer += input.slice(pos, closeBracePos + 1);
+      }
+
+      const diacriticResult = applyBraceCodeDiacritics(code);
+      if (diacriticResult !== null) {
+        flushPlainText();
+        result.push({ type: "plainText", content: diacriticResult });
         pos = closeBracePos + 1;
         continue;
       }
+
+      const position = positionMap[pos + 1]!;
+      errors.push(
+        makeError({
+          message: `Unknown brace code: ${code}`,
+          line: position.line,
+          column: position.column,
+          length: code.length,
+        }),
+      );
+      // Treat as literal
+      plainTextBuffer += input.slice(pos, closeBracePos + 1);
+      pos = closeBracePos + 1;
+      continue;
     }
 
     // 3. Leaf elements (check longest first)
@@ -160,6 +172,8 @@ const parseElements = (
       (a, b) => b.open.length - a.open.length,
     )) {
       if (input.startsWith(wrapper.open, pos)) {
+        const childSuppressEscape =
+          languageWrapperTypes.has(wrapper.type) || suppressEscape;
         const [wrapperContent, newPos] = parseElements(
           input,
           pos + wrapper.open.length,
@@ -167,6 +181,7 @@ const parseElements = (
           positionMap,
           footnoteIds,
           errors,
+          childSuppressEscape,
         );
 
         if (
@@ -187,11 +202,12 @@ const parseElements = (
 
         flushPlainText();
 
-        // Apply Greek transliteration if needed
         const finalContent =
           wrapper.type === "greek"
             ? transliterateGreek(wrapperContent)
-            : wrapperContent;
+            : wrapper.type === "latin" || wrapper.type === "french"
+              ? applyDiacritics(wrapperContent)
+              : wrapperContent;
 
         result.push({ type: wrapper.type, content: finalContent });
         pos = newPos;
@@ -209,6 +225,31 @@ const parseElements = (
   flushPlainText();
 
   return [result, pos];
+};
+
+// Diacritic markers available in brace codes (accent-only, same as Latin/French)
+const braceCodeDiacritics: Record<string, string> = {
+  "/": "\u0301",
+  "\\": "\u0300",
+  "=": "\u0302",
+  "+": "\u0308",
+};
+
+/**
+ * Try to interpret a brace code as "letter + diacritic markers".
+ * Returns the NFC-normalised result string, or null if the code doesn't match.
+ */
+const applyBraceCodeDiacritics = (code: string): string | null => {
+  if (code.length < 2) return null;
+  const base = code[0]!;
+  const markers = code.slice(1);
+  let combining = "";
+  for (const ch of markers) {
+    const c = braceCodeDiacritics[ch];
+    if (!c) return null;
+    combining += c;
+  }
+  return (base + combining).normalize("NFC");
 };
 
 /**

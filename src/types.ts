@@ -41,14 +41,6 @@ export type MarkitDocument = {
   children: MarkitDocument[];
 } & Ranges;
 
-// Block metadata
-export const VALID_BLOCK_METADATA_KEYS = [
-  "pages",
-  "subsection",
-  "speaker",
-] as const;
-export type BlockMetadataKey = (typeof VALID_BLOCK_METADATA_KEYS)[number];
-
 // Block types
 export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
 
@@ -56,9 +48,6 @@ export type Block = {
   id: string;
   type: BlockType;
   content: BlockElement[];
-  pages?: string;
-  subsection?: string;
-  speaker?: string;
 } & Ranges;
 
 // Block-level element types
@@ -122,7 +111,7 @@ export const leafElements = [
   { trigger: "~~", type: "emSpace" },
   { trigger: "~", type: "nbSpace" },
   { trigger: "//", type: "lineBreak" },
-  { trigger: "|", type: "pageBreak" },
+  { trigger: "||", type: "pageBreak" },
   { trigger: "???", type: "illegible" },
 ] as const;
 
@@ -149,7 +138,9 @@ export const wrapperElements = [
   { open: '"', close: '"', type: "quote" },
   { open: "*", close: "*", type: "strong" },
   { open: "_", close: "_", type: "emphasis" },
-  { open: "$$", close: "$$", type: "greek" },
+  { open: "$gr:", close: "$", type: "greek" },
+  { open: "$la:", close: "$", type: "latin" },
+  { open: "$fr:", close: "$", type: "french" },
   { open: "$", close: "$", type: "foreign" },
   { open: "@", close: "@", type: "aside" },
   { open: "++", close: "++", type: "insertion" },

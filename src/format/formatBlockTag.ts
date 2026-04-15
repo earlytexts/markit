@@ -43,31 +43,9 @@ const formatBlockTag = (line: string) => {
     return { tag: line, content: "" };
   }
 
-  const inner = trimmed.slice(2, closingBrace);
+  const inner = trimmed.slice(2, closingBrace).trim();
   const rest = trimmed.slice(closingBrace + 1).trim();
 
-  const parts = inner.split(",").map((s) => s.trim());
-  const formattedParts = parts.map(formatBlockTagPart);
-
-  const formattedTag = `{#${formattedParts.join(", ")}}`;
+  const formattedTag = `{#${inner}}`;
   return { tag: formattedTag, content: rest };
-};
-
-const formatBlockTagPart = (part: string, index: number) => {
-  const trimmedPart = part.trim();
-  if (index === 0) {
-    // First part is the ID - just remove spaces
-    return trimmedPart;
-  }
-
-  // Metadata pairs: key=value (no spaces around =)
-  const eqIndex = trimmedPart.indexOf("=");
-  if (eqIndex === -1) {
-    // No equals sign - return as-is (e.g., "standalone")
-    return trimmedPart;
-  }
-
-  const key = trimmedPart.slice(0, eqIndex).trim();
-  const value = trimmedPart.slice(eqIndex + 1).trim();
-  return `${key}=${value}`;
 };

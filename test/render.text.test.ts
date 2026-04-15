@@ -152,8 +152,18 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("foreign");
   });
 
+  it("renders Latin text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "$la:Roma$"));
+    expect(renderText(document)).toContain("Roma");
+  });
+
+  it("renders French text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "$fr:Paris$"));
+    expect(renderText(document)).toContain("Paris");
+  });
+
   it("renders Greek text as transliterated inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$$logos$$"));
+    const [document] = compile(markitWithContent("{#1}", "$gr:logos$"));
     expect(renderText(document)).toContain("λογος");
   });
 
@@ -165,7 +175,7 @@ describe("inline elements", () => {
   });
 
   it("renders page break as |", () => {
-    const [document] = compile(markitWithContent("{#1}", "before | after"));
+    const [document] = compile(markitWithContent("{#1}", "before || after"));
     expect(renderText(document)).toContain("|");
   });
 
@@ -189,76 +199,5 @@ describe("inline elements", () => {
   it("renders illegible text as <illegible>", () => {
     const [document] = compile(markitWithContent("{#1}", "???"));
     expect(renderText(document)).toContain("<illegible>");
-  });
-});
-
-describe("subsection and speaker metadata", () => {
-  it("renders subsection before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=42}", "Hello"),
-    );
-    expect(renderText(document)).toContain("42. Hello");
-  });
-
-  it("renders speaker before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, speaker=Alice}", "Hello"),
-    );
-    expect(renderText(document)).toContain("Alice. Hello");
-  });
-
-  it("renders both subsection and speaker before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3, speaker=Bob}", "Hello"),
-    );
-    expect(renderText(document)).toContain("3. Bob. Hello");
-  });
-
-  it("only prefixes the first block-level element, not subsequent ones", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=1}", "First.", "", "Second."),
-    );
-    const text = renderText(document);
-    expect(text).toContain("1. First.");
-    expect(text).not.toContain("1. Second.");
-  });
-
-  it("only prefixes the first paragraph inside a multi-paragraph blockquote", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3}", "> First.", ">", "> Second."),
-    );
-    const text = renderText(document);
-    expect(text).toContain("3. First.");
-    expect(text).not.toContain("3. Second.");
-  });
-
-  it("does not prefix title blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#title, subsection=1}", "^1 My Title"),
-    );
-    expect(renderText(document)).not.toContain("1. My Title");
-    expect(renderText(document)).toContain("My Title");
-  });
-
-  it("does not prefix subtitle blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#subtitle, subsection=1}", "^2 A Subtitle"),
-    );
-    expect(renderText(document)).not.toContain("1. A Subtitle");
-    expect(renderText(document)).toContain("A Subtitle");
-  });
-
-  it("does not prefix footnote blocks", () => {
-    const [document] = compile(
-      markitWithContent(
-        "{#1}",
-        "See <n1>.",
-        "",
-        "{#n1, subsection=1}",
-        "Note.",
-      ),
-    );
-    expect(renderText(document)).not.toContain("1. Note.");
-    expect(renderText(document)).toContain("Note.");
   });
 });

@@ -262,37 +262,6 @@ describe("formatter", () => {
       expect(result).toBe(markitWithContent("{#1}", "Content"));
     });
 
-    it("normalizes block tag metadata spacing", () => {
-      const input = markitWithContent("{#1 , margin = true}", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, margin=true}", "Content"));
-    });
-
-    it("normalizes multiple metadata key-value pairs", () => {
-      const input = markitWithContent(
-        '{#1,margin=true,label="hello"}',
-        "Content",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent('{#1, margin=true, label="hello"}', "Content"),
-      );
-    });
-
-    it("handles multiple key-value pairs with various spacing", () => {
-      const input = markitWithContent(
-        "{#1,  pages=12-15 ,   speaker=John Smith ,subsection=3}",
-        "Content",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent(
-          "{#1, pages=12-15, speaker=John Smith, subsection=3}",
-          "Content",
-        ),
-      );
-    });
-
     it("inserts newline between block tag and content if missing", () => {
       const input = markitWithContent("{#1} Content here");
       const result = formatDocument(input);
@@ -309,18 +278,6 @@ describe("formatter", () => {
       const input = markitWithContent("{#1 Content");
       const result = formatDocument(input);
       expect(result).toBe(markitWithContent("{#1 Content"));
-    });
-
-    it("handles block tag with metadata pair missing =", () => {
-      const input = markitWithContent("{#1, standalone}", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, standalone}", "Content"));
-    });
-
-    it("trims whitespace around values", () => {
-      const input = markitWithContent("{#1, speaker=  Alice  }", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, speaker=Alice}", "Content"));
     });
   });
 
@@ -727,7 +684,7 @@ describe("formatter", () => {
           "{#0}",
           "^1 Book One",
           "",
-          "{#1, margin=true}",
+          "{#1 , margin = true}",
           "*Important* paragraph.",
           "",
           "{#n1}",

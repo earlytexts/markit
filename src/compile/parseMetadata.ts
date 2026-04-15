@@ -1,15 +1,5 @@
-import type {
-  BlockMetadataKey,
-  MarkitError,
-  Metadata,
-  MetadataValue,
-} from "../types.js";
-import {
-  endLine,
-  footnoteReferenceSpec,
-  startLine,
-  VALID_BLOCK_METADATA_KEYS,
-} from "../types.js";
+import type { MarkitError, Metadata, MetadataValue } from "../types.js";
+import { endLine, footnoteReferenceSpec, startLine } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
@@ -25,7 +15,6 @@ export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
 
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
-  metadata: Partial<Record<BlockMetadataKey, string>>;
   lines: Line[];
 };
 
@@ -361,11 +350,10 @@ const parseBlockMetadata = (
   const blockTagContent = blockTagMatch
     ? blockTagMatch[1]!.trim()
     : `${block.startLine}`;
-  const blockTagParts = blockTagContent.split(",").map((part) => part.trim());
 
   // fallback to start line as ID if ID not provided
   // error will be reported by blockTagMatch check above
-  let id = blockTagParts[0]!;
+  let id = blockTagContent;
 
   // Validate block ID characters (only when a block tag was matched, not the fallback)
   if (blockTagMatch && !/^[^\s#{}]+$/.test(id)) {
@@ -435,51 +423,6 @@ const parseBlockMetadata = (
     );
   }
 
-  const metadata: Partial<Record<BlockMetadataKey, string>> = {};
-  blockTagParts.slice(1).forEach((part) => {
-    const eqIndex = part.indexOf("=");
-    if (eqIndex === -1) {
-      errors.push(
-        makeError({
-          message: "Invalid block metadata, expected 'key=value'",
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: part.length,
-        }),
-      );
-      return;
-    }
-
-    const key = part.slice(0, eqIndex).trim();
-    const value = part.slice(eqIndex + 1).trim();
-
-    if (!key || !value) {
-      errors.push(
-        makeError({
-          message: "Invalid block metadata, expected 'key=value'",
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: part.length,
-        }),
-      );
-      return;
-    }
-
-    if (!VALID_BLOCK_METADATA_KEYS.includes(key as BlockMetadataKey)) {
-      errors.push(
-        makeError({
-          message: `Block tag key '${key}' is not a valid metadata key (valid keys: ${VALID_BLOCK_METADATA_KEYS.join(", ")})`,
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: key.length,
-        }),
-      );
-      return;
-    }
-
-    metadata[key as BlockMetadataKey] = value;
-  });
-
   const contentAfterTag = blockTagMatch
     ? firstLine.content.slice(blockTagMatch[0]!.length).trim()
     : firstLine.content.trim().startsWith("{#")
@@ -499,7 +442,6 @@ const parseBlockMetadata = (
   const blockWithMetadata: BlockWithMetadata = {
     ...block,
     id,
-    metadata,
     lines,
   };
 

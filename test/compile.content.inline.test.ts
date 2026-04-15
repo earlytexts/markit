@@ -243,7 +243,7 @@ describe("block content", () => {
     const [document, errors] = compile(
       markitWithContent(
         "{#1}",
-        "Greek words: $$like this$$ and $$philosophia$$.",
+        "Greek words: $gr:like this$ and $gr:philosophia$.",
       ),
     );
 
@@ -326,7 +326,7 @@ describe("block content", () => {
 
   it("parses page breaks", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "before | after"),
+      markitWithContent("{#1}", "before || after"),
     );
 
     expect(errors).toHaveLength(0);
@@ -370,7 +370,9 @@ describe("block content", () => {
   });
 
   it("transliterates Greek text with nested formatting", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$$*bold*$$"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$gr:*bold*$"),
+    );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
@@ -385,7 +387,7 @@ describe("block content", () => {
 
   it("transliterates Greek text with leaf elements", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$$text//more$$"),
+      markitWithContent("{#1}", "$gr:text//more$"),
     );
 
     expect(errors).toHaveLength(0);
@@ -400,7 +402,7 @@ describe("block content", () => {
   });
 
   it("transliterates uppercase Greek letters", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$$Alpha$$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:Alpha$"));
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
@@ -410,7 +412,7 @@ describe("block content", () => {
 
   it("parses Greek digraph mixed-case variants", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$$Thalassa Ph Ph CH PS$$"),
+      markitWithContent("{#1}", "$gr:Thalassa Ph Ph CH PS$"),
     );
 
     expect(errors).toHaveLength(0);
@@ -421,7 +423,7 @@ describe("block content", () => {
 
   it("passes non-table characters through unchanged in Greek transliteration", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$$42! abc$$"),
+      markitWithContent("{#1}", "$gr:42! abc$"),
     );
 
     expect(errors).toHaveLength(0);
@@ -432,7 +434,7 @@ describe("block content", () => {
 
   it("applies final sigma when followed by punctuation", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$$logos, bios.$$"),
+      markitWithContent("{#1}", "$gr:logos, bios.$"),
     );
 
     expect(errors).toHaveLength(0);
@@ -553,6 +555,194 @@ describe("block content", () => {
   });
 });
 
+describe("language wrappers", () => {
+  it("parses Latin text with $la: syntax (no transliteration)", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$la:Roma$"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "latin", content: [pt("Roma")] }]),
+    ]);
+  });
+
+  it("parses French text with $fr: syntax (no transliteration)", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$fr:Paris$"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "french", content: [pt("Paris")] }]),
+    ]);
+  });
+});
+
+describe("Greek diacritics", () => {
+  it("applies smooth breathing", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a)$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ἀ")] }]),
+    ]);
+  });
+
+  it("applies rough breathing", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a($"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ἁ")] }]),
+    ]);
+  });
+
+  it("applies acute accent", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a/$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ά")] }]),
+    ]);
+  });
+
+  it("applies grave accent", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a\\$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ὰ")] }]),
+    ]);
+  });
+
+  it("applies circumflex", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a=$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ᾶ")] }]),
+    ]);
+  });
+
+  it("applies diaeresis", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:i+$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ϊ")] }]),
+    ]);
+  });
+
+  it("applies iota subscript", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a|$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ᾳ")] }]),
+    ]);
+  });
+
+  it("applies smooth breathing and acute together", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a)/$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ἄ")] }]),
+    ]);
+  });
+
+  it("applies rough breathing and acute together", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a(/$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ἅ")] }]),
+    ]);
+  });
+
+  it("applies diacritics to uppercase letters", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$gr:A)/$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("Ἄ")] }]),
+    ]);
+  });
+
+  it("applies diacritics in a full word", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$gr:a)nthrwpos$"),
+    );
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("ἀνθρωπος")] }]),
+    ]);
+  });
+
+  it("does not treat diacritic markers as word boundaries for final sigma", () => {
+    // Before: s followed by / was a word boundary → final sigma
+    // After: / is a diacritic marker → non-final sigma gets the acute
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$gr:logos/$"),
+    );
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "greek", content: [pt("λογο\u03C3\u0301")] }]),
+    ]);
+  });
+});
+
+describe("Latin and French diacritics", () => {
+  it("applies acute accent in Latin text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$la:e/$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "latin", content: [pt("é")] }]),
+    ]);
+  });
+
+  it("applies grave accent in Latin text", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$la:Roma\\$"),
+    );
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "latin", content: [pt("Romà")] }]),
+    ]);
+  });
+
+  it("applies circumflex in French text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$fr:e=$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "french", content: [pt("ê")] }]),
+    ]);
+  });
+
+  it("applies diaeresis in French text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$fr:e+$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "french", content: [pt("ë")] }]),
+    ]);
+  });
+
+  it("does not apply breathing markers in French text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$fr:a)$"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "french", content: [pt("a)")] }]),
+    ]);
+  });
+});
+
+describe("brace code diacritics", () => {
+  it("applies acute accent via brace code", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "{e/}"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("é")])]);
+  });
+
+  it("applies grave accent via brace code", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "{a\\}"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("à")])]);
+  });
+
+  it("applies circumflex via brace code", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "{o=}"));
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("ô")])]);
+  });
+});
+
 describe("block content errors", () => {
   it("returns error for unknown brace code", () => {
     const [, errors] = compile(
@@ -565,6 +755,42 @@ describe("block content errors", () => {
       column: 14,
       endLine: 4,
       endColumn: 21,
+      severity: "error",
+    });
+  });
+
+  it("returns error for single-character brace code", () => {
+    const [, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "{#1}",
+        "This has a {x} single char brace code.",
+        "",
+      ),
+    );
+
+    expect(errors[0]).toEqual({
+      message: "Unknown brace code: x",
+      line: 4,
+      column: 13,
+      endLine: 4,
+      endColumn: 14,
+      severity: "error",
+    });
+  });
+
+  it("returns error for empty brace code", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "This has an {} empty brace code.", ""),
+    );
+
+    expect(errors[0]).toEqual({
+      message: "Unknown brace code: ",
+      line: 4,
+      column: 14,
+      endLine: 4,
+      endColumn: 14,
       severity: "error",
     });
   });

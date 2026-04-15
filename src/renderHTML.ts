@@ -31,25 +31,9 @@ const documentToHTML = (
 const blockToHTML = (block: Block, depth: number): string => {
   const line = block[startLine];
   const headingDepth = block.type === "subtitle" ? depth + 1 : depth;
-  let blockPrefix = "";
-  if (block.type === "paragraph") {
-    if (typeof block.subsection === "string") {
-      blockPrefix += `<span class="subsection">${block.subsection}.</span> `;
-    }
-    if (typeof block.speaker === "string") {
-      blockPrefix += `<span class="speaker">${block.speaker}.</span> `;
-    }
-  }
   const footnoteId = block.type === "footnote" ? block.id : null;
   const inner = block.content
-    .map((el, i) =>
-      blockElementToHTML(
-        el,
-        footnoteId,
-        headingDepth,
-        i === 0 ? blockPrefix : "",
-      ),
-    )
+    .map((el) => blockElementToHTML(el, footnoteId, headingDepth))
     .join("");
   return `<div data-line="${line}">${inner}</div>`;
 };
@@ -58,13 +42,12 @@ const blockElementToHTML = (
   element: BlockElement,
   footnotePrefix: string | null,
   depth: number,
-  blockPrefix: string = "",
 ): string => {
   switch (element.type) {
     case "paragraph": {
       const fnPrefix =
         footnotePrefix !== null ? `<sup>${footnotePrefix}</sup> ` : "";
-      return `<p>${blockPrefix}${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
+      return `<p>${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
     }
     case "heading": {
       const hLevel = Math.min(depth + 1, 6);
@@ -78,17 +61,12 @@ const blockElementToHTML = (
     }
     case "blockquote":
       return `<blockquote>${element.content
-        .map((el, i) =>
-          blockElementToHTML(el, null, depth, i === 0 ? blockPrefix : ""),
-        )
+        .map((el) => blockElementToHTML(el, null, depth))
         .join("")}</blockquote>`;
     case "list": {
       const tag = element.ordered ? "ol" : "ul";
       return `<${tag}>${element.content
-        .map(
-          (item, i) =>
-            `<li>${i === 0 ? blockPrefix : ""}${inlineElementsToHTML(item.content)}</li>`,
-        )
+        .map((item) => `<li>${inlineElementsToHTML(item.content)}</li>`)
         .join("")}</${tag}>`;
     }
   }
@@ -123,6 +101,10 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
     case "greek":
       return `<em class="greek">${inlineElementsToHTML(element.content)}</em>`;
+    case "latin":
+      return `<em class="latin">${inlineElementsToHTML(element.content)}</em>`;
+    case "french":
+      return `<em class="french">${inlineElementsToHTML(element.content)}</em>`;
     case "aside":
       return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
     case "insertion":

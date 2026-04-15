@@ -1,61 +1,134 @@
 import type { InlineElement } from "../types.js";
 
-export default (content: InlineElement[]): InlineElement[] =>
-  content.map(transliterateElement);
+// Full diacritic set for Greek (breathings + accents + diaeresis + iota subscript)
+const greekDiacritics: Record<string, string> = {
+  ")": "\u0313", // smooth breathing (psili)
+  "(": "\u0314", // rough breathing (dasia)
+  "/": "\u0301", // acute accent (oxia)
+  "\\": "\u0300", // grave accent (varia)
+  "=": "\u0342", // circumflex (perispomeni)
+  "+": "\u0308", // diaeresis
+  "|": "\u0345", // iota subscript
+};
 
-const transliterateElement = (element: InlineElement): InlineElement => {
+// Accent-only set for Latin and French
+const accentDiacritics: Record<string, string> = {
+  "/": "\u0301", // acute
+  "\\": "\u0300", // grave
+  "=": "\u0302", // circumflex (Latin standard, not Greek perispomeni)
+  "+": "\u0308", // diaeresis
+};
+
+export default (content: InlineElement[]): InlineElement[] =>
+  content.map((el) => transliterateElement(el, greekDiacritics));
+
+export const applyDiacritics = (content: InlineElement[]): InlineElement[] =>
+  content.map((el) => transliterateElement(el, accentDiacritics));
+
+const transliterateElement = (
+  element: InlineElement,
+  diacritics: Record<string, string>,
+): InlineElement => {
   if (element.type === "plainText") {
-    return { ...element, content: transliterateContent(element.content) };
+    return {
+      ...element,
+      content: processContent(element.content, diacritics),
+    };
   } else if ("content" in element && Array.isArray(element.content)) {
-    return { ...element, content: element.content.map(transliterateElement) };
+    return {
+      ...element,
+      content: element.content.map((el) =>
+        transliterateElement(el, diacritics),
+      ),
+    };
   }
   return element;
 };
 
-const transliterateContent = (input: string): string => {
+const processContent = (
+  input: string,
+  diacritics: Record<string, string>,
+): string => {
   let result = "";
   let pos = 0;
 
   while (pos < input.length) {
-    // Try digraphs first
-    const digraph = digraphs.find(([latin]) => input.startsWith(latin, pos));
-    if (digraph) {
-      result += digraph[1];
-      pos += digraph[0].length;
-      continue;
+    // Try digraphs first (Greek transliteration only)
+    if (diacritics === greekDiacritics) {
+      const digraph = digraphs.find(([latin]) => input.startsWith(latin, pos));
+      if (digraph) {
+        result += digraph[1];
+        pos += digraph[0].length;
+        result = consumeDiacritics(input, pos, diacritics, result);
+        pos += countDiacritics(input, pos, diacritics);
+        continue;
+      }
     }
 
     const char = input[pos]!;
-    const lower = lowerMap[char];
-    const upper = upperMap[char];
 
-    if (lower) {
-      // Handle final sigma: lowercase 's' at word boundary
-      if (char === "s" && isWordBoundary(input[pos + 1])) {
-        result += "ς";
+    if (diacritics === greekDiacritics) {
+      const lower = lowerMap[char];
+      const upper = upperMap[char];
+      if (lower) {
+        result += char === "s" && isWordBoundary(input[pos + 1]) ? "ς" : lower;
+        pos += 1;
+      } else if (upper) {
+        result += upper;
+        pos += 1;
       } else {
-        result += lower;
+        result += char;
+        pos += 1;
       }
-      pos += 1;
-    } else if (upper) {
-      result += upper;
-      pos += 1;
     } else {
       result += char;
       pos += 1;
     }
+
+    // Consume diacritic markers following this character
+    const combining = collectDiacritics(input, pos, diacritics);
+    result += combining.chars;
+    pos += combining.count;
   }
 
-  return result;
+  return result.normalize("NFC");
 };
 
-const isWordBoundary = (char: string | undefined): boolean => {
-  return (
-    char === undefined ||
-    /\s/.test(char) ||
-    /[.,;:!?'"()[\]{}<>\/\\]/.test(char)
-  );
+const collectDiacritics = (
+  input: string,
+  pos: number,
+  diacritics: Record<string, string>,
+): { chars: string; count: number } => {
+  let chars = "";
+  let count = 0;
+  while (pos + count < input.length) {
+    const combining = diacritics[input[pos + count]!];
+    if (!combining) break;
+    chars += combining;
+    count++;
+  }
+  return { chars, count };
 };
+
+// Helper used in the digraph branch
+const consumeDiacritics = (
+  input: string,
+  pos: number,
+  diacritics: Record<string, string>,
+  result: string,
+): string => {
+  const { chars } = collectDiacritics(input, pos, diacritics);
+  return result + chars;
+};
+
+const countDiacritics = (
+  input: string,
+  pos: number,
+  diacritics: Record<string, string>,
+): number => collectDiacritics(input, pos, diacritics).count;
+
+const isWordBoundary = (char: string | undefined): boolean =>
+  char === undefined || /\s/.test(char) || /[.,;:!?'"[\]{}<>]/.test(char);
 
 const digraphs: [string, string][] = [
   ["th", "θ"],

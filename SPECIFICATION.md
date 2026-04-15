@@ -1,37 +1,37 @@
 # Language Specification
 
+A Markit _document_ is a UTF-8 or UTF-16 encoded text file with a `.mit` extension. Valid Markit documents must conform to the syntax rules described in this specification. The Markit compiler takes a Markit document as input and produces a JSON representation of its structure and content as output, alongside a list of any syntax errors.
+
 ## Document Structure
 
-A Markit _document_ is a UTF-8 or UTF-16 encoded text file with a `.mit` extension. It consists of one or more _texts_ arranged in a hierarchical tree structure. Each text starts with one or more `#` characters followed by a unique identifier (ID). The number of `#` characters indicates the text's level in the hierarchy (e.g. `#` for top-level texts, `##` for their children, etc.).
+A Markit document consists of one or more _texts_ arranged in a hierarchical tree structure. Each text starts with one or more `#` characters followed by a unique identifier (ID). The number of `#` characters indicates the text's level in the hierarchy (e.g. `#` for top-level texts, `##` for their children, etc.).
 
 ```
-# Author.Title
+# Title
 
 ...
 
-## Author.Title.Chapter1
+## Chapter1
 
 ...
 
-### Author.Title.Chapter1.Section1
+### Section1
 
 ...
 
-### Author.Title.Chapter2
+## Chapter2
 
 ...
 ```
 
-IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique across the document. They should also be unique across your corpus, but the compiler does not enforce this.
-
-It is conventional (and recommended) to use dot notation for IDs, as in the example above, but this is not required.
+IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique relative to the text. In the compiled output, child text IDs are prefixed with their parent text's ID to ensure uniqueness across the whole document (e.g. `Title.Chapter1`, `Title.Chapter1.Section1`, etc.).
 
 ## Text Metadata
 
-Every text ID can optionally be followed by a _metadata block_. A metadata block begins with the header `[metadata]` and contains TOML-style key-value pairs:
+Every text ID (including child texts) can optionally be followed by a _metadata block_. A metadata block begins with the header `[metadata]` and contains TOML-style `key = value` pairs:
 
 ```
-# Author.Title
+# Title
 
 [metadata]
 reviewed = true
@@ -40,13 +40,13 @@ firstPublished = 1721
 title = "The Full Title of the Work"
 tags = ["philosophy", "metaphysics"]
 otherEditions = [
-    "Author.Title.Edition1",
-    "Author.Title.Edition2",
-    "Author.Title.Edition3"
+    "Title.Edition1",
+    "Title.Edition2",
+    "Title.Edition3"
 ]
 ```
 
-Only a subset of TOML is supported. Booleans, numbers, strings, and arrays of these types are supported; dates and comments are not. Mixed arrays are not permitted (i.e. arrays can only contain one type of value).
+Only a subset of TOML is supported. Booleans, numbers, strings, and arrays of these types are supported; dates and comments are not (dates can be represented as strings in whatever format is desired). Mixed arrays are not permitted (i.e. arrays can only contain one type of value).
 
 ### Nested Metadata
 
@@ -60,8 +60,6 @@ title = "The Full Title of the Work"
 googleBooks = "https://books.google.com/..."
 wikipedia = "https://en.wikipedia.org/wiki/..."
 ```
-
-All metadata blocks must appear before the first content block.
 
 ## Content Blocks
 
@@ -90,28 +88,16 @@ Following the metadata blocks (if any), a text can have any number of _content b
 ...
 ```
 
-Block IDs must be unique within the immediate text (not within the whole document). In the compiled output, their IDs will be prefixed with the text's ID to ensure uniqueness across the entire document. They are conventionally numbered sequentially, but this is not required.
+Block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document. They are conventionally numbered sequentially, but this is not required.
 
 ### Block Types
 
 There are four types of content block, determined by the block ID:
 
 - `title` blocks, which contain the title of the text. There can be at most one `title` block per text, and if present it must be the first block.
-- `subtitle` blocks, which contain subtitles or section headings. There can be any number of `subtitle` blocks, and they can appear anywhere in the text. In the compiled output, they are given sequential IDs (e.g. `Author.Title.subtitle1`, `Author.Title.subtitle2`, etc.) to ensure uniqueness across the document.
+- `subtitle` blocks, which contain subtitles or section headings. There can be any number of `subtitle` blocks, and they can appear anywhere in the text. In the compiled output, they are given sequential IDs (e.g. `Title.subtitle1`, `Title.subtitle2`, etc.) to ensure uniqueness across the document.
 - `n` blocks, which represent footnotes. They must appear at the end of the text, after all other content blocks. They can be referenced from inline markup in the content text (see below).
-- Any other block ID is treated as a `paragraph` block.
-
-### Block Metadata
-
-Block tags can also include the specifications for subsection, pages in the copy text, and speaker (for dialogue), as a comma-separated list of `key=value` pairs:
-
-```
-{#1, subsection=2, pages=14-15, speaker=Philo}
-```
-
-Values are unquoted strings. Any characters are allowed except for commas (which separate key-value pairs) and `}` (which closes the block tag). Leading and trailing whitespace around values is trimmed. Any key other than the three listed above is an error.
-
-In the HTML or text output, `subsection` and `speaker` are rendered as a prefix to the block's first line, followed by a full-stop, i.e. `2. Rest of content...`, `Philo. Rest of content...`.
+- Any other block (with any other ID) is a `paragraph` block.
 
 ## Content Text
 
@@ -146,44 +132,56 @@ In fact, block quotations can _only_ contain either paragraphs or lists - becaus
 
 Block-level elements contain one or more _inline elements_. An inline element is either plain text or a special character sequence that represents some kind of formatting or semantic content (e.g. emphasis, a footnote reference, etc.). The following special character sequences are supported:
 
-| Markit Input    | Meaning                      | HTML Equivalent                                    |
-| --------------- | ---------------------------- | -------------------------------------------------- |
-| `"text"`        | an inline quotation          | `<q>text</q>`                                      |
-| `*text*`        | strong text                  | `<strong>text</strong>`                            |
-| `_text_`        | emphasised text              | `<em>text</em>`                                    |
-| `$text$`        | foreign text                 | `<em class="foreign">text</em>`                    |
-| `$$text$$`      | Greek text in Latin alphabet | `<em class="foreign">…</em>`                       |
-| `@text@`        | margin comment               | `<span class="aside">text</span>`                  |
-| `++insertion++` | editorial insertion          | `<ins>insertion</ins>`                             |
-| `--deletion--`  | editorial deletion           | `<del>deletion</del>`                              |
-| `??uncertain??` | uncertain text               | `<span class="uncertain">uncertain</span>`         |
-| `???`.          | illegible text               | `<span class="illegible">&lt;illegible&gt;</span>` |
-| `==highlight==` | editorial highlight          | `<mark>highlight</mark>`                           |
-| `[citation]`    | citation                     | `<cite>citation</cite>`                            |
-| `~`             | a non-breaking space         | `&nbsp;`                                           |
-| `~~`            | a large space / tab          | `&emsp;`                                           |
-| `//`            | a line break                 | `<br />`                                           |
-| `\|`            | a page break                 | `<span class="page-break"></span>`                 |
-| `{SS}`          | section symbol               | `§`                                                |
-| `{ae}`          | "ae" ligature                | `æ`                                                |
-| `{AE}`          | "AE" ligature                | `Æ`                                                |
-| `{oe}`          | "oe" ligature                | `œ`                                                |
-| `{OE}`          | "OE" ligature                | `Œ`                                                |
-| `{-}`           | an en dash                   | `–`                                                |
-| `{--}`          | an em dash                   | `—`                                                |
-| `<nID>`         | footnote reference           | `<a href="#nID"><sup>[ID]</sup></a>`               |
+| Markit Input    | Meaning              | HTML Equivalent                                    |
+| --------------- | -------------------- | -------------------------------------------------- |
+| `"text"`        | an inline quotation  | `<q>text</q>`                                      |
+| `*text*`        | strong text          | `<strong>text</strong>`                            |
+| `_text_`        | emphasised text      | `<em>text</em>`                                    |
+| `$text$`        | foreign text         | `<em class="foreign">text</em>`                    |
+| `$gr:text$`     | Greek text           | `<em class="greek">text</em>`                      |
+| `$la:text$`     | Latin text           | `<em class="latin">text</em>`                      |
+| `$fr:text$`     | French text          | `<em class="french">text</em>`                     |
+| `@text@`        | margin comment       | `<span class="aside">text</span>`                  |
+| `++insertion++` | editorial insertion  | `<ins>insertion</ins>`                             |
+| `--deletion--`  | editorial deletion   | `<del>deletion</del>`                              |
+| `??uncertain??` | uncertain text       | `<span class="uncertain">uncertain</span>`         |
+| `???`           | illegible text       | `<span class="illegible">&lt;illegible&gt;</span>` |
+| `==highlight==` | editorial highlight  | `<mark>highlight</mark>`                           |
+| `[citation]`    | citation             | `<cite>citation</cite>`                            |
+| `<nID>`         | footnote reference   | `<a href="#nID"><sup>[ID]</sup></a>`               |
+| `~`             | a non-breaking space | `&nbsp;`                                           |
+| `~~`            | a large space / tab  | `&emsp;`                                           |
+| `//`            | a line break         | `<br />`                                           |
+| `\|\|`          | a page break         | `<span class="page-break">\|</span>`               |
+| `{SS}`          | section symbol       | `§`                                                |
+| `{ae}`          | "ae" ligature        | `æ`                                                |
+| `{AE}`          | "AE" ligature        | `Æ`                                                |
+| `{oe}`          | "oe" ligature        | `œ`                                                |
+| `{OE}`          | "OE" ligature        | `Œ`                                                |
+| `{-}`           | an en dash           | `–`                                                |
+| `{--}`          | an em dash           | `—`                                                |
+| e.g. `{a/}`     | acute.               | `á`, `é`, `í`, etc.                                |
+| e.g. `{a\}`     | grave                | `à`, `è`, `ì`, etc.                                |
+| e.g. `{a=}`     | circumflex           | `â`, `ê`, `î`, etc.                                |
+| e.g. `{a+}`     | diaeresis            | `ä`, `ë`, `ï`, etc.                                |
 
-(**Note:** If you're reading this document as raw text, the page break marker is a single `|` character. In the table above it appears as `` `\|` `` because `|` has special meaning in Markdown tables; the backslash is a Markdown formatting artifact, not part of the Markit syntax.)
+(**Note:** If you're reading this document as raw text, the page break marker is `||`. In the table above it appears as `` `\|\|` `` because `|` has special meaning in Markdown tables; the backslashes are a Markdown formatting artifact, not part of the Markit syntax.)
 
 Footnote references must be to footnote blocks in the same text (e.g. `<n1>` must refer to a block with the ID `n1` in the same text).
 
 ### Escaping Special Characters
 
-To include a literal special character in the content, it must be escaped with a backslash (e.g. `\*` for a literal asterisk). The backslash itself can be escaped with another backslash (e.g. `\\` for a literal backslash). Any character that is not listed above can be included without escaping.
+To include a literal special character in the content, it must be escaped with a backslash (e.g. `\*` for a literal asterisk). The backslash itself can be escaped with another backslash (e.g. `\\` for a literal backslash).
 
-### Greek Transliteration
+**Note:** Backslash escaping is not available inside language-coded wrappers (`$gr:...$`, `$la:...$`, `$fr:...$`). Inside these wrappers, `\` is the grave accent diacritic marker (see below).
 
-Inside `$$...$$`, Latin characters are transliterated to their Greek equivalents. Digraphs are matched first (before single characters), in the order shown:
+### Language-coded text
+
+`$gr:...$`, `$la:...$`, and `$fr:...$` mark text as Greek, Latin, and French respectively. Unlike generic `$...$` foreign text, these wrappers activate [diacritic markers](#diacritics). `$gr:...$` additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration).
+
+### Latin-to-Greek Transliteration
+
+Inside `$gr:...$`, Latin characters are transliterated to their Greek equivalents. Digraphs are matched first (before single characters), in the order shown:
 
 | Latin input | Greek output |
 | ----------- | ------------ |
@@ -222,9 +220,44 @@ After digraph matching, single characters are translated:
 | `y`   | `υ`   | `Y`   | `Υ`   |
 | `w`   | `ω`   | `W`   | `Ω`   |
 
-A lowercase `s` that is immediately followed by a word boundary (whitespace, punctuation, or end of content) is rendered as final sigma `ς` instead of `σ`. Any character not listed above passes through unchanged.
+A lowercase `s` that is immediately followed by a word boundary (whitespace, punctuation, or end of content) is rendered as final sigma `ς` instead of `σ`. Diacritic markers are not word boundaries. Any character not listed above passes through unchanged.
 
-Example: `$$philosophia$$` → `φιλοσοφια` (`ph`→`φ`, `i`→`ι`, `l`→`λ`, `o`→`ο`, `s`→`σ`, `o`→`ο`, `ph`→`φ`, `i`→`ι`, `a`→`α`).
+Example: `$gr:philosophia$` → `φιλοσοφια` (`ph`→`φ`, `i`→`ι`, `l`→`λ`, `o`→`ο`, `s`→`σ`, `o`→`ο`, `ph`→`φ`, `i`→`ι`, `a`→`α`).
+
+### Diacritics
+
+Inside `$gr:...$`, `$la:...$`, and `$fr:...$`, diacritic markers written immediately after a character are converted to Unicode combining characters and the result is NFC-normalised.
+
+| Marker | Diacritic                | Active in        |
+| ------ | ------------------------ | ---------------- |
+| `)`    | smooth breathing (psili) | `gr`             |
+| `(`    | rough breathing (dasia)  | `gr`             |
+| `\|`   | iota subscript           | `gr`             |
+| `/`    | acute accent             | `gr`, `la`, `fr` |
+| `\`    | grave accent             | `gr`, `la`, `fr` |
+| `=`    | circumflex               | `gr`, `la`, `fr` |
+| `+`    | diaeresis                | `gr`, `la`, `fr` |
+
+(**Note:** In the table above `\|` appears escaped because `|` has special meaning in Markdown tables. The actual marker is a single `|` character.)
+
+When multiple markers follow one character, write them in the order: breathing → accent → diaeresis/iota-subscript (e.g. `a)/` for ἄ, not `a/)`, because NFC normalization requires canonical decomposition order). Writing markers in the wrong order produces incorrect output without an error.
+
+Inactive markers (e.g. `)` inside `$fr:...$`) pass through as literal characters.
+
+Examples:
+
+| Input      | Output |
+| ---------- | ------ |
+| `$gr:a)$`  | `ἀ`    |
+| `$gr:a(/$` | `ἅ`    |
+| `$gr:a)/$` | `ἄ`    |
+| `$gr:a=$`  | `ᾶ`    |
+| `$gr:a\$`  | `ὰ`    |
+| `$gr:A)/$` | `Ἄ`    |
+| `$la:e/$`  | `é`    |
+| `$fr:e=$`  | `ê`    |
+
+Diacritics can also be applied outside language wrappers using brace code syntax: `{e/}` → `é`, `{a\}` → `à`, `{o=}` → `ô`. Brace code diacritics support acute, grave, circumflex, and diaeresis only; they do not apply transliteration.
 
 ## Whitespace
 
@@ -233,7 +266,7 @@ Whitespace is largely insignificant in Markit, except where it is necessary to a
 A blank line (i.e. a line containing only whitespace) is conventional to separate text IDs from metadata, metadata from content blocks, content blocks from each other, and block-level elements from each other within each content block. For example:
 
 ```
-# Author.Title
+# Title
 
 [metadata]
 reviewed = true
@@ -260,10 +293,9 @@ But blank lines are only strictly necessary between block-level elements of the 
 Markit is inspired by Markdown, and aims to be as similar as possible, while meeting the specific needs of early text preservation. The main differences are:
 
 - Markit uses `#` for document structure and text IDs. Headings from source texts typically span multiple lines, and are therefore marked up with `^` symbols in `title` and `subtitle` blocks instead.
-- Markit supports TOML-style metadata and block tags, neither of which have any Markdown equivalent.
+- Markit supports TOML-style metadata and block tags, neither of which have any Markdown equivalent. (Although YAML front matter is a common Markdown extension, TOML is preferred here for its relative simplicity and unambiguity.)
 - Markit uses a slightly different syntax for `_italics_` and `*bold*` - distinguishing between these two on the basis of the character, not how many of them there are.
-- Markit has more special characters and inline formatting options than Markdown.
-- Markit has a built-in system for Greek transliteration.
+- Markit has many more special characters and inline formatting options than Markdown, such as for representing foreign text, editorial insertions and deletions, uncertain and illegible text, footnote references, etc.
 - Markit doesn't have some things Markdown does (e.g. links, images, tables, code blocks).
 
 ## JSON Output
@@ -275,18 +307,17 @@ Markit documents are compiled to a JSON format that captures the hierarchical st
 - `blocks`: an array of content blocks (see below)
 - `children`: an array of child texts, each with the same top-level structure
 
-For example, a text with `author = "Jane"` metadata and a block `{#1, pages=12-15}` would produce:
+For example, a text with `author = "Jane"` metadata and a block `{#1}` would produce:
 
 ```json
 {
-  "id": "My.Text",
+  "id": "Text",
   "metadata": {
     "author": "Jane"
   },
   "blocks": [
     {
-      "id": "My.Text.1",
-      "pages": "12-15",
+      "id": "Text.1",
       "content": [...]
     }
   ],
@@ -294,7 +325,7 @@ For example, a text with `author = "Jane"` metadata and a block `{#1, pages=12-1
 }
 ```
 
-Note that the block ID of `1` becomes `My.Text.1` in the output, to ensure uniqueness across the whole document.
+Note that the block ID of `1` becomes `Text.1` in the output, to ensure uniqueness across the whole document.
 
 ### Content Elements
 

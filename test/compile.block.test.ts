@@ -35,21 +35,6 @@ describe("blocks", () => {
     expect(document.blocks[1]!.id).toBe("1");
   });
 
-  it("parses block metadata", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1, pages=12-15, subsection=3, speaker=John Smith}"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]).toEqual(
-      expect.objectContaining({
-        pages: "12-15",
-        subsection: "3",
-        speaker: "John Smith",
-      }),
-    );
-  });
-
   it("assigns type 'title' to title blocks", () => {
     const [document, errors] = compile(
       markitWithContent("{#title}", "Main Title"),
@@ -140,67 +125,6 @@ describe("block errors", () => {
       column: 1,
       endLine: 3,
       endColumn: 4,
-      severity: "error",
-    });
-  });
-
-  it("returns error for block with badly formed metadata", () => {
-    const [, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "{#2, pages}",
-        "This block has badly formed metadata.",
-        "",
-      ),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message: "Invalid block metadata, expected 'key=value'",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 11,
-      severity: "error",
-    });
-  });
-
-  it("returns error for block with invalid metadata key", () => {
-    const [, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "{#1, foo=bar}",
-        "This block has an invalid metadata key.",
-        "",
-      ),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Block tag key 'foo' is not a valid metadata key (valid keys: pages, subsection, speaker)",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 9,
-      severity: "error",
-    });
-  });
-
-  it("returns error for block with empty metadata value", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1, speaker=}", "Block content.", ""),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message: "Invalid block metadata, expected 'key=value'",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 14,
       severity: "error",
     });
   });

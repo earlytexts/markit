@@ -32,8 +32,8 @@ note = "Child texts can contain metadata too."
 {#1}
 A Markit document is made up of a series of _blocks_, which are separated by \{#id\} block tags.
 
-{#2, subsection=2, pages=14-15, speaker=Philo}
-Block tags can include specification of the subsection, the pages in the source text where the block content can be found, and the speaker (for dialogue). These are all interpreted as strings, but they are not quoted (as there is no ambiguity).
+{#2}
+Block IDs can be any non-empty string without whitespace, `#`, `{`, or `}` characters. They must be unique within the text.
 
 {#subtitle}
 ^2 Types of Blocks
@@ -127,7 +127,7 @@ If you want to include multiple consecutive spaces, you can use the tilde charac
 Source texts often include foreign text, and it is often useful to be able to indicate that a particular piece of text is in a different language. Foreign text should be enclosed in dollar symbols: $like this$.
 
 {#2}
-Text enclosed in _pairs_ of dollar symbols - $$like this$$ - is treated as Greek text. In Greek text, Roman characters or character-pairs are replaced with their Greek equivalents, e.g. $$philosophia$$ becomes "φιλοσοφία".
+Text marked with a language code - $gr:like this$ - is treated as Greek text. In Greek text, Roman characters or character-pairs are replaced with their Greek equivalents, e.g. $gr:philosophia$ becomes "φιλοσοφια". Latin and French text can similarly be marked using $la:...$ and $fr:...$ respectively.
 
 ### Markit.Example.Markup.BraceCodes
 
