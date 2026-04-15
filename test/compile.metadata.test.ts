@@ -162,6 +162,75 @@ describe("text metadata", () => {
     );
   });
 
+  it("parses nested metadata tables without blank line between blocks", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "[metadata]",
+        'title = "The Full Title"',
+        "[metadata.links]",
+        'googleBooks = "https://books.google.com/"',
+        'wikipedia = "https://en.wikipedia.org/"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.metadata).toEqual(
+      expect.objectContaining({
+        title: "The Full Title",
+        links: expect.objectContaining({
+          googleBooks: "https://books.google.com/",
+          wikipedia: "https://en.wikipedia.org/",
+        }),
+      }),
+    );
+  });
+
+  it("parses metadata without blank line after text ID", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "[metadata]",
+        'title = "Hello"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.metadata).toEqual(
+      expect.objectContaining({
+        title: "Hello",
+      }),
+    );
+  });
+
+  it("reports error for invalid bracket header without blank line", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "[incorrect]",
+        'title = "Hello"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toContain("Invalid metadata header");
+    expect(document.metadata).toBeDefined();
+    expect(Object.keys(document.metadata!)).toHaveLength(0);
+  });
+
   it("parses [metadata.subkey] without a top-level [metadata] block", () => {
     const [, errors] = compile(
       markit(

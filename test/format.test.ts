@@ -121,6 +121,37 @@ describe("formatter", () => {
       );
     });
 
+    it("ensures blank line between metadata blocks", () => {
+      const input = markit(
+        "# mytext",
+        "",
+        "[metadata]",
+        "title = value",
+        "[metadata.links]",
+        "url = value",
+        "",
+        "{#1}",
+        "Content",
+        "",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markit(
+          "# mytext",
+          "",
+          "[metadata]",
+          "title = value",
+          "",
+          "[metadata.links]",
+          "url = value",
+          "",
+          "{#1}",
+          "Content",
+          "",
+        ),
+      );
+    });
+
     it("ensures blank line before block tags", () => {
       const input = markitWithContent(
         "{#1}",
