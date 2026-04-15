@@ -80,6 +80,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return " ";
     case "emSpace":
       return "  ";
+    case "illegible":
+      return "<illegible>";
     case "footnoteReference":
       return `<${element.id}>`;
     case "strong":
@@ -98,6 +100,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "deletion":
       return "";
+    case "uncertain":
+      return inlineElementsToText(element.content);
     case "highlight":
       return inlineElementsToText(element.content);
     case "citation":

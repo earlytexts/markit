@@ -119,6 +119,24 @@ describe("block content", () => {
     ]);
   });
 
+  it("parses uncertain text", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "This text has some ??uncertain content??."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("This text has some "),
+        {
+          type: "uncertain",
+          content: [pt("uncertain content")],
+        },
+        pt("."),
+      ]),
+    ]);
+  });
+
   it("parses editorial highlights", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "This text has some ==highlighted content==."),
@@ -187,6 +205,21 @@ describe("block content", () => {
         pt("This is a quote with a non-breaking space: "),
         { type: "quote", content: [{ type: "nbSpace" }] },
         pt("."),
+      ]),
+    ]);
+  });
+
+  it("parses illegible markers", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "This is a quote with ??? illegible text."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("This is a quote with "),
+        { type: "illegible" },
+        pt(" illegible text."),
       ]),
     ]);
   });

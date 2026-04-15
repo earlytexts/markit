@@ -123,6 +123,7 @@ export const leafElements = [
   { trigger: "~", type: "nbSpace" },
   { trigger: "//", type: "lineBreak" },
   { trigger: "|", type: "pageBreak" },
+  { trigger: "???", type: "illegible" },
 ] as const;
 
 export type LeafType = (typeof leafElements)[number]["type"];
@@ -153,6 +154,7 @@ export const wrapperElements = [
   { open: "@", close: "@", type: "aside" },
   { open: "++", close: "++", type: "insertion" },
   { open: "--", close: "--", type: "deletion" },
+  { open: "??", close: "??", type: "uncertain" },
   { open: "==", close: "==", type: "highlight" },
   { open: "[", close: "]", type: "citation" },
 ] as const;

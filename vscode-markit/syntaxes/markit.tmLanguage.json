@@ -130,6 +130,8 @@
         { "include": "#insertion" },
         { "include": "#deletion" },
         { "include": "#highlight" },
+        { "include": "#illegible" },
+        { "include": "#uncertain" },
         { "include": "#citation" },
         { "include": "#emSpace" },
         { "include": "#nbSpace" },
@@ -234,6 +236,22 @@
         "1": { "name": "punctuation.definition.deleted.end.markit" }
       },
       "name": "markup.deleted.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "illegible": {
+      "match": "\\?\\?\\?",
+      "name": "constant.character.illegible.markit"
+    },
+    "uncertain": {
+      "begin": "(?<!\\\\)(\\?\\?)",
+      "end": "(?<!\\\\)(\\?\\?)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.uncertain.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.uncertain.end.markit" }
+      },
+      "name": "markup.uncertain.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "highlight": {

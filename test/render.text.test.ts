@@ -128,6 +128,13 @@ describe("inline elements", () => {
     expect(text).toContain("a  b");
   });
 
+  it("renders uncertain text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    const text = renderText(document);
+    expect(text).toContain("uncertain");
+    expect(text).not.toContain("??");
+  });
+
   it("renders highlight as inner text", () => {
     const [document] = compile(markitWithContent("{#1}", "==bright=="));
     const text = renderText(document);
@@ -177,6 +184,11 @@ describe("inline elements", () => {
   it("renders em space as two spaces", () => {
     const [document] = compile(markitWithContent("{#1}", "a~~b"));
     expect(renderText(document)).toContain("a  b");
+  });
+
+  it("renders illegible text as <illegible>", () => {
+    const [document] = compile(markitWithContent("{#1}", "???"));
+    expect(renderText(document)).toContain("<illegible>");
   });
 });
 

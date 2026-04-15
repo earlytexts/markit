@@ -109,6 +109,8 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return "&nbsp;";
     case "emSpace":
       return "&emsp;";
+    case "illegible":
+      return '<span class="illegible">&lt;illegible&gt;</span>';
     case "footnoteReference":
       return `<a href="#footnote-${element.id}" id="footnote-ref-${element.id}"><sup>${element.id}</sup></a>`;
     case "strong":
@@ -127,6 +129,8 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<ins>${inlineElementsToHTML(element.content)}</ins>`;
     case "deletion":
       return `<del>${inlineElementsToHTML(element.content)}</del>`;
+    case "uncertain":
+      return `<span class="uncertain">${inlineElementsToHTML(element.content)}</span>`;
     case "highlight":
       return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
     case "citation":

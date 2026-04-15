@@ -150,6 +150,13 @@ describe("inline elements", () => {
     expect(renderHTML(document)).toContain("<del>removed</del>");
   });
 
+  it('renders uncertain text as <span class="uncertain">', () => {
+    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    expect(renderHTML(document)).toContain(
+      '<span class="uncertain">uncertain</span>',
+    );
+  });
+
   it("renders highlight as <mark>", () => {
     const [document] = compile(markitWithContent("{#1}", "==highlighted=="));
     expect(renderHTML(document)).toContain("<mark>highlighted</mark>");
@@ -181,7 +188,7 @@ describe("inline elements", () => {
     );
   });
 
-  it("renders page break as span", () => {
+  it('renders page break as <span class="page-break">', () => {
     const [document] = compile(markitWithContent("{#1}", "before | after"));
     expect(renderHTML(document)).toContain('<span class="page-break">|</span>');
   });
@@ -201,6 +208,13 @@ describe("inline elements", () => {
   it("renders em space as &emsp;", () => {
     const [document] = compile(markitWithContent("{#1}", "a~~b"));
     expect(renderHTML(document)).toContain("&emsp;");
+  });
+
+  it('renders illegible text as <span class="illegible">', () => {
+    const [document] = compile(markitWithContent("{#1}", "???"));
+    expect(renderHTML(document)).toContain(
+      '<span class="illegible">&lt;illegible&gt;</span>',
+    );
   });
 });
 

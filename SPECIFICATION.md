@@ -146,30 +146,32 @@ In fact, block quotations can _only_ contain either paragraphs or lists - becaus
 
 Block-level elements contain one or more _inline elements_. An inline element is either plain text or a special character sequence that represents some kind of formatting or semantic content (e.g. emphasis, a footnote reference, etc.). The following special character sequences are supported:
 
-| Markit Input    | Meaning                      | HTML Equivalent                      |
-| --------------- | ---------------------------- | ------------------------------------ |
-| `"text"`        | an inline quotation          | `<q>text</q>`                        |
-| `*text*`        | strong text                  | `<strong>text</strong>`              |
-| `_text_`        | emphasised text              | `<em>text</em>`                      |
-| `$text$`        | foreign text                 | `<em class="foreign">text</em>`      |
-| `$$text$$`      | Greek text in Latin alphabet | `<em class="foreign">…</em>`         |
-| `@text@`        | margin comment               | `<span class="aside">text</span>`    |
-| `++insertion++` | editorial insertion          | `<ins>insertion</ins>`               |
-| `--deletion--`  | editorial deletion           | `<del>deletion</del>`                |
-| `==highlight==` | editorial highlight          | `<mark>highlight</mark>`             |
-| `[citation]`    | citation                     | `<cite>citation</cite>`              |
-| `~`             | a non-breaking space         | `&nbsp;`                             |
-| `~~`            | a large space / tab          | `&emsp;`                             |
-| `//`            | a line break                 | `<br />`                             |
-| `\|`            | a page break                 | `<span class="page-break"></span>`   |
-| `{SS}`          | section symbol               | `§`                                  |
-| `{ae}`          | "ae" ligature                | `æ`                                  |
-| `{AE}`          | "AE" ligature                | `Æ`                                  |
-| `{oe}`          | "oe" ligature                | `œ`                                  |
-| `{OE}`          | "OE" ligature                | `Œ`                                  |
-| `{-}`           | an en dash                   | `–`                                  |
-| `{--}`          | an em dash                   | `—`                                  |
-| `<nID>`         | footnote reference           | `<a href="#nID"><sup>[ID]</sup></a>` |
+| Markit Input    | Meaning                      | HTML Equivalent                                    |
+| --------------- | ---------------------------- | -------------------------------------------------- |
+| `"text"`        | an inline quotation          | `<q>text</q>`                                      |
+| `*text*`        | strong text                  | `<strong>text</strong>`                            |
+| `_text_`        | emphasised text              | `<em>text</em>`                                    |
+| `$text$`        | foreign text                 | `<em class="foreign">text</em>`                    |
+| `$$text$$`      | Greek text in Latin alphabet | `<em class="foreign">…</em>`                       |
+| `@text@`        | margin comment               | `<span class="aside">text</span>`                  |
+| `++insertion++` | editorial insertion          | `<ins>insertion</ins>`                             |
+| `--deletion--`  | editorial deletion           | `<del>deletion</del>`                              |
+| `??uncertain??` | uncertain text               | `<span class="uncertain">uncertain</span>`         |
+| `???`.          | illegible text               | `<span class="illegible">&lt;illegible&gt;</span>` |
+| `==highlight==` | editorial highlight          | `<mark>highlight</mark>`                           |
+| `[citation]`    | citation                     | `<cite>citation</cite>`                            |
+| `~`             | a non-breaking space         | `&nbsp;`                                           |
+| `~~`            | a large space / tab          | `&emsp;`                                           |
+| `//`            | a line break                 | `<br />`                                           |
+| `\|`            | a page break                 | `<span class="page-break"></span>`                 |
+| `{SS}`          | section symbol               | `§`                                                |
+| `{ae}`          | "ae" ligature                | `æ`                                                |
+| `{AE}`          | "AE" ligature                | `Æ`                                                |
+| `{oe}`          | "oe" ligature                | `œ`                                                |
+| `{OE}`          | "OE" ligature                | `Œ`                                                |
+| `{-}`           | an en dash                   | `–`                                                |
+| `{--}`          | an em dash                   | `—`                                                |
+| `<nID>`         | footnote reference           | `<a href="#nID"><sup>[ID]</sup></a>`               |
 
 (**Note:** If you're reading this document as raw text, the page break marker is a single `|` character. In the table above it appears as `` `\|` `` because `|` has special meaning in Markdown tables; the backslash is a Markdown formatting artifact, not part of the Markit syntax.)
 
