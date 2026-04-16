@@ -162,14 +162,36 @@ describe("inline elements", () => {
     );
   });
 
-  it('renders foreign text as <em class="foreign">', () => {
+  it('renders generic foreign text as <em class="foreign">', () => {
     const [document] = compile(markitWithContent("{#1}", "$foreign$"));
     expect(renderHTML(document)).toContain('<em class="foreign">foreign</em>');
   });
 
-  it('renders Greek text as <em class="greek">', () => {
-    const [document] = compile(markitWithContent("{#1}", "$gr:logos$"));
-    expect(renderHTML(document)).toContain('<em class="greek">');
+  it("renders language-coded text as <em> with lang attribute", () => {
+    const [document] = compile(markitWithContent("{#1}", "$grc:logos$"));
+    expect(renderHTML(document)).toContain('<em lang="grc">');
+  });
+
+  it('renders person names as <span class="person">', () => {
+    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    expect(renderHTML(document)).toContain('<span class="person">Locke</span>');
+  });
+
+  it('renders place names as <span class="place">', () => {
+    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    expect(renderHTML(document)).toContain('<span class="place">London</span>');
+  });
+
+  it('renders bare page break as <span class="pageBreak">', () => {
+    const [document] = compile(markitWithContent("{#1}", "text || more"));
+    expect(renderHTML(document)).toContain('<span class="pageBreak"></span>');
+  });
+
+  it('renders page break with ref as <span class="pageBreak" data-ref="...">', () => {
+    const [document] = compile(markitWithContent("{#1}", "text |12r| more"));
+    expect(renderHTML(document)).toContain(
+      '<span class="pageBreak" data-ref="12r"></span>',
+    );
   });
 
   it("renders footnote reference as anchor with superscript", () => {
@@ -181,14 +203,14 @@ describe("inline elements", () => {
     );
   });
 
-  it('renders Latin text as <em class="latin">', () => {
+  it("renders Latin text as <em lang='la'>", () => {
     const [document] = compile(markitWithContent("{#1}", "$la:Roma$"));
-    expect(renderHTML(document)).toContain('<em class="latin">Roma</em>');
+    expect(renderHTML(document)).toContain('<em lang="la">Roma</em>');
   });
 
-  it('renders French text as <em class="french">', () => {
+  it("renders French text as <em lang='fr'>", () => {
     const [document] = compile(markitWithContent("{#1}", "$fr:Paris$"));
-    expect(renderHTML(document)).toContain('<em class="french">Paris</em>');
+    expect(renderHTML(document)).toContain('<em lang="fr">Paris</em>');
   });
 
   it("renders line break as <br />", () => {

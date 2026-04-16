@@ -89,14 +89,6 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<em>${inlineElementsToHTML(element.content)}</em>`;
     case "quote":
       return `<q>${inlineElementsToHTML(element.content)}</q>`;
-    case "foreign":
-      return `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
-    case "greek":
-      return `<em class="greek">${inlineElementsToHTML(element.content)}</em>`;
-    case "latin":
-      return `<em class="latin">${inlineElementsToHTML(element.content)}</em>`;
-    case "french":
-      return `<em class="french">${inlineElementsToHTML(element.content)}</em>`;
     case "speaker":
       return `<span class="speaker">${inlineElementsToHTML(element.content)}</span>`;
     case "aside":
@@ -111,6 +103,18 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
     case "citation":
       return `<cite>${inlineElementsToHTML(element.content)}</cite>`;
+    case "person":
+      return `<span class="person">${inlineElementsToHTML(element.content)}</span>`;
+    case "place":
+      return `<span class="place">${inlineElementsToHTML(element.content)}</span>`;
+    case "language":
+      return element.lang !== undefined
+        ? `<em lang="${element.lang}">${inlineElementsToHTML(element.content)}</em>`
+        : `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
+    case "pageBreak":
+      return element.ref !== undefined
+        ? `<span class="pageBreak" data-ref="${element.ref}"></span>`
+        : `<span class="pageBreak"></span>`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

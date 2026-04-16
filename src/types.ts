@@ -85,7 +85,24 @@ export const blockquoteSpec = {
 } as const;
 
 // Inline element types
-export type InlineElement = PlainText | Leaf | FootnoteReference | Wrapper;
+export type Language = {
+  type: "language";
+  lang?: string;
+  content: InlineElement[];
+};
+
+export type PageBreak = {
+  type: "pageBreak";
+  ref?: string;
+};
+
+export type InlineElement =
+  | PlainText
+  | Leaf
+  | FootnoteReference
+  | Wrapper
+  | Language
+  | PageBreak;
 
 export type PlainText = {
   type: "plainText";
@@ -126,16 +143,14 @@ export const wrapperElements = [
   { open: '"', close: '"', type: "quote" },
   { open: "*", close: "*", type: "strong" },
   { open: "_", close: "_", type: "emphasis" },
-  { open: "$gr:", close: "$", type: "greek" },
-  { open: "$la:", close: "$", type: "latin" },
-  { open: "$fr:", close: "$", type: "french" },
-  { open: "$", close: "$", type: "foreign" },
   { open: "@", close: "@", type: "aside" },
   { open: "%", close: "%", type: "speaker" },
   { open: "++", close: "++", type: "insertion" },
   { open: "--", close: "--", type: "deletion" },
   { open: "??", close: "??", type: "uncertain" },
   { open: "==", close: "==", type: "highlight" },
+  { open: "!person[", close: "]", type: "person" },
+  { open: "!place[", close: "]", type: "place" },
   { open: "[", close: "]", type: "citation" },
 ] as const;
 

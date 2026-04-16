@@ -63,14 +63,14 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "quote":
       return `"${inlineElementsToText(element.content)}"`;
-    case "foreign":
+    case "language":
       return inlineElementsToText(element.content);
-    case "greek":
+    case "person":
       return inlineElementsToText(element.content);
-    case "latin":
+    case "place":
       return inlineElementsToText(element.content);
-    case "french":
-      return inlineElementsToText(element.content);
+    case "pageBreak":
+      return "";
     case "speaker":
       return inlineElementsToText(element.content);
     case "aside":

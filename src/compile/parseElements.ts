@@ -1,4 +1,4 @@
-import type { InlineElement, MarkitError } from "../types.js";
+import type { InlineElement, Language, MarkitError } from "../types.js";
 import {
   braceCodes,
   footnoteReferenceSpec,
@@ -31,7 +31,10 @@ export default (
   return [cleanedElements, errors];
 };
 
-const languageWrapperTypes = new Set(["greek", "latin", "french"]);
+// Languages that receive diacritics processing (accent markers)
+const diacriticLangs = new Set(["la", "fr"]);
+// Languages that receive transliteration + diacritics (Latin-to-Greek)
+const transliterateLangs = new Set(["grc"]);
 
 const parseElements = (
   input: string,
@@ -142,7 +145,30 @@ const parseElements = (
     }
     if (leafMatched) continue;
 
-    // 4. Footnote reference
+    // 4. Page break: || (bare) or |ref| (with reference) — only outside language wrappers
+    if (!suppressEscape && input[pos] === "|") {
+      if (input[pos + 1] === "|") {
+        flushPlainText();
+        result.push({ type: "pageBreak" });
+        pos += 2;
+        continue;
+      }
+      const closeBarPos = input.indexOf("|", pos + 1);
+      if (closeBarPos !== -1) {
+        const ref = input.slice(pos + 1, closeBarPos);
+        if (ref.length > 0 && !/\s/.test(ref)) {
+          flushPlainText();
+          result.push({ type: "pageBreak", ref });
+          pos = closeBarPos + 1;
+          continue;
+        }
+      }
+      plainTextBuffer += "|";
+      pos++;
+      continue;
+    }
+
+    // 5. Footnote reference
     if (input[pos] === "<") {
       const closeAnglePos = input.indexOf(">", pos + 1);
       if (closeAnglePos !== -1) {
@@ -169,14 +195,61 @@ const parseElements = (
       }
     }
 
-    // 5. Wrapper elements (check longest first)
+    // 6. Language wrapper: $lang:...$  or generic foreign $...$
+    if (input[pos] === "$") {
+      const langMatch = /[a-z]+:/y;
+      langMatch.lastIndex = pos + 1;
+      const match = langMatch.exec(input);
+      const lang = match ? match[0].slice(0, -1) : undefined;
+      const openMarker = match ? `$${match[0]}` : "$";
+      const startAfterOpen = pos + openMarker.length;
+
+      const [wrapperContent, newPos] = parseElements(
+        input,
+        startAfterOpen,
+        "$",
+        positionMap,
+        footnoteIds,
+        errors,
+        true,
+        textId,
+      );
+
+      if (newPos === startAfterOpen || !input.startsWith("$", newPos - 1)) {
+        const position = positionMap[pos]!;
+        errors.push(
+          makeError({
+            message: `Unclosed formatting: ${openMarker}`,
+            line: position.line,
+            column: position.column,
+            length: openMarker.length,
+          }),
+        );
+      }
+
+      const processedContent =
+        lang !== undefined && transliterateLangs.has(lang)
+          ? transliterateGreek(wrapperContent)
+          : lang !== undefined && diacriticLangs.has(lang)
+            ? applyDiacritics(wrapperContent)
+            : wrapperContent;
+
+      flushPlainText();
+      const languageElement: Language =
+        lang !== undefined
+          ? { type: "language", lang, content: processedContent }
+          : { type: "language", content: processedContent };
+      result.push(languageElement);
+      pos = newPos;
+      continue;
+    }
+
+    // 7. Wrapper elements (check longest first)
     let wrapperMatched = false;
     for (const wrapper of [...wrapperElements].sort(
       (a, b) => b.open.length - a.open.length,
     )) {
       if (input.startsWith(wrapper.open, pos)) {
-        const childSuppressEscape =
-          languageWrapperTypes.has(wrapper.type) || suppressEscape;
         const [wrapperContent, newPos] = parseElements(
           input,
           pos + wrapper.open.length,
@@ -184,7 +257,7 @@ const parseElements = (
           positionMap,
           footnoteIds,
           errors,
-          childSuppressEscape,
+          suppressEscape,
           textId,
         );
 
@@ -205,15 +278,7 @@ const parseElements = (
         }
 
         flushPlainText();
-
-        const finalContent =
-          wrapper.type === "greek"
-            ? transliterateGreek(wrapperContent)
-            : wrapper.type === "latin" || wrapper.type === "french"
-              ? applyDiacritics(wrapperContent)
-              : wrapperContent;
-
-        result.push({ type: wrapper.type, content: finalContent });
+        result.push({ type: wrapper.type, content: wrapperContent });
         pos = newPos;
         wrapperMatched = true;
         break;
@@ -266,8 +331,8 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Recursively clean wrapper element content
-    if (isWrapperElement(element)) {
+    // Recursively clean wrapper and language element content
+    if (isWrapperElement(element) || element.type === "language") {
       result.push({ ...element, content: cleanupElements(element.content) });
     } else {
       result.push(element);
@@ -296,9 +361,9 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
     }
   }
 
-  // Trim whitespace adjacent to lineBreak elements
+  // Trim whitespace adjacent to lineBreak and pageBreak elements
   for (let i = 0; i < result.length; i++) {
-    if (result[i]?.type === "lineBreak") {
+    if (result[i]?.type === "lineBreak" || result[i]?.type === "pageBreak") {
       const prev = result[i - 1];
       if (prev?.type === "plainText") {
         const trimmed = prev.content.trimEnd();

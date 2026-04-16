@@ -158,8 +158,26 @@ describe("inline elements", () => {
   });
 
   it("renders Greek text as transliterated inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$gr:logos$"));
+    const [document] = compile(markitWithContent("{#1}", "$grc:logos$"));
     expect(renderText(document)).toContain("λογος");
+  });
+
+  it("renders person name as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    expect(renderText(document)).toContain("Locke");
+  });
+
+  it("renders place name as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    expect(renderText(document)).toContain("London");
+  });
+
+  it("renders page break as empty string", () => {
+    const [document] = compile(markitWithContent("{#1}", "before || after"));
+    const text = renderText(document);
+    expect(text).not.toContain("||");
+    expect(text).toContain("before");
+    expect(text).toContain("after");
   });
 
   it("renders footnote reference as <id>", () => {

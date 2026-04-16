@@ -247,7 +247,7 @@ describe("block content", () => {
     expect(document.blocks[0]!.content).toEqual([
       p([
         pt("This is foreign text: "),
-        { type: "foreign", content: [pt("like this")] },
+        { type: "language", content: [pt("like this")] },
         pt("."),
       ]),
     ]);
@@ -257,7 +257,7 @@ describe("block content", () => {
     const [document, errors] = compile(
       markitWithContent(
         "{#1}",
-        "Greek words: $gr:like this$ and $gr:philosophia$.",
+        "Greek words: $grc:like this$ and $grc:philosophia$.",
       ),
     );
 
@@ -265,9 +265,9 @@ describe("block content", () => {
     expect(document.blocks[0]!.content).toEqual([
       p([
         pt("Greek words: "),
-        { type: "greek", content: [pt("λικε θις")] },
+        { type: "language", lang: "grc", content: [pt("λικε θις")] },
         pt(" and "),
-        { type: "greek", content: [pt("φιλοσοφια")] },
+        { type: "language", lang: "grc", content: [pt("φιλοσοφια")] },
         pt("."),
       ]),
     ]);
@@ -374,14 +374,15 @@ describe("block content", () => {
 
   it("transliterates Greek text with nested formatting", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:*bold*$"),
+      markitWithContent("{#1}", "$grc:*bold*$"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       p([
         {
-          type: "greek",
+          type: "language",
+          lang: "grc",
           content: [{ type: "strong", content: [pt("βολδ")] }],
         },
       ]),
@@ -390,14 +391,15 @@ describe("block content", () => {
 
   it("transliterates Greek text with leaf elements", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:text//more$"),
+      markitWithContent("{#1}", "$grc:text//more$"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       p([
         {
-          type: "greek",
+          type: "language",
+          lang: "grc",
           content: [pt("τεξτ"), { type: "lineBreak" }, pt("μορε")],
         },
       ]),
@@ -405,44 +407,46 @@ describe("block content", () => {
   });
 
   it("transliterates uppercase Greek letters", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:Alpha$"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$grc:Alpha$"),
+    );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("Αλφα")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("Αλφα")] }]),
     ]);
   });
 
   it("parses Greek digraph mixed-case variants", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:Thalassa Ph Ph CH PS$"),
+      markitWithContent("{#1}", "$grc:Thalassa Ph Ph CH PS$"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("Θαλασσα Φ Φ Χ Ψ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("Θαλασσα Φ Φ Χ Ψ")] }]),
     ]);
   });
 
   it("passes non-table characters through unchanged in Greek transliteration", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:42! abc$"),
+      markitWithContent("{#1}", "$grc:42! abc$"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("42! αβc")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("42! αβc")] }]),
     ]);
   });
 
   it("applies final sigma when followed by punctuation", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:logos, bios.$"),
+      markitWithContent("{#1}", "$grc:logos, bios.$"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("λογος, βιος.")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("λογος, βιος.")] }]),
     ]);
   });
 
@@ -564,7 +568,7 @@ describe("language wrappers", () => {
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "latin", content: [pt("Roma")] }]),
+      p([{ type: "language", lang: "la", content: [pt("Roma")] }]),
     ]);
   });
 
@@ -573,99 +577,110 @@ describe("language wrappers", () => {
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "french", content: [pt("Paris")] }]),
+      p([{ type: "language", lang: "fr", content: [pt("Paris")] }]),
+    ]);
+  });
+
+  it("parses arbitrary language code", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$he:shalom$"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "language", lang: "he", content: [pt("shalom")] }]),
     ]);
   });
 });
 
 describe("Greek diacritics", () => {
   it("applies smooth breathing", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a)$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a)$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ἀ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ἀ")] }]),
     ]);
   });
 
   it("applies rough breathing", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a($"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a($"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ἁ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ἁ")] }]),
     ]);
   });
 
   it("applies acute accent", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a/$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a/$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ά")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ά")] }]),
     ]);
   });
 
   it("applies grave accent", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a\\$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a\\$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ὰ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ὰ")] }]),
     ]);
   });
 
   it("applies circumflex", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a=$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a=$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ᾶ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ᾶ")] }]),
     ]);
   });
 
   it("applies diaeresis", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:i+$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:i+$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ϊ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ϊ")] }]),
     ]);
   });
 
   it("applies iota subscript", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a|$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a|$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ᾳ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ᾳ")] }]),
     ]);
   });
 
   it("applies smooth breathing and acute together", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a)/$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a)/$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ἄ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ἄ")] }]),
     ]);
   });
 
   it("applies rough breathing and acute together", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:a(/$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a(/$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ἅ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ἅ")] }]),
     ]);
   });
 
   it("applies diacritics to uppercase letters", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$gr:A)/$"));
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:A)/$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("Ἄ")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("Ἄ")] }]),
     ]);
   });
 
   it("applies diacritics in a full word", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:a)nthrwpos$"),
+      markitWithContent("{#1}", "$grc:a)nthrwpos$"),
     );
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("ἀνθρωπος")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("ἀνθρωπος")] }]),
     ]);
   });
 
@@ -673,11 +688,11 @@ describe("Greek diacritics", () => {
     // Before: s followed by / was a word boundary → final sigma
     // After: / is a diacritic marker → non-final sigma gets the acute
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$gr:logos/$"),
+      markitWithContent("{#1}", "$grc:logos/$"),
     );
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "greek", content: [pt("λογο\u03C3\u0301")] }]),
+      p([{ type: "language", lang: "grc", content: [pt("λογο\u03C3\u0301")] }]),
     ]);
   });
 });
@@ -687,7 +702,7 @@ describe("Latin and French diacritics", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "$la:e/$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "latin", content: [pt("é")] }]),
+      p([{ type: "language", lang: "la", content: [pt("é")] }]),
     ]);
   });
 
@@ -697,7 +712,7 @@ describe("Latin and French diacritics", () => {
     );
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "latin", content: [pt("Romà")] }]),
+      p([{ type: "language", lang: "la", content: [pt("Romà")] }]),
     ]);
   });
 
@@ -705,7 +720,7 @@ describe("Latin and French diacritics", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "$fr:e=$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "french", content: [pt("ê")] }]),
+      p([{ type: "language", lang: "fr", content: [pt("ê")] }]),
     ]);
   });
 
@@ -713,7 +728,7 @@ describe("Latin and French diacritics", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "$fr:e+$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "french", content: [pt("ë")] }]),
+      p([{ type: "language", lang: "fr", content: [pt("ë")] }]),
     ]);
   });
 
@@ -721,7 +736,7 @@ describe("Latin and French diacritics", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "$fr:a)$"));
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "french", content: [pt("a)")] }]),
+      p([{ type: "language", lang: "fr", content: [pt("a)")] }]),
     ]);
   });
 });
@@ -856,5 +871,131 @@ describe("block content errors", () => {
       endColumn: 2,
       severity: "error",
     });
+  });
+
+  it("returns error for unclosed language wrapper", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "some $grc:unclosed text", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: $grc:",
+      severity: "error",
+    });
+  });
+
+  it("returns error for unclosed generic foreign wrapper", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "some $unclosed text", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: $",
+      severity: "error",
+    });
+  });
+});
+
+describe("named entities", () => {
+  it("parses person names", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "!person[John Locke] wrote the Essay."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "person", content: [pt("John Locke")] },
+        pt(" wrote the Essay."),
+      ]),
+    ]);
+  });
+
+  it("parses place names", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "He lived in !place[London]."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("He lived in "),
+        { type: "place", content: [pt("London")] },
+        pt("."),
+      ]),
+    ]);
+  });
+
+  it("parses person and place names in the same paragraph", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "!person[Newton] was born in !place[Woolsthorpe].",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "person", content: [pt("Newton")] },
+        pt(" was born in "),
+        { type: "place", content: [pt("Woolsthorpe")] },
+        pt("."),
+      ]),
+    ]);
+  });
+});
+
+describe("page breaks", () => {
+  it("parses bare page break ||", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "end of page || start of next"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("end of page"), { type: "pageBreak" }, pt("start of next")]),
+    ]);
+  });
+
+  it("parses page break with reference |12r|", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "end of page |12r| start of next"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("end of page"),
+        { type: "pageBreak", ref: "12r" },
+        pt("start of next"),
+      ]),
+    ]);
+  });
+
+  it("treats lone | as plain text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "a | b"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("a | b")])]);
+  });
+
+  it("treats | with spaced content as plain text", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "price: |a b| tax"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("price: |a b| tax")])]);
+  });
+
+  it("does not parse page breaks inside language wrappers", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "$grc:a|$"));
+
+    expect(errors).toHaveLength(0);
+    // | inside $grc:..$ is iota subscript diacritic, not a page break
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "language", lang: "grc", content: [pt("ᾳ")] }]),
+    ]);
   });
 });

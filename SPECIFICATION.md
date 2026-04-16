@@ -143,9 +143,12 @@ Block-level elements contain one or more _inline elements_. An inline element is
 | `*text*`        | strong text              | `<strong>text</strong>`                            |
 | `_text_`        | emphasised text          | `<em>text</em>`                                    |
 | `$text$`        | foreign text             | `<em class="foreign">text</em>`                    |
-| `$gr:text$`     | Greek text               | `<em class="greek">text</em>`                      |
-| `$la:text$`     | Latin text               | `<em class="latin">text</em>`                      |
-| `$fr:text$`     | French text              | `<em class="french">text</em>`                     |
+| `$grc:text$`    | Ancient Greek text       | `<em lang="grc">text</em>`                         |
+| `$la:text$`     | Latin text               | `<em lang="la">text</em>`                          |
+| `$fr:text$`     | French text              | `<em lang="fr">text</em>`                          |
+| `$xx:text$`     | text in language `xx`    | `<em lang="xx">text</em>`                          |
+| `!person[name]` | person name              | `<span class="person">name</span>`                 |
+| `!place[name]`  | place name               | `<span class="place">name</span>`                  |
 | `%text%`        | speaker name in dialogue | `<span class="speaker">text</span>`                |
 | `@text@`        | margin comment           | `<span class="aside">text</span>`                  |
 | `++insertion++` | editorial insertion      | `<ins>insertion</ins>`                             |
@@ -158,8 +161,14 @@ Block-level elements contain one or more _inline elements_. An inline element is
 | `~`             | a non-breaking space     | `&nbsp;`                                           |
 | `~~`            | a large space / tab      | `&emsp;`                                           |
 | `//`            | a line break             | `<br />`                                           |
+| `\|\|`          | a page break             | `<span class="pageBreak"></span>`                  |
+| `\|folio\|`     | a page break with number | `<span class="pageBreak" data-ref="folio"></span>` |
 
 Footnote references must be to footnote blocks in the same text (e.g. `<n1>` must refer to a block with the ID `n1` in the same text).
+
+Language codes follow ISO 639: use two-letter ISO 639-1 codes where available (e.g. `la`, `fr`), or three-letter ISO 639-3 codes where not (e.g. `grc` for Ancient Greek, which has no ISO 639-1 code). The `$grc:...$` wrapper additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration); `$la:...$` and `$fr:...$` activate [diacritic markers](#diacritics). Any other language code produces a plain language wrapper with no special character processing.
+
+Page breaks with references use any non-whitespace string as the folio/page number (e.g. `|12r|`, `|p.45|`). A lone `|` not matching the `||` or `|ref|` pattern is treated as a literal character.
 
 ### Brace Codes
 
@@ -185,13 +194,13 @@ To include a literal special character in the content, it must be escaped with a
 
 ### Language-coded text
 
-`$gr:...$`, `$la:...$`, and `$fr:...$` mark text as Greek, Latin, and French respectively. Unlike generic `$...$` foreign text, these wrappers activate [diacritic markers](#diacritics). `$gr:...$` additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration).
+`$grc:...$`, `$la:...$`, and `$fr:...$` mark text as Ancient Greek, Latin, and French respectively. Unlike generic `$...$` foreign text, these wrappers activate [diacritic markers](#diacritics). `$grc:...$` additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration). Any `$xx:...$` wrapper where `xx` is a valid ISO 639 language code produces a language wrapper without special character processing.
 
-**Note:** Backslash escaping is not available inside language-coded wrappers (`$gr:...$`, `$la:...$`, `$fr:...$`). Inside these wrappers, `\` is the grave accent diacritic marker.
+**Note:** Backslash escaping is not available inside any language-coded wrapper (`$xx:...$`). Inside these wrappers, `\` is the grave accent diacritic marker.
 
 ### Latin-to-Greek Transliteration
 
-Inside `$gr:...$`, Latin characters are transliterated to their Greek equivalents. Digraphs are matched first (before single characters), in the order shown:
+Inside `$grc:...$`, Latin characters are transliterated to their Greek equivalents. Digraphs are matched first (before single characters), in the order shown:
 
 | Latin input | Greek output |
 | ----------- | ------------ |
@@ -232,21 +241,21 @@ After digraph matching, single characters are translated:
 
 A lowercase `s` that is immediately followed by a word boundary (whitespace, punctuation, or end of content) is rendered as final sigma `ς` instead of `σ`. Diacritic markers are not word boundaries. Any character not listed above passes through unchanged.
 
-Example: `$gr:philosophia$` → `φιλοσοφια` (`ph`→`φ`, `i`→`ι`, `l`→`λ`, `o`→`ο`, `s`→`σ`, `o`→`ο`, `ph`→`φ`, `i`→`ι`, `a`→`α`).
+Example: `$grc:philosophia$` → `φιλοσοφια` (`ph`→`φ`, `i`→`ι`, `l`→`λ`, `o`→`ο`, `s`→`σ`, `o`→`ο`, `ph`→`φ`, `i`→`ι`, `a`→`α`).
 
 ### Diacritics
 
-Inside `$gr:...$`, `$la:...$`, and `$fr:...$`, diacritic markers written immediately after a character are converted to Unicode combining characters and the result is NFC-normalised.
+Inside `$grc:...$`, `$la:...$`, and `$fr:...$`, diacritic markers written immediately after a character are converted to Unicode combining characters and the result is NFC-normalised.
 
-| Marker | Diacritic                | Active in        |
-| ------ | ------------------------ | ---------------- |
-| `)`    | smooth breathing (psili) | `gr`             |
-| `(`    | rough breathing (dasia)  | `gr`             |
-| `\|`   | iota subscript           | `gr`             |
-| `/`    | acute accent             | `gr`, `la`, `fr` |
-| `\`    | grave accent             | `gr`, `la`, `fr` |
-| `=`    | circumflex               | `gr`, `la`, `fr` |
-| `+`    | diaeresis                | `gr`, `la`, `fr` |
+| Marker | Diacritic                | Active in         |
+| ------ | ------------------------ | ----------------- |
+| `)`    | smooth breathing (psili) | `grc`             |
+| `(`    | rough breathing (dasia)  | `grc`             |
+| `\|`   | iota subscript           | `grc`             |
+| `/`    | acute accent             | `grc`, `la`, `fr` |
+| `\`    | grave accent             | `grc`, `la`, `fr` |
+| `=`    | circumflex               | `grc`, `la`, `fr` |
+| `+`    | diaeresis                | `grc`, `la`, `fr` |
 
 (**Note:** In the table above `\|` appears escaped because `|` has special meaning in Markdown tables. The actual marker is a single `|` character.)
 
@@ -256,16 +265,16 @@ Inactive markers (e.g. `)` inside `$fr:...$`) pass through as literal characters
 
 Examples:
 
-| Input      | Output |
-| ---------- | ------ |
-| `$gr:a)$`  | `ἀ`    |
-| `$gr:a(/$` | `ἅ`    |
-| `$gr:a)/$` | `ἄ`    |
-| `$gr:a=$`  | `ᾶ`    |
-| `$gr:a\$`  | `ὰ`    |
-| `$gr:A)/$` | `Ἄ`    |
-| `$la:e/$`  | `é`    |
-| `$fr:e=$`  | `ê`    |
+| Input       | Output |
+| ----------- | ------ |
+| `$grc:a)$`  | `ἀ`    |
+| `$grc:a(/$` | `ἅ`    |
+| `$grc:a)/$` | `ἄ`    |
+| `$grc:a=$`  | `ᾶ`    |
+| `$grc:a\$`  | `ὰ`    |
+| `$grc:A)/$` | `Ἄ`    |
+| `$la:e/$`   | `é`    |
+| `$fr:e=$`   | `ê`    |
 
 Diacritics can also be applied outside language wrappers using brace code syntax: `{e/}` → `é`, `{a\}` → `à`, `{o=}` → `ô`. Brace code diacritics support acute, grave, circumflex, and diaeresis only; they do not apply transliteration.
 
@@ -345,25 +354,29 @@ Each element in a `content` array is a `BlockElement`:
 
 Finally, there are several types of `InlineElement`:
 
-| Type                | Shape                                         | Notes                                     |
-| ------------------- | --------------------------------------------- | ----------------------------------------- |
-| `Strong`            | `{ "type": "strong", "content": [...] }`      | `content` is an array of `InlineElement`s |
-| `Emphasis`          | `{ "type": "emphasis", "content": [...] }`    | `content` is an array of `InlineElement`s |
-| `Quote`             | `{ "type": "quote", "content": [...] }`       | `content` is an array of `InlineElement`s |
-| `Blockquote`        | `{ "type": "blockquote", "content": [...] }`  | `content` is an array of `InlineElement`s |
-| `Foreign`           | `{ "type": "foreign", "content": [...] }`     | `content` is an array of `InlineElement`s |
-| `Greek`             | `{ "type": "greek", "content": [...] }`       | `content` is an array of `InlineElement`s |
-| `Aside`             | `{ "type": "aside", "content": [...] }`       | `content` is an array of `InlineElement`s |
-| `Insertion`         | `{ "type": "insertion", "content": [...] }`   | `content` is an array of `InlineElement`s |
-| `Deletion`          | `{ "type": "deletion", "content": [...] }`    | `content` is an array of `InlineElement`s |
-| `Highlight`         | `{ "type": "highlight", "content": [...] }`   | `content` is an array of `InlineElement`s |
-| `Citation`          | `{ "type": "citation", "content": [...] }`    | `content` is an array of `InlineElement`s |
-| `PlainText`         | `{ "type": "plainText", "content": "..." }`   | `content` is a plain string               |
-| `NbSpace`           | `{ "type": "nbSpace" }`.                      | `~` — non-breaking space                  |
-| `EmSpace`           | `{ "type": "emSpace" }`                       | `~~` — em space / tab                     |
-| `LineBreak`         | `{ "type": "lineBreak" }`                     | `//` — line break                         |
-| `PageBreak`         | `{ "type": "pageBreak" }`                     | `\|` — page break                         |
-| `FootnoteReference` | `{ "type": "footnoteReference", "id": "n1" }` | `id` is the referenced footnote ID        |
+| Type                | Shape                                                     | Notes                                                  |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| `Strong`            | `{ "type": "strong", "content": [...] }`                  | `content` is an array of `InlineElement`s              |
+| `Emphasis`          | `{ "type": "emphasis", "content": [...] }`                | `content` is an array of `InlineElement`s              |
+| `Quote`             | `{ "type": "quote", "content": [...] }`                   | `content` is an array of `InlineElement`s              |
+| `Blockquote`        | `{ "type": "blockquote", "content": [...] }`              | `content` is an array of `InlineElement`s              |
+| `Language`          | `{ "type": "language", "lang": "grc", "content": [...] }` | `lang` is an ISO 639 code; omitted for generic `$...$` |
+| `Person`            | `{ "type": "person", "content": [...] }`                  | `content` is an array of `InlineElement`s              |
+| `Place`             | `{ "type": "place", "content": [...] }`                   | `content` is an array of `InlineElement`s              |
+| `Speaker`           | `{ "type": "speaker", "content": [...] }`                 | `content` is an array of `InlineElement`s              |
+| `Aside`             | `{ "type": "aside", "content": [...] }`                   | `content` is an array of `InlineElement`s              |
+| `Insertion`         | `{ "type": "insertion", "content": [...] }`               | `content` is an array of `InlineElement`s              |
+| `Deletion`          | `{ "type": "deletion", "content": [...] }`                | `content` is an array of `InlineElement`s              |
+| `Uncertain`         | `{ "type": "uncertain", "content": [...] }`               | `content` is an array of `InlineElement`s              |
+| `Highlight`         | `{ "type": "highlight", "content": [...] }`               | `content` is an array of `InlineElement`s              |
+| `Citation`          | `{ "type": "citation", "content": [...] }`                | `content` is an array of `InlineElement`s              |
+| `PlainText`         | `{ "type": "plainText", "content": "..." }`               | `content` is a plain string                            |
+| `NbSpace`           | `{ "type": "nbSpace" }`                                   | `~` — non-breaking space                               |
+| `EmSpace`           | `{ "type": "emSpace" }`                                   | `~~` — em space / tab                                  |
+| `LineBreak`         | `{ "type": "lineBreak" }`                                 | `//` — line break                                      |
+| `PageBreak`         | `{ "type": "pageBreak", "ref": "12r" }`                   | `\|\|` or `\|ref\|`; `ref` is omitted for bare breaks  |
+| `Illegible`         | `{ "type": "illegible" }`                                 | `???` — illegible text                                 |
+| `FootnoteReference` | `{ "type": "footnoteReference", "id": "n1" }`             | `id` is the referenced footnote ID                     |
 
 For example, the Markit input `This is *strong* text.` is represented as:
 
