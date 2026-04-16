@@ -211,6 +211,35 @@ const parseBlockLevelElements = (
       continue;
     }
 
+    // Heading line with invalid level (digit > 6)
+    const invalidLevelMatch = /^\^([7-9]) /.exec(content);
+    if (invalidLevelMatch) {
+      flush();
+      errors.push({
+        message: "Heading level must be between 1 and 6.",
+        line: line.lineNumber + 1,
+        column: line.charOffset + 1,
+        endLine: line.lineNumber + 1,
+        endColumn: line.charOffset + 3,
+        severity: "error",
+      });
+      continue;
+    }
+
+    // Heading marker without a level digit
+    if (/^\^ /.test(content)) {
+      flush();
+      errors.push({
+        message: "Heading must be given a level between 1 and 6.",
+        line: line.lineNumber + 1,
+        column: line.charOffset + 1,
+        endLine: line.lineNumber + 1,
+        endColumn: line.charOffset + 2,
+        severity: "error",
+      });
+      continue;
+    }
+
     // Heading line: ^ followed by a digit 1-6 and a space
     const headingMatch = /^\^([1-6]) /.exec(content);
     if (headingMatch) {

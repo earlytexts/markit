@@ -159,26 +159,6 @@ describe("block content", () => {
     ]);
   });
 
-  // TODO: make this an error
-  it("treats ^7 (invalid level) as paragraph text", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "^7 not a heading"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("^7 not a heading")])]);
-  });
-
-  // TODO: make this an error
-  it("treats ^ without a level digit as paragraph text", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "^ not a heading"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("^ not a heading")])]);
-  });
-
   it("removes trailing space at end of content block", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "text with trailing space "),
@@ -201,6 +181,34 @@ describe("block content", () => {
 });
 
 describe("block content errors", () => {
+  it("returns error for heading level greater than 6", () => {
+    const [, errors] = compile(markitWithContent("{#1}", "^7 not a heading"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message: "Heading level must be between 1 and 6.",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 3,
+      severity: "error",
+    });
+  });
+
+  it("returns error for heading without a level digit", () => {
+    const [, errors] = compile(markitWithContent("{#1}", "^ not a heading"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toEqual({
+      message: "Heading must be given a level between 1 and 6.",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 2,
+      severity: "error",
+    });
+  });
+
   it("returns error for heading inside a block quotation", () => {
     const [, errors] = compile(
       markitWithContent("{#1}", "> ^1 Heading inside block quote"),
