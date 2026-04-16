@@ -155,6 +155,20 @@ describe("block content", () => {
     ]);
   });
 
+  it("parses speakers", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "%Speaker.% This is a line of dialogue."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "speaker", content: [pt("Speaker.")] },
+        pt(" This is a line of dialogue."),
+      ]),
+    ]);
+  });
+
   it("parses asides (margin comments)", () => {
     const [document, errors] = compile(
       markitWithContent(

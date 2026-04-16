@@ -127,6 +127,16 @@ describe("inline elements", () => {
     expect(text).not.toContain("==");
   });
 
+  it("renders speaker as inner text", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+    );
+    const text = renderText(document);
+    expect(text).toContain("Speaker.");
+    expect(text).toContain("This is dialogue.");
+    expect(text).not.toContain("%");
+  });
+
   it("renders aside as empty string", () => {
     const [document] = compile(markitWithContent("{#1}", "text @aside@ end"));
     expect(renderText(document)).not.toContain("aside");

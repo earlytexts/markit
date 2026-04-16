@@ -99,6 +99,8 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<em class="latin">${inlineElementsToHTML(element.content)}</em>`;
     case "french":
       return `<em class="french">${inlineElementsToHTML(element.content)}</em>`;
+    case "speaker":
+      return `<span class="speaker">${inlineElementsToHTML(element.content)}</span>`;
     case "aside":
       return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
     case "insertion":

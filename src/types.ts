@@ -132,6 +132,7 @@ export const wrapperElements = [
   { open: "$fr:", close: "$", type: "french" },
   { open: "$", close: "$", type: "foreign" },
   { open: "@", close: "@", type: "aside" },
+  { open: "%", close: "%", type: "speaker" },
   { open: "++", close: "++", type: "insertion" },
   { open: "--", close: "--", type: "deletion" },
   { open: "??", close: "??", type: "uncertain" },

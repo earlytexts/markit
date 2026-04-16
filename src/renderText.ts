@@ -73,6 +73,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "french":
       return inlineElementsToText(element.content);
+    case "speaker":
+      return inlineElementsToText(element.content);
     case "aside":
       return "";
     case "insertion":

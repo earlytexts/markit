@@ -146,6 +146,15 @@ describe("inline elements", () => {
     expect(renderHTML(document)).toContain("<mark>highlighted</mark>");
   });
 
+  it("renders speaker as <span class='speaker'>", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+    );
+    expect(renderHTML(document)).toContain(
+      '<span class="speaker">Speaker.</span>',
+    );
+  });
+
   it('renders aside as <span class="aside">', () => {
     const [document] = compile(markitWithContent("{#1}", "@margin note@"));
     expect(renderHTML(document)).toContain(
