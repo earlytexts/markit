@@ -23,7 +23,6 @@ export const p = (content: InlineElement[]): Paragraph => ({
   content,
 });
 
-// Convenience shorthand for a single-line heading group
 export const h = (content: HeadingLine[]): Heading => ({
   type: "heading",
   content,
