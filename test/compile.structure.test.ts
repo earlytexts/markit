@@ -9,17 +9,17 @@ describe("document structure", () => {
       markit(
         "# Test.Document", // line 0
         "",
-        "## Test.Document.Child1", // line 2
+        "## Child1", // line 2
         "",
         "{#1}",
         "Child 1 content.",
         "",
-        "## Test.Document.Child2", // line 7
+        "## Child2", // line 7
         "",
         "{#1}",
         "Child 2 content.",
         "",
-        "### Test.Document.Child2.Grandchild", // line 12
+        "### Grandchild", // line 12
         "",
         "{#1}",
         "Grandchild content.", // line 15
@@ -123,12 +123,12 @@ describe("metadata block ranges", () => {
   it("tracks metadata ranges for child documents independently", () => {
     // line 0: # Root
     // line 1: (blank)
-    // line 2: ## Root.Child
+    // line 2: ## Child
     // line 3: (blank)
     // line 4: [metadata]
     // line 5: key = "val"
     const [document] = compile(
-      markit("# Root", "", "## Root.Child", "", "[metadata]", 'key = "val"'),
+      markit("# Root", "", "## Child", "", "[metadata]", 'key = "val"'),
     );
 
     expect(document.metadata).toBeUndefined();
@@ -181,13 +181,7 @@ describe("document structure errors", () => {
 
   it("returns error for document with level jump", () => {
     const [, errors] = compile(
-      markit(
-        "# Markit.Errors",
-        "",
-        "## Markit.Errors.BadTextMetadata",
-        "",
-        "#### Markit.Errors.BadTextMetadata.TooDeep",
-      ),
+      markit("# Markit.Errors", "", "## BadTextMetadata", "", "#### TooDeep"),
     );
 
     expect(errors[0]).toEqual({
@@ -196,7 +190,7 @@ describe("document structure errors", () => {
       line: 5,
       column: 1,
       endLine: 5,
-      endColumn: 43,
+      endColumn: 13,
       severity: "error",
     });
   });

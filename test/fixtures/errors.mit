@@ -17,11 +17,11 @@ This block has no tag.
 {#1
 This block has a badly formed tag.
 
-{#2, nothing, string: "hello"}
-This block has badly formed metadata.
+{#3# }
+This block has a badly formed ID.
 
-{#3, badBoolean=troo, badString="no closing quote}
-This block has badly formed metadata.
+{#2}
+This block sets up the next error.
 
 {#2}
 This block has the same ID as a previous block.

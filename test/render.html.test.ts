@@ -31,7 +31,7 @@ describe("document structure", () => {
         "{#1}",
         "Intro",
         "",
-        "## Parent.Child",
+        "## Child",
         "",
         "{#1}",
         "Child content",
@@ -59,7 +59,7 @@ describe("block elements", () => {
 
   it("renders h2 heading at child document depth", () => {
     const [document] = compile(
-      markit("# Parent", "", "## Parent.Child", "", "{#title}", "^1 Sub", ""),
+      markit("# Parent", "", "## Child", "", "{#title}", "^1 Sub", ""),
     );
     expect(renderHTML(document)).toContain(
       '<h2><span class="size-1">Sub</span></h2>',
@@ -83,28 +83,12 @@ describe("block elements", () => {
     );
   });
 
-  it("renders unordered lists", () => {
-    const [document] = compile(markitWithContent("{#1}", "- Alpha", "- Beta"));
-    expect(renderHTML(document)).toContain(
-      "<ul><li>Alpha</li><li>Beta</li></ul>",
-    );
-  });
-
-  it("renders ordered lists", () => {
-    const [document] = compile(
-      markitWithContent("{#1}", "1. First", "2. Second"),
-    );
-    expect(renderHTML(document)).toContain(
-      "<ol><li>First</li><li>Second</li></ol>",
-    );
-  });
-
   it("renders footnote block with superscript id prefix", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
     );
     expect(renderHTML(document)).toContain(
-      "<p><sup>n1</sup> The footnote.</p>",
+      "<p><sup>Text.n1</sup> The footnote.</p>",
     );
   });
 });
@@ -184,7 +168,7 @@ describe("inline elements", () => {
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "Footnote."),
     );
     expect(renderHTML(document)).toContain(
-      '<a href="#footnote-n1" id="footnote-ref-n1"><sup>n1</sup></a>',
+      '<a href="#footnote-Text.n1" id="footnote-ref-Text.n1"><sup>Text.n1</sup></a>',
     );
   });
 

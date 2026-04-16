@@ -63,12 +63,6 @@ const blockElementToHTML = (
       return `<blockquote>${element.content
         .map((el) => blockElementToHTML(el, null, depth))
         .join("")}</blockquote>`;
-    case "list": {
-      const tag = element.ordered ? "ol" : "ul";
-      return `<${tag}>${element.content
-        .map((item) => `<li>${inlineElementsToHTML(item.content)}</li>`)
-        .join("")}</${tag}>`;
-    }
   }
 };
 

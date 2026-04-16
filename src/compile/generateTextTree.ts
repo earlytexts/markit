@@ -94,6 +94,8 @@ export default (
       .slice(0, index + 1)
       .reverse()
       .find((t) => t.level < text.level)!;
+    // Prepend parent ID to child ID
+    text.id = `${parent.id}.${text.id}`;
     parent.children.push(text);
   });
 

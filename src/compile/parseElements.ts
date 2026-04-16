@@ -14,6 +14,7 @@ export default (
   input: string,
   positionMap: PositionInfo[],
   footnoteIds: string[],
+  textId: string,
 ): [InlineElement[], MarkitError[]] => {
   const errors: MarkitError[] = [];
   const [elements] = parseElements(
@@ -24,6 +25,7 @@ export default (
     footnoteIds,
     errors,
     false,
+    textId,
   );
   const cleanedElements = cleanupElements(elements);
   return [cleanedElements, errors];
@@ -39,6 +41,7 @@ const parseElements = (
   footnoteIds: string[],
   errors: MarkitError[],
   suppressEscape: boolean,
+  textId: string,
 ): [InlineElement[], number] => {
   const result: InlineElement[] = [];
   let pos = startPos;
@@ -146,7 +149,7 @@ const parseElements = (
         const refId = input.slice(pos + 1, closeAnglePos);
         if (footnoteReferenceSpec.pattern.test(refId)) {
           flushPlainText();
-          result.push({ type: "footnoteReference", id: refId });
+          result.push({ type: "footnoteReference", id: `${textId}.${refId}` });
 
           if (!footnoteIds.includes(refId)) {
             const position = positionMap[pos]!;
@@ -182,6 +185,7 @@ const parseElements = (
           footnoteIds,
           errors,
           childSuppressEscape,
+          textId,
         );
 
         if (

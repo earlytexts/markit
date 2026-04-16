@@ -256,7 +256,7 @@ describe("text metadata", () => {
       markit(
         "# Text",
         "",
-        "## Child.Text",
+        "## ChildText",
         "",
         "[metadata]",
         'note = "Child texts can contain metadata too."',

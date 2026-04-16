@@ -304,7 +304,7 @@ describe("block content", () => {
     expect(document.blocks[0]!.content).toEqual([
       p([
         pt("This is a sentence with a footnote"),
-        { type: "footnoteReference", id: "n1" },
+        { type: "footnoteReference", id: "Text.n1" },
         pt("."),
       ]),
     ]);
@@ -492,9 +492,9 @@ describe("block content", () => {
     expect(document.blocks[0]!.content).toEqual([
       p([
         pt("First ref "),
-        { type: "footnoteReference", id: "n1" },
+        { type: "footnoteReference", id: "Text.n1" },
         pt(" and second ref "),
-        { type: "footnoteReference", id: "n1" },
+        { type: "footnoteReference", id: "Text.n1" },
         pt("."),
       ]),
     ]);

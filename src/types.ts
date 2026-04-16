@@ -51,7 +51,7 @@ export type Block = {
 } & Ranges;
 
 // Block-level element types
-export type BlockElement = Heading | Paragraph | Blockquote | List;
+export type BlockElement = Heading | Paragraph | Blockquote;
 
 export type Heading = {
   type: "heading";
@@ -71,18 +71,7 @@ export type Paragraph = {
 
 export type Blockquote = {
   type: "blockquote";
-  content: (Paragraph | List)[];
-};
-
-export type List = {
-  type: "list";
-  ordered: boolean;
-  content: ListItem[];
-};
-
-export type ListItem = {
-  type: "listItem";
-  content: InlineElement[];
+  content: Paragraph[];
 };
 
 export const headingSpec = {

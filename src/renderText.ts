@@ -37,14 +37,6 @@ const blockElementToText = (
       return element.content
         .map((el) => `    ${blockElementToText(el, null)}`)
         .join("\n\n");
-    case "list":
-      return element.content
-        .map((item, i) =>
-          element.ordered
-            ? `${i + 1}. ${inlineElementsToText(item.content)}`
-            : inlineElementsToText(item.content),
-        )
-        .join("\n");
   }
 };
 

@@ -16,8 +16,8 @@ describe("blocks", () => {
 
     expect(errors).toHaveLength(0);
     expect(document.blocks).toHaveLength(2);
-    expect(document.blocks[0]!.id).toBe("0");
-    expect(document.blocks[1]!.id).toBe("1");
+    expect(document.blocks[0]!.id).toBe("Text.0");
+    expect(document.blocks[1]!.id).toBe("Text.1");
   });
 
   it("parses block tags on the same line as content", () => {
@@ -31,8 +31,8 @@ describe("blocks", () => {
 
     expect(errors).toHaveLength(0);
     expect(document.blocks).toHaveLength(2);
-    expect(document.blocks[0]!.id).toBe("0");
-    expect(document.blocks[1]!.id).toBe("1");
+    expect(document.blocks[0]!.id).toBe("Text.0");
+    expect(document.blocks[1]!.id).toBe("Text.1");
   });
 
   it("assigns type 'title' to title blocks", () => {
@@ -41,7 +41,7 @@ describe("blocks", () => {
     );
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.id).toBe("title");
+    expect(document.blocks[0]!.id).toBe("Text.title");
     expect(document.blocks[0]!.type).toBe("title");
   });
 
@@ -70,9 +70,9 @@ describe("blocks", () => {
     );
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.id).toBe("subtitle1");
-    expect(document.blocks[1]!.id).toBe("subtitle2");
-    expect(document.blocks[2]!.id).toBe("subtitle3");
+    expect(document.blocks[0]!.id).toBe("Text.subtitle1");
+    expect(document.blocks[1]!.id).toBe("Text.subtitle2");
+    expect(document.blocks[2]!.id).toBe("Text.subtitle3");
   });
 
   it("allows multiple subtitle blocks without error", () => {

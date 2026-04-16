@@ -61,26 +61,11 @@ describe("block elements", () => {
     expect(renderText(document)).toContain("    A quote.");
   });
 
-  it("renders unordered list items as plain text without prefix", () => {
-    const [document] = compile(markitWithContent("{#1}", "- Alpha", "- Beta"));
-    const text = renderText(document);
-    expect(text).toContain("Alpha");
-    expect(text).toContain("Beta");
-    expect(text).not.toContain("1. Alpha");
-  });
-
-  it("renders ordered list items with numeric prefix", () => {
-    const [document] = compile(
-      markitWithContent("{#1}", "1. First", "2. Second"),
-    );
-    expect(renderText(document)).toContain("1. First\n2. Second");
-  });
-
   it("renders footnote block as [^id]: text", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
     );
-    expect(renderText(document)).toContain("[^n1]: The footnote.");
+    expect(renderText(document)).toContain("[^Text.n1]: The footnote.");
   });
 });
 
@@ -171,7 +156,7 @@ describe("inline elements", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "Footnote."),
     );
-    expect(renderText(document)).toContain("<n1>");
+    expect(renderText(document)).toContain("<Text.n1>");
   });
 
   it("renders page break as |", () => {

@@ -24,7 +24,7 @@ A Markit document consists of one or more _texts_ arranged in a hierarchical tre
 ...
 ```
 
-IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique relative to the text. In the compiled output, child text IDs are prefixed with their parent text's ID to ensure uniqueness across the whole document (e.g. `Title.Chapter1`, `Title.Chapter1.Section1`, etc.).
+IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique relative to their parent text. In the compiled output, parent IDs are prepended to child IDs to ensure uniqueness across the whole document (e.g. `Title.Chapter1`, `Title.Chapter1.Section1`, etc.).
 
 ## Text Metadata
 
@@ -88,7 +88,7 @@ Following the metadata blocks (if any), a text can have any number of _content b
 ...
 ```
 
-Block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document. They are conventionally numbered sequentially, but this is not required.
+Block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document (e.g. `Title.Chapter1.Section2.12`). They are conventionally numbered sequentially, but this is not required.
 
 ### Block Types
 
@@ -105,28 +105,33 @@ There are four types of content block, determined by the block ID:
 
 The content of a block consists of one or more _block-level elements_. (Note that "blocks" and "block-level elements" are different things: a block is a container for content, while block-level elements are the structural components of that content.)
 
-A block-level element is either a heading, a paragraph, a block quotation, or a list. The type of a block-level element is determined by its first character:
+A block-level element is either a heading, a paragraph, or a block quotation. The type of a block-level element is determined by its first character:
 
 - A line starting with `^1`-`^6` is a heading line. The number after the `^` character indicates how large the text on that line should be (1 being the largest, 6 being the smallest). Consecutive heading lines are treated as part of the same heading block. Heading lines are only permitted in `title` and `subtitle` blocks (`title` and `subtitle` blocks can also contain other block-level elements).
 - A line starting with `>` is a block quotation. Consecutive lines starting with `>` are part of the same block quotation.
-- A line starting with `-` is a list item. Consecutive lines starting with `-` are part of the same list. (Nested lists are not supported.) In the context of early texts, lists are predominantly intended for representing lines of verse.
-- A line starting with a number followed by a full stop (e.g. `1.`, `2.`, etc.) is a numbered list item. Consecutive lines starting with a number followed by a full stop are part of the same numbered list.
 - Anything else is a paragraph. Consecutive lines that don't start with any of the above are part of the same paragraph.
 
 Block-level elements can be separated by blank lines, but in general this is not required. A block-level element ends at the start of the next block-level element or at the end of the block. A blank line is required to separate block-level elements of the same type (e.g. two consecutive paragraphs).
 
-Block-level elements _cannot_ in general contain other block-level elements, with the exception of block quotes, which may contain either paragraphs or lists (but not headings or other block quotes). For example:
+Block-level elements cannot contain other block-level elements, with the exception of block quotes, which necessarily contain at least one paragraph, and may contain more than one. For example:
 
 ```
 > This block quotation.
 >
-> It containts two paragraphs, followed by a list:
->
-> - Item 1
-> - Item 2
+> It contains two paragraphs.
 ```
 
-In fact, block quotations can _only_ contain either paragraphs or lists - because the text inside a block quotation is necessarily inside a paragraph (if it isn't a list). But this is a technical detail that in practice you can ignore.
+### Verse
+
+Lines of verse should be represented using the line break marker (`//`) within paragraph blocks. Each line of verse is separated by `//`, which preserves the line structure in the output:
+
+```
+{#1}
+Tell me, O muse, of that ingenious hero who travelled far and wide //
+after he had sacked the famous town of Troy. Many cities did he visit //
+and many were the nations with whose manners and customs he was acquainted; //
+...
+```
 
 ### Inline Elements
 
@@ -331,19 +336,17 @@ Note that the block ID of `1` becomes `Text.1` in the output, to ensure uniquene
 
 Each element in a `content` array is a `BlockElement`:
 
-| Type         | Shape                                                         | Notes                                     |
-| ------------ | ------------------------------------------------------------- | ----------------------------------------- |
-| `Heading`    | `{ "type": "heading", "content": [...] }`                     | `content` is an array of `HeadingLine`s   |
-| `Paragraph`  | `{ "type": "paragraph", "content": [...] }`                   | `content` is an array of `InlineElement`s |
-| `Blockquote` | `{ "type": "blockquote", "content": [...] }`                  | `content` is an array of `InlineElement`s |
-| `List`       | `{ "type": "list", "ordered": true/false, "content": [...] }` | `content` is an array of `ListItem`s      |
+| Type         | Shape                                        | Notes                                     |
+| ------------ | -------------------------------------------- | ----------------------------------------- |
+| `Heading`    | `{ "type": "heading", "content": [...] }`    | `content` is an array of `HeadingLine`s   |
+| `Paragraph`  | `{ "type": "paragraph", "content": [...] }`  | `content` is an array of `InlineElement`s |
+| `Blockquote` | `{ "type": "blockquote", "content": [...] }` | `content` is an array of `Paragraph`s     |
 
-`Heading`s and `List`s contain intermediate elements:
+`Heading`s contain intermediate elements:
 
 | Type          | Shape                                         | Notes                                     |
 | ------------- | --------------------------------------------- | ----------------------------------------- |
 | `HeadingLine` | `{ "type": "headingLine", "content": [...] }` | `content` is an array of `InlineElement`s |
-| `ListItem`    | `{ "type": "listItem", "content": [...] }`    | `content` is an array of `InlineElement`s |
 
 Finally, there are several types of `InlineElement`:
 

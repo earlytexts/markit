@@ -327,23 +327,6 @@ describe("formatter", () => {
       expect(result).toBe(input);
     });
 
-    it("preserves list items on their own lines", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "Unordered list:",
-        "",
-        "- List item 1",
-        "- List item 2",
-        "",
-        "Numbered list:",
-        "",
-        "1. List item 1",
-        "2. List item 2",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(input);
-    });
-
     it("collapses paragraphs into a single line", () => {
       const input = markitWithContent(
         "{#1}",
@@ -383,18 +366,6 @@ describe("formatter", () => {
           "> This is a block quote that spans multiple lines.",
         ),
       );
-    });
-
-    it("doesn't collapse block quotations containing unordered lists", () => {
-      const input = markitWithContent("{#1}", "> - Item 1", "> - Item 2");
-      const result = formatDocument(input);
-      expect(result).toBe(input);
-    });
-
-    it("doesn't collapse block quotations containing ordered lists", () => {
-      const input = markitWithContent("{#1}", "> 1. Item 1", "> 2. Item 2");
-      const result = formatDocument(input);
-      expect(result).toBe(input);
     });
 
     it("preserves blank lines between paragraphs in block quotations", () => {
@@ -447,40 +418,6 @@ describe("formatter", () => {
       );
     });
 
-    it("collapses paragraphs in block quotations to a single line while preserving lists", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "> This is a block quote with a list.",
-        "> It has multiple paragraphs, but they should be collapsed.",
-        ">",
-        "> - List item 1",
-        "> - List item 2",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent(
-          "{#1}",
-          "> This is a block quote with a list. It has multiple paragraphs, but they should be collapsed.",
-          ">",
-          "> - List item 1",
-          "> - List item 2",
-        ),
-      );
-    });
-
-    it("corrects sequential numbering in lists", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "2. Item 1",
-        "5. Item 2",
-        "1. Item 3",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent("{#1}", "1. Item 1", "2. Item 2", "3. Item 3"),
-      );
-    });
-
     it("adds blank lines between block-level elements in content", () => {
       const input = markitWithContent(
         "{#1}",
@@ -490,8 +427,6 @@ describe("formatter", () => {
         "> A blockquote.",
         "More text.",
         "^3 Another heading",
-        "- list item 1",
-        "- list item 2",
         "Even more text.",
       );
       const result = formatDocument(input);
@@ -509,9 +444,6 @@ describe("formatter", () => {
           "",
           "^3 Another heading",
           "",
-          "- list item 1",
-          "- list item 2",
-          "",
           "Even more text.",
         ),
       );
@@ -521,28 +453,14 @@ describe("formatter", () => {
       const input = markitWithContent(
         "{#1}",
         "> First paragraph.",
-        "> - list item 1",
-        "> - list item 2",
-        "> More text.",
-        "> 1. Numbered item 1",
-        "> 2. Numbered item 2",
-        "> Even more text.",
+        "> Second paragraph.",
+        "> Third paragraph.",
       );
       const result = formatDocument(input);
       expect(result).toBe(
         markitWithContent(
           "{#1}",
-          "> First paragraph.",
-          ">",
-          "> - list item 1",
-          "> - list item 2",
-          ">",
-          "> More text.",
-          ">",
-          "> 1. Numbered item 1",
-          "> 2. Numbered item 2",
-          ">",
-          "> Even more text.",
+          "> First paragraph. Second paragraph. Third paragraph.",
         ),
       );
     });
