@@ -338,17 +338,6 @@ describe("block content", () => {
     ]);
   });
 
-  it("parses page breaks", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "before || after"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([pt("before "), { type: "pageBreak" }, pt(" after")]),
-    ]);
-  });
-
   it("parses em spaces (double tildes)", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "before~~after"),

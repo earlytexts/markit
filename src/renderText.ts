@@ -49,8 +49,6 @@ const inlineElementToText = (element: InlineElement): string => {
       return element.content;
     case "lineBreak":
       return "\n";
-    case "pageBreak":
-      return "|";
     case "nbSpace":
       return " ";
     case "emSpace":

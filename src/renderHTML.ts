@@ -75,8 +75,6 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return element.content.replace(/&/g, "&amp;");
     case "lineBreak":
       return "<br />";
-    case "pageBreak":
-      return '<span class="page-break">|</span>';
     case "nbSpace":
       return "&nbsp;";
     case "emSpace":

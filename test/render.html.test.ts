@@ -191,11 +191,6 @@ describe("inline elements", () => {
     expect(renderHTML(document)).toContain('<em class="french">Paris</em>');
   });
 
-  it('renders page break as <span class="page-break">', () => {
-    const [document] = compile(markitWithContent("{#1}", "before || after"));
-    expect(renderHTML(document)).toContain('<span class="page-break">|</span>');
-  });
-
   it("renders line break as <br />", () => {
     const [document] = compile(
       markitWithContent("{#1}", "line one //", "line two"),

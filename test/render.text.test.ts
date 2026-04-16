@@ -169,11 +169,6 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("<Text.n1>");
   });
 
-  it("renders page break as |", () => {
-    const [document] = compile(markitWithContent("{#1}", "before || after"));
-    expect(renderText(document)).toContain("|");
-  });
-
   it("renders line break as newline", () => {
     const [document] = compile(
       markitWithContent("{#1}", "line one //", "line two"),

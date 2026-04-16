@@ -100,7 +100,6 @@ export const leafElements = [
   { trigger: "~~", type: "emSpace" },
   { trigger: "~", type: "nbSpace" },
   { trigger: "//", type: "lineBreak" },
-  { trigger: "||", type: "pageBreak" },
   { trigger: "???", type: "illegible" },
 ] as const;
 
