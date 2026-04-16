@@ -1,6 +1,5 @@
 import type { InlineElement, Language, MarkitError } from "../types.js";
 import {
-  braceCodes,
   footnoteReferenceSpec,
   isWrapperElement,
   leafElements,
@@ -8,7 +7,10 @@ import {
 } from "../types.js";
 import type { PositionInfo } from "./buildPositionMap.js";
 import makeError from "./makeError.js";
-import transliterateGreek, { applyDiacritics } from "./transliterateGreek.js";
+import {
+  processCharacterMode,
+  processGreekMode,
+} from "./transliterateGreek.js";
 
 export default (
   input: string,
@@ -30,11 +32,6 @@ export default (
   const cleanedElements = cleanupElements(elements);
   return [cleanedElements, errors];
 };
-
-// Languages that receive diacritics processing (accent markers)
-const diacriticLangs = new Set(["la", "fr"]);
-// Languages that receive transliteration + diacritics (Latin-to-Greek)
-const transliterateLangs = new Set(["grc"]);
 
 const parseElements = (
   input: string,
@@ -78,55 +75,54 @@ const parseElements = (
       }
     }
 
-    // 2. Brace code
-    if (input[pos] === "{") {
-      const closeBracePos = input.indexOf("}", pos + 1);
-      if (closeBracePos === -1) {
+    // 2. Greek mode: {{...}}
+    if (input.startsWith("{{", pos)) {
+      const closePos = input.indexOf("}}", pos + 2);
+      if (closePos === -1) {
         const position = positionMap[pos]!;
         errors.push(
           makeError({
-            message: "Unclosed brace code",
+            message: "Unclosed Greek mode",
+            line: position.line,
+            column: position.column,
+            length: 2,
+          }),
+        );
+        plainTextBuffer += "{{";
+        pos += 2;
+        continue;
+      }
+      const content = input.slice(pos + 2, closePos);
+      flushPlainText();
+      result.push({ type: "plainText", content: processGreekMode(content) });
+      pos = closePos + 2;
+      continue;
+    }
+
+    // 2b. Character mode: {...}
+    if (input[pos] === "{") {
+      const closePos = input.indexOf("}", pos + 1);
+      if (closePos === -1) {
+        const position = positionMap[pos]!;
+        errors.push(
+          makeError({
+            message: "Unclosed character mode",
             line: position.line,
             column: position.column,
             length: 1,
           }),
         );
-        // Treat as literal
-        plainTextBuffer += input[pos];
+        plainTextBuffer += "{";
         pos++;
         continue;
       }
-
-      const code = input.slice(pos + 1, closeBracePos);
-      const braceCode = braceCodes.find((bc) => bc.code === code);
-
-      if (braceCode) {
-        flushPlainText();
-        result.push({ type: "plainText", content: braceCode.result });
-        pos = closeBracePos + 1;
-        continue;
-      }
-
-      const diacriticResult = applyBraceCodeDiacritics(code);
-      if (diacriticResult !== null) {
-        flushPlainText();
-        result.push({ type: "plainText", content: diacriticResult });
-        pos = closeBracePos + 1;
-        continue;
-      }
-
-      const position = positionMap[pos + 1]!;
-      errors.push(
-        makeError({
-          message: `Unknown brace code: ${code}`,
-          line: position.line,
-          column: position.column,
-          length: code.length,
-        }),
-      );
-      // Treat as literal
-      plainTextBuffer += input.slice(pos, closeBracePos + 1);
-      pos = closeBracePos + 1;
+      const content = input.slice(pos + 1, closePos);
+      flushPlainText();
+      result.push({
+        type: "plainText",
+        content: processCharacterMode(content),
+      });
+      pos = closePos + 1;
       continue;
     }
 
@@ -211,7 +207,7 @@ const parseElements = (
         positionMap,
         footnoteIds,
         errors,
-        true,
+        false,
         textId,
       );
 
@@ -227,18 +223,11 @@ const parseElements = (
         );
       }
 
-      const processedContent =
-        lang !== undefined && transliterateLangs.has(lang)
-          ? transliterateGreek(wrapperContent)
-          : lang !== undefined && diacriticLangs.has(lang)
-            ? applyDiacritics(wrapperContent)
-            : wrapperContent;
-
       flushPlainText();
       const languageElement: Language =
         lang !== undefined
-          ? { type: "language", lang, content: processedContent }
-          : { type: "language", content: processedContent };
+          ? { type: "language", lang, content: wrapperContent }
+          : { type: "language", content: wrapperContent };
       result.push(languageElement);
       pos = newPos;
       continue;
@@ -294,31 +283,6 @@ const parseElements = (
   flushPlainText();
 
   return [result, pos];
-};
-
-// Diacritic markers available in brace codes (accent-only, same as Latin/French)
-const braceCodeDiacritics: Record<string, string> = {
-  "/": "\u0301",
-  "\\": "\u0300",
-  "=": "\u0302",
-  "+": "\u0308",
-};
-
-/**
- * Try to interpret a brace code as "letter + diacritic markers".
- * Returns the NFC-normalised result string, or null if the code doesn't match.
- */
-const applyBraceCodeDiacritics = (code: string): string | null => {
-  if (code.length < 2) return null;
-  const base = code[0]!;
-  const markers = code.slice(1);
-  let combining = "";
-  for (const ch of markers) {
-    const c = braceCodeDiacritics[ch];
-    if (!c) return null;
-    combining += c;
-  }
-  return (base + combining).normalize("NFC");
 };
 
 /**

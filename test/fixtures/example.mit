@@ -191,63 +191,42 @@ Source texts frequently include words and passages in other languages. Generic f
 ^2 Language Codes
 
 {#2}
-For Greek, Latin, and French, use a language code prefix to activate special features:
+Language wrappers mark text semantically. Use a language code prefix to tag the language:
 
 {#3}
-*Greek* ($gr:...$) activates Latin-to-Greek transliteration. Roman characters are converted to their Greek equivalents. For example, $gr:philosophia$ produces "φιλοσοφια", and $gr:Allegoria tes Theologias$ produces "Αλληγορια της Θεολογιας". Digraphs are handled: th becomes θ, ph becomes φ, ch becomes χ, ps becomes ψ. A lowercase "s" at a word boundary becomes final sigma (ς): $gr:logos$ gives "λογος" with a final ς.
-
-{#4}
-*Latin* ($la:...$) and *French* ($fr:...$) do not transliterate, but they activate diacritic markers (see below).
+*Greek* ($grc:philosophia$) marks text as Ancient Greek. *Latin* ($la:Roma$) and *French* ($fr:raison$) work the same way. Any ISO 639 language code can be used.
 
 {#subtitle}
-^2 Diacritics in Language Wrappers
+^2 Character Mode
+
+{#4}
+Curly braces activate character mode, which provides shorthand for characters that are awkward to type. Diacritic markers follow the base character: acute {e/}, grave {a`}, circumflex {a^}, diaeresis {a"}. Digraphs produce ligatures: {ae}, {AE}, {oe}, {OE}, {c,}, {C,}. Special symbols: {$} (section mark), {-} (en dash), {--} (em dash).
 
 {#5}
-Inside language wrappers, diacritic markers are written immediately after the character they modify:
+Character mode spans as many characters as you like: {a/e/i/o/u/} renders all five vowels with acute accents, and {aesthetics} applies the ae ligature automatically.
+
+{#subtitle}
+^2 Greek Mode
 
 {#6}
-Greek supports the full set {--} smooth breathing with ), rough breathing with (, iota subscript with \|, acute with /, grave with \\, circumflex with =, and diaeresis with +. For example: $gr:a)nthrwpos$ for ἀνθρωπος, $gr:a(rmoni/a$ for ἁρμονία, $gr:w)=| tou= lo/gou$ for ᾦ τοῦ λόγου.
-
-{#7}
-Latin and French support acute (/), grave (\\), circumflex (=), and diaeresis (+). For example: $la:verite/$ for "verité" or $fr:e=tre$ for "être".
-
-{#8}
-When multiple diacritics follow one character, write them in this order: breathing, then accent, then diaeresis or iota subscript. For example, $gr:a)/$ produces ἄ (smooth breathing + acute). Getting the order wrong produces incorrect output.
+Double curly braces activate Greek mode, which applies Latin-to-Greek transliteration in addition to character mode processing: {{philosophia}}, {{logos}}, {{lo/gos}}. Greek-specific diacritics are supported: smooth breathing {{a)}}, rough breathing {{a(}}, iota subscript {{a|}}, circumflex {{a^}}. Full example: {{a)nthrwpos}}, {{a(rmoni/a}}.
 
 {#subtitle}
 ^2 Formatting Inside Foreign Text
 
-{#9}
-Inline formatting works inside foreign text: $gr:*philosophia*$ renders as bold Greek text. Line breaks (//) also work within language wrappers.
+{#7}
+Inline formatting works inside foreign text: $grc:*philosophia*$ renders as bold text tagged as Greek. Line breaks (//) also work within language wrappers.
 
 ## SpecialCharacters
 
 {#title}
-^1 Special Characters and Brace Codes
+^1 Page Breaks
 
 {#1}
-Brace codes provide access to characters commonly found in historical texts that are not easily typed on a standard keyboard.
+The || marker indicates a page break from the original copytext. In HTML output, it renders as an empty span you can style with CSS. In plain text, it is removed. Here is a page break in action: ||some text continued on the next page.
 
 {#2}
-Ligatures: {ae} for æ, {oe} for œ, {AE} for Æ, {OE} for Œ. These appear frequently in Latin and Old English texts: the word "encyclop{ae}dia" or "f{oe}tus".
-
-{#3}
-Dashes: {-} for an en dash (–) and {--} for an em dash (—). Use en dashes for ranges and em dashes for parenthetical remarks.
-
-{#4}
-The section symbol: {SS} produces §. Useful for references like {SS}~42 of the original.
-
-{#subtitle}
-^2 Diacritics Outside Language Wrappers
-
-{#5}
-Brace codes also support diacritics using the same markers as language wrappers. For example, {e/} produces é, {a\} produces à, {o=} produces ô, and {u+} produces ü. This is useful for occasional accented characters in otherwise English text.
-
-{#subtitle}
-^2 Page Breaks
-
-{#6}
-The || marker indicates a page break from the original copytext. In HTML output, it renders as an empty span you can style with CSS. In plain text, it is removed. Here is a page break in action: ||some text continued on the next page.
+A page break with a folio reference uses |ref| syntax: |12r| marks the start of folio 12 recto.
 
 ## Footnotes
 
@@ -276,6 +255,3 @@ Prefix any special character with a backslash to include it literally. For examp
 
 {#2}
 This is necessary when your source text contains characters that Markit would otherwise interpret as markup. For instance, to write about the expression 5 \* 3 = 15 without triggering bold formatting, you escape the asterisks.
-
-{#3}
-Note that backslash escaping is _not_ available inside language-coded wrappers ($gr:...$, $la:...$, $fr:...$), because the backslash character serves as the grave accent diacritic marker in those contexts.

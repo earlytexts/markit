@@ -24,7 +24,7 @@ A Markit document consists of one or more _texts_ arranged in a hierarchical tre
 ...
 ```
 
-IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique relative to their parent text. In the compiled output, parent IDs are prepended to child IDs to ensure uniqueness across the whole document (e.g. `Title.Chapter1`, `Title.Chapter1.Section1`, etc.).
+IDs can be any non-empty string that doesn't contain whitespace or the `#` character. They are case-sensitive and must be unique relative to their parent text. In the compiled output, parent IDs are prepended to child IDs to ensure uniqueness across the whole document (e.g. `Title.Chapter1`, `Title.Chapter1.Section1`).
 
 ## Text Metadata
 
@@ -88,7 +88,7 @@ Following the metadata blocks (if any), a text can have any number of _content b
 ...
 ```
 
-Block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document (e.g. `Title.Chapter1.Section2.12`). They are conventionally numbered sequentially, but this is not required.
+With the exception of `subtitle` (see below), block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document (e.g. `Title.Chapter1.Section2.12`). They are conventionally numbered sequentially, but this is not required.
 
 ### Block Types
 
@@ -121,9 +121,7 @@ Block-level elements cannot contain other block-level elements, with the excepti
 > It contains two paragraphs.
 ```
 
-### Verse
-
-Lines of verse should be represented using the line break marker (`//`) within paragraph blocks. Each line of verse is separated by `//`, which preserves the line structure in the output:
+Note there is no _list_ element in Markit. If you want to represent a list (or e.g. lines of verse in poetry), you can use paragraphs with line breaks (`//`) to preserve the line structure:
 
 ```
 {#1}
@@ -166,41 +164,48 @@ Block-level elements contain one or more _inline elements_. An inline element is
 
 Footnote references must be to footnote blocks in the same text (e.g. `<n1>` must refer to a block with the ID `n1` in the same text).
 
-Language codes follow ISO 639: use two-letter ISO 639-1 codes where available (e.g. `la`, `fr`), or three-letter ISO 639-3 codes where not (e.g. `grc` for Ancient Greek, which has no ISO 639-1 code). The `$grc:...$` wrapper additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration); `$la:...$` and `$fr:...$` activate [diacritic markers](#diacritics). Any other language code produces a plain language wrapper with no special character processing.
+Language codes follow ISO 639: use two-letter ISO 639-1 codes where available (e.g. `la`, `fr`), or three-letter ISO 639-3 codes where not (e.g. `grc` for Ancient Greek, which has no ISO 639-1 code).
 
 Page breaks with references use any non-whitespace string as the folio/page number (e.g. `|12r|`, `|p.45|`). A lone `|` not matching the `||` or `|ref|` pattern is treated as a literal character.
 
-### Brace Codes
+### Character Mode
 
-To make it easier to input certain characters that are common in early texts but not easily typed on a standard keyboard, Markit supports _brace codes_: special character sequences of the form `{code}` that are replaced with a specific Unicode character. The following brace codes are supported:
+Inside content, a sequence enclosed in single curly braces `{...}` is processed in _character mode_. This enables inputting characters that are common in early texts but difficult to type on standard keyboards. The content between the braces is processed character by character and the result replaces the entire `{...}` sequence in the output.
 
-| Markit Input | Meaning        | Unicode Character   |
-| ------------ | -------------- | ------------------- |
-| `{SS}`       | section symbol | `§`                 |
-| `{ae}`       | "ae" ligature  | `æ`                 |
-| `{AE}`       | "AE" ligature  | `Æ`                 |
-| `{oe}`       | "oe" ligature  | `œ`                 |
-| `{OE}`       | "OE" ligature  | `Œ`                 |
-| `{-}`        | an en dash     | `–`                 |
-| `{--}`       | an em dash     | `—`                 |
-| e.g. `{a/}`  | acute.         | `á`, `é`, `í`, etc. |
-| e.g. `{a\}`  | grave          | `à`, `è`, `ì`, etc. |
-| e.g. `{a=}`  | circumflex     | `â`, `ê`, `î`, etc. |
-| e.g. `{a+}`  | diaeresis      | `ä`, `ë`, `ï`, etc. |
+**Diacritic markers** are written immediately after the base character they modify:
 
-### Escaping Special Characters
+| Marker  | Diacritic  | Example input | Output |
+| ------- | ---------- | ------------- | ------ |
+| `/`     | acute      | `{e/}`        | `é`    |
+| `` ` `` | grave      | ``{a`}``      | `à`    |
+| `^`     | circumflex | `{a^}`        | `â`    |
+| `"`     | diaeresis  | `{a"}`        | `ä`    |
 
-To include a literal special character in the content, it must be escaped with a backslash (e.g. `\*` for a literal asterisk). The backslash itself can be escaped with another backslash (e.g. `\\` for a literal backslash).
+Multiple diacritic markers can follow a single base character.
 
-### Language-coded text
+**Digraphs** are matched before base character + diacritic processing:
 
-`$grc:...$`, `$la:...$`, and `$fr:...$` mark text as Ancient Greek, Latin, and French respectively. Unlike generic `$...$` foreign text, these wrappers activate [diacritic markers](#diacritics). `$grc:...$` additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration). Any `$xx:...$` wrapper where `xx` is a valid ISO 639 language code produces a language wrapper without special character processing.
+| Input | Output | Input | Output |
+| ----- | ------ | ----- | ------ |
+| `ae`  | `æ`    | `AE`  | `Æ`    |
+| `oe`  | `œ`    | `OE`  | `Œ`    |
+| `c,`  | `ç`    | `C,`  | `Ç`    |
 
-**Note:** Backslash escaping is not available inside any language-coded wrapper (`$xx:...$`). Inside these wrappers, `\` is the grave accent diacritic marker.
+**Special symbols:**
 
-### Latin-to-Greek Transliteration
+| Input | Output        |
+| ----- | ------------- |
+| `$`   | `§` (section) |
+| `-`   | `–` (en dash) |
+| `--`  | `—` (em dash) |
 
-Inside `$grc:...$`, Latin characters are transliterated to their Greek equivalents. Digraphs are matched first (before single characters), in the order shown:
+You cannot include inline markup inside character mode sequences, and standard special characters inside them (e.g. `*`, `_`) are treated as literal characters. Character mode can be combined with inline markup, but the latter must always be on the outide (e.g. ``_{a`} priori_`` instead of ``{_a` priori_}``).
+
+### Greek Mode
+
+A sequence enclosed in double curly braces `{{...}}` is processed in _Greek mode_. Greek mode combines character mode processing with Latin-to-Greek transliteration: Latin characters are converted to their Greek equivalents, and diacritic markers produce the correct Unicode combining characters.
+
+**Transliteration digraphs** (matched before single characters):
 
 | Latin input | Greek output |
 | ----------- | ------------ |
@@ -213,7 +218,7 @@ Inside `$grc:...$`, Latin characters are transliterated to their Greek equivalen
 | `ps`        | `ψ`          |
 | `Ps` / `PS` | `Ψ`          |
 
-After digraph matching, single characters are translated:
+**Single character transliteration:**
 
 | Latin | Greek | Latin | Greek |
 | ----- | ----- | ----- | ----- |
@@ -239,48 +244,43 @@ After digraph matching, single characters are translated:
 | `y`   | `υ`   | `Y`   | `Υ`   |
 | `w`   | `ω`   | `W`   | `Ω`   |
 
-A lowercase `s` that is immediately followed by a word boundary (whitespace, punctuation, or end of content) is rendered as final sigma `ς` instead of `σ`. Diacritic markers are not word boundaries. Any character not listed above passes through unchanged.
+A lowercase `s` immediately followed by a word boundary (whitespace, punctuation, or end of content) is rendered as final sigma `ς` instead of `σ`. Diacritic markers are not word boundaries. Any character not listed above passes through unchanged.
 
-Example: `$grc:philosophia$` → `φιλοσοφια` (`ph`→`φ`, `i`→`ι`, `l`→`λ`, `o`→`ο`, `s`→`σ`, `o`→`ο`, `ph`→`φ`, `i`→`ι`, `a`→`α`).
+**Greek diacritic markers** (written immediately after the base character):
 
-### Diacritics
+| Marker  | Diacritic                |
+| ------- | ------------------------ |
+| `)`     | smooth breathing (psili) |
+| `(`     | rough breathing (dasia)  |
+| `/`     | acute accent             |
+| `` ` `` | grave accent             |
+| `^`     | circumflex (perispomeni) |
+| `"`     | diaeresis                |
+| `\|`    | iota subscript           |
 
-Inside `$grc:...$`, `$la:...$`, and `$fr:...$`, diacritic markers written immediately after a character are converted to Unicode combining characters and the result is NFC-normalised.
-
-| Marker | Diacritic                | Active in         |
-| ------ | ------------------------ | ----------------- |
-| `)`    | smooth breathing (psili) | `grc`             |
-| `(`    | rough breathing (dasia)  | `grc`             |
-| `\|`   | iota subscript           | `grc`             |
-| `/`    | acute accent             | `grc`, `la`, `fr` |
-| `\`    | grave accent             | `grc`, `la`, `fr` |
-| `=`    | circumflex               | `grc`, `la`, `fr` |
-| `+`    | diaeresis                | `grc`, `la`, `fr` |
-
-(**Note:** In the table above `\|` appears escaped because `|` has special meaning in Markdown tables. The actual marker is a single `|` character.)
-
-When multiple markers follow one character, write them in the order: breathing → accent → diaeresis/iota-subscript (e.g. `a)/` for ἄ, not `a/)`, because NFC normalization requires canonical decomposition order). Writing markers in the wrong order produces incorrect output without an error.
-
-Inactive markers (e.g. `)` inside `$fr:...$`) pass through as literal characters.
+When multiple markers follow one character, write them in canonical order: breathing → accent → diaeresis/iota-subscript (e.g. `a)/` for ἄ). Writing markers in the wrong order produces incorrect output without an error.
 
 Examples:
 
-| Input       | Output |
-| ----------- | ------ |
-| `$grc:a)$`  | `ἀ`    |
-| `$grc:a(/$` | `ἅ`    |
-| `$grc:a)/$` | `ἄ`    |
-| `$grc:a=$`  | `ᾶ`    |
-| `$grc:a\$`  | `ὰ`    |
-| `$grc:A)/$` | `Ἄ`    |
-| `$la:e/$`   | `é`    |
-| `$fr:e=$`   | `ê`    |
+| Input             | Output      |
+| ----------------- | ----------- |
+| `{{philosophia}}` | `φιλοσοφία` |
+| `{{lo/gos}}`      | `λόγος`     |
+| `{{a)}}`          | `ἀ`         |
+| `{{a(/}}`         | `ἅ`         |
+| `{{a)/}}`         | `ἄ`         |
+| `{{a^}}`          | `ᾶ`         |
+| `{{a\|}}`         | `ᾳ`         |
 
-Diacritics can also be applied outside language wrappers using brace code syntax: `{e/}` → `é`, `{a\}` → `à`, `{o=}` → `ô`. Brace code diacritics support acute, grave, circumflex, and diaeresis only; they do not apply transliteration.
+### Escaping Special Characters
+
+To include a literal special character in the content, it must be escaped with a backslash (e.g. `\*` for a literal asterisk). The backslash itself can be escaped with another backslash (e.g. `\\` for a literal backslash).
+
+Backslash escaping works everywhere, including inside character mode and Greek mode. Note, however, that the characters needing to be escaped are different in these modes: for example `^` needs to be escaped in character mode but not in regular mode; `|` needs to be escaped in Greek mode but not in regular mode or character mode.
 
 ## Whitespace
 
-Whitespace is largely insignificant in Markit, except where it is necessary to avoid structural ambiguity. Multiple consecutive spaces are collapsed to one space, and multiple blank lines are collapsed to one blank line. Within content blocks, line breaks are treated as spaces.
+Whitespace is largely insignificant in Markit, except where it is necessary to avoid structural ambiguity. Multiple consecutive spaces are collapsed to one space, and multiple blank lines are collapsed to one blank line. Within content blocks, line breaks are treated as spaces. Use `~`, `~~`, and `//` to preserve spaces and line breaks in the output.
 
 A blank line (i.e. a line containing only whitespace) is conventional to separate text IDs from metadata, metadata from content blocks, content blocks from each other, and block-level elements from each other within each content block. For example:
 
@@ -393,6 +393,8 @@ For example, the Markit input `This is *strong* text.` is represented as:
   ]
 }
 ```
+
+Character mode and Greek mode sequences are processed into their final output characters before being represented in the JSON output. Their content therefore appears as `PlainText` elements in the output.
 
 ### Error Handling
 

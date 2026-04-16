@@ -156,15 +156,5 @@ export const wrapperElements = [
 
 export type WrapperType = (typeof wrapperElements)[number]["type"];
 
-export const braceCodes = [
-  { code: "SS", result: "§" },
-  { code: "ae", result: "æ" },
-  { code: "AE", result: "Æ" },
-  { code: "oe", result: "œ" },
-  { code: "OE", result: "Œ" },
-  { code: "-", result: "–" },
-  { code: "--", result: "—" },
-] as const;
-
 export const isWrapperElement = (element: InlineElement): element is Wrapper =>
   wrapperElements.some((wrapper) => wrapper.type === element.type);

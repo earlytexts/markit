@@ -157,8 +157,8 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("Paris");
   });
 
-  it("renders Greek text as transliterated inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$grc:logos$"));
+  it("renders Greek mode text as transliterated plain text", () => {
+    const [document] = compile(markitWithContent("{#1}", "{{logos}}"));
     expect(renderText(document)).toContain("λογος");
   });
 
