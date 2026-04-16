@@ -137,52 +137,57 @@ and many were the nations with whose manners and customs he was acquainted; //
 
 Block-level elements contain one or more _inline elements_. An inline element is either plain text or a special character sequence that represents some kind of formatting or semantic content (e.g. emphasis, a footnote reference, etc.). The following special character sequences are supported:
 
-| Markit Input    | Meaning              | HTML Equivalent                                    |
-| --------------- | -------------------- | -------------------------------------------------- |
-| `"text"`        | an inline quotation  | `<q>text</q>`                                      |
-| `*text*`        | strong text          | `<strong>text</strong>`                            |
-| `_text_`        | emphasised text      | `<em>text</em>`                                    |
-| `$text$`        | foreign text         | `<em class="foreign">text</em>`                    |
-| `$gr:text$`     | Greek text           | `<em class="greek">text</em>`                      |
-| `$la:text$`     | Latin text           | `<em class="latin">text</em>`                      |
-| `$fr:text$`     | French text          | `<em class="french">text</em>`                     |
-| `@text@`        | margin comment       | `<span class="aside">text</span>`                  |
-| `++insertion++` | editorial insertion  | `<ins>insertion</ins>`                             |
-| `--deletion--`  | editorial deletion   | `<del>deletion</del>`                              |
-| `??uncertain??` | uncertain text       | `<span class="uncertain">uncertain</span>`         |
-| `???`           | illegible text       | `<span class="illegible">&lt;illegible&gt;</span>` |
-| `==highlight==` | editorial highlight  | `<mark>highlight</mark>`                           |
-| `[citation]`    | citation             | `<cite>citation</cite>`                            |
-| `<nID>`         | footnote reference   | `<a href="#nID"><sup>[ID]</sup></a>`               |
-| `~`             | a non-breaking space | `&nbsp;`                                           |
-| `~~`            | a large space / tab  | `&emsp;`                                           |
-| `//`            | a line break         | `<br />`                                           |
-| `\|\|`          | a page break         | `<span class="page-break">\|</span>`               |
-| `{SS}`          | section symbol       | `§`                                                |
-| `{ae}`          | "ae" ligature        | `æ`                                                |
-| `{AE}`          | "AE" ligature        | `Æ`                                                |
-| `{oe}`          | "oe" ligature        | `œ`                                                |
-| `{OE}`          | "OE" ligature        | `Œ`                                                |
-| `{-}`           | an en dash           | `–`                                                |
-| `{--}`          | an em dash           | `—`                                                |
-| e.g. `{a/}`     | acute.               | `á`, `é`, `í`, etc.                                |
-| e.g. `{a\}`     | grave                | `à`, `è`, `ì`, etc.                                |
-| e.g. `{a=}`     | circumflex           | `â`, `ê`, `î`, etc.                                |
-| e.g. `{a+}`     | diaeresis            | `ä`, `ë`, `ï`, etc.                                |
-
-(**Note:** If you're reading this document as raw text, the page break marker is `||`. In the table above it appears as `` `\|\|` `` because `|` has special meaning in Markdown tables; the backslashes are a Markdown formatting artifact, not part of the Markit syntax.)
+| Markit Input    | Meaning                  | HTML Equivalent                                    |
+| --------------- | ------------------------ | -------------------------------------------------- |
+| `"text"`        | an inline quotation      | `<q>text</q>`                                      |
+| `*text*`        | strong text              | `<strong>text</strong>`                            |
+| `_text_`        | emphasised text          | `<em>text</em>`                                    |
+| `$text$`        | foreign text             | `<em class="foreign">text</em>`                    |
+| `$gr:text$`     | Greek text               | `<em class="greek">text</em>`                      |
+| `$la:text$`     | Latin text               | `<em class="latin">text</em>`                      |
+| `$fr:text$`     | French text              | `<em class="french">text</em>`                     |
+| `%text%`        | speaker name in dialogue | `<span class="speaker">text</span>`                |
+| `@text@`        | margin comment           | `<span class="aside">text</span>`                  |
+| `++insertion++` | editorial insertion      | `<ins>insertion</ins>`                             |
+| `--deletion--`  | editorial deletion       | `<del>deletion</del>`                              |
+| `??uncertain??` | uncertain text           | `<span class="uncertain">uncertain</span>`         |
+| `???`           | illegible text           | `<span class="illegible">&lt;illegible&gt;</span>` |
+| `==highlight==` | editorial highlight      | `<mark>highlight</mark>`                           |
+| `[citation]`    | citation                 | `<cite>citation</cite>`                            |
+| `<nID>`         | footnote reference       | `<a href="#nID"><sup>[ID]</sup></a>`               |
+| `~`             | a non-breaking space     | `&nbsp;`                                           |
+| `~~`            | a large space / tab      | `&emsp;`                                           |
+| `//`            | a line break             | `<br />`                                           |
 
 Footnote references must be to footnote blocks in the same text (e.g. `<n1>` must refer to a block with the ID `n1` in the same text).
+
+### Brace Codes
+
+To make it easier to input certain characters that are common in early texts but not easily typed on a standard keyboard, Markit supports _brace codes_: special character sequences of the form `{code}` that are replaced with a specific Unicode character. The following brace codes are supported:
+
+| Markit Input | Meaning        | Unicode Character   |
+| ------------ | -------------- | ------------------- |
+| `{SS}`       | section symbol | `§`                 |
+| `{ae}`       | "ae" ligature  | `æ`                 |
+| `{AE}`       | "AE" ligature  | `Æ`                 |
+| `{oe}`       | "oe" ligature  | `œ`                 |
+| `{OE}`       | "OE" ligature  | `Œ`                 |
+| `{-}`        | an en dash     | `–`                 |
+| `{--}`       | an em dash     | `—`                 |
+| e.g. `{a/}`  | acute.         | `á`, `é`, `í`, etc. |
+| e.g. `{a\}`  | grave          | `à`, `è`, `ì`, etc. |
+| e.g. `{a=}`  | circumflex     | `â`, `ê`, `î`, etc. |
+| e.g. `{a+}`  | diaeresis      | `ä`, `ë`, `ï`, etc. |
 
 ### Escaping Special Characters
 
 To include a literal special character in the content, it must be escaped with a backslash (e.g. `\*` for a literal asterisk). The backslash itself can be escaped with another backslash (e.g. `\\` for a literal backslash).
 
-**Note:** Backslash escaping is not available inside language-coded wrappers (`$gr:...$`, `$la:...$`, `$fr:...$`). Inside these wrappers, `\` is the grave accent diacritic marker (see below).
-
 ### Language-coded text
 
 `$gr:...$`, `$la:...$`, and `$fr:...$` mark text as Greek, Latin, and French respectively. Unlike generic `$...$` foreign text, these wrappers activate [diacritic markers](#diacritics). `$gr:...$` additionally applies [Latin-to-Greek transliteration](#latin-to-greek-transliteration).
+
+**Note:** Backslash escaping is not available inside language-coded wrappers (`$gr:...$`, `$la:...$`, `$fr:...$`). Inside these wrappers, `\` is the grave accent diacritic marker.
 
 ### Latin-to-Greek Transliteration
 
@@ -292,16 +297,6 @@ This is the second paragraph.
 ```
 
 But blank lines are only strictly necessary between block-level elements of the same type (otherwise the text on the next line would be interpreted as part of the same element).
-
-## Differences from Markdown
-
-Markit is inspired by Markdown, and aims to be as similar as possible, while meeting the specific needs of early text preservation. The main differences are:
-
-- Markit uses `#` for document structure and text IDs. Headings from source texts typically span multiple lines, and are therefore marked up with `^` symbols in `title` and `subtitle` blocks instead.
-- Markit supports TOML-style metadata and block tags, neither of which have any Markdown equivalent. (Although YAML front matter is a common Markdown extension, TOML is preferred here for its relative simplicity and unambiguity.)
-- Markit uses a slightly different syntax for `_italics_` and `*bold*` - distinguishing between these two on the basis of the character, not how many of them there are.
-- Markit has many more special characters and inline formatting options than Markdown, such as for representing foreign text, editorial insertions and deletions, uncertain and illegible text, footnote references, etc.
-- Markit doesn't have some things Markdown does (e.g. links, images, tables, code blocks).
 
 ## JSON Output
 
