@@ -7,8 +7,6 @@
     { "include": "#blockTag" },
     { "include": "#headingLine" },
     { "include": "#blockquoteLine" },
-    { "include": "#unorderedListItem" },
-    { "include": "#orderedListItem" },
     { "include": "#inline" }
   ],
   "repository": {
@@ -78,16 +76,8 @@
           "name": "punctuation.separator.comma.markit"
         },
         {
-          "match": "\"[^\"]*\"",
+          "match": "\b[^},]*\b",
           "name": "string.quoted.double.markit"
-        },
-        {
-          "match": "\\b(true|false)\\b",
-          "name": "constant.language.boolean.markit"
-        },
-        {
-          "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
-          "name": "constant.numeric.markit"
         }
       ]
     },
@@ -95,9 +85,9 @@
       "match": "^(\\^[1-6])\\s+(.*)",
       "captures": {
         "1": { "name": "punctuation.definition.heading.markit" },
-        "2": { "name": "markup.heading.content.markit" }
+        "2": { "name": "markup.bold.markit" }
       },
-      "name": "markup.heading.markit",
+      "name": "markup.bold.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "blockquoteLine": {
@@ -109,41 +99,29 @@
       "name": "string.quoted.double.block.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "unorderedListItem": {
-      "match": "^(-)\\s+(.*)",
-      "captures": {
-        "1": { "name": "punctuation.definition.list.begin.markit" },
-        "2": { "name": "markup.list.unnumbered.markit" }
-      },
-      "name": "markup.list.unnumbered.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
-    "orderedListItem": {
-      "match": "^(\\d+\\.)\\s+(.*)",
-      "captures": {
-        "1": { "name": "punctuation.definition.list.begin.markit" },
-        "2": { "name": "markup.list.numbered.markit" }
-      },
-      "name": "markup.list.numbered.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
     "inline": {
       "patterns": [
         { "include": "#quote" },
         { "include": "#strong" },
         { "include": "#emphasis" },
-        { "include": "#greek" },
         { "include": "#foreign" },
         { "include": "#aside" },
+        { "include": "#speaker" },
+        { "include": "#person" },
+        { "include": "#place" },
         { "include": "#insertion" },
         { "include": "#deletion" },
         { "include": "#highlight" },
+        { "include": "#illegible" },
+        { "include": "#uncertain" },
         { "include": "#citation" },
         { "include": "#emSpace" },
         { "include": "#nbSpace" },
         { "include": "#lineBreak" },
-        { "include": "#pageBreak" },
-        { "include": "#braceCode" },
+        { "include": "#pageBreakRef" },
+        { "include": "#pageBreakEmpty" },
+        { "include": "#greekMode" },
+        { "include": "#characterMode" },
         { "include": "#footnoteRef" },
         { "include": "#escape" }
       ]
@@ -184,20 +162,8 @@
       "name": "markup.italic.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "greek": {
-      "begin": "(?<!\\\\)(\\$\\$)",
-      "end": "(?<!\\\\)(\\$\\$)",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.italic.greek.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.italic.greek.end.markit" }
-      },
-      "name": "markup.italic.greek.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
     "foreign": {
-      "begin": "(?<!\\\\)(\\$)",
+      "begin": "(?<!\\\\)(\\$(?:[a-z]{2,3}:)?)",
       "end": "(?<!\\\\)(\\$)",
       "beginCaptures": {
         "1": { "name": "punctuation.definition.italic.foreign.begin.markit" }
@@ -218,6 +184,44 @@
         "1": { "name": "punctuation.definition.comment.end.markit" }
       },
       "name": "comment.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "speaker": {
+      "begin": "(?<!\\\\)(%)",
+      "end": "(?<!\\\\)(%)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.speaker.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.speaker.end.markit" }
+      },
+      "name": "markup.other.speaker.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "person": {
+      "begin": "(!person)(\\[)",
+      "end": "(\\])",
+      "beginCaptures": {
+        "1": { "name": "entity.name.tag.person.markit" },
+        "2": { "name": "punctuation.definition.person.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.person.end.markit" }
+      },
+      "name": "markup.other.person.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "place": {
+      "begin": "(!place)(\\[)",
+      "end": "(\\])",
+      "beginCaptures": {
+        "1": { "name": "entity.name.tag.place.markit" },
+        "2": { "name": "punctuation.definition.place.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.place.end.markit" }
+      },
+      "name": "markup.other.place.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "insertion": {
@@ -242,6 +246,22 @@
         "1": { "name": "punctuation.definition.deleted.end.markit" }
       },
       "name": "markup.deleted.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "illegible": {
+      "match": "\\?\\?\\?",
+      "name": "constant.character.illegible.markit"
+    },
+    "uncertain": {
+      "begin": "(?<!\\\\)(\\?\\?)",
+      "end": "(?<!\\\\)(\\?\\?)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.uncertain.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.uncertain.end.markit" }
+      },
+      "name": "markup.uncertain.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "highlight": {
@@ -280,13 +300,75 @@
       "match": "//",
       "name": "constant.character.linebreak.markit"
     },
-    "pageBreak": {
-      "match": "\\|",
+    "pageBreakRef": {
+      "match": "(\\|)([^\\s|]+)(\\|)",
+      "captures": {
+        "1": { "name": "punctuation.definition.pagebreak.begin.markit" },
+        "2": { "name": "entity.name.section.pagebreak.markit" },
+        "3": { "name": "punctuation.definition.pagebreak.end.markit" }
+      }
+    },
+    "pageBreakEmpty": {
+      "match": "\\|\\|",
       "name": "constant.character.pagebreak.markit"
     },
-    "braceCode": {
-      "match": "\\{(SS|--|-|ae|AE|oe|OE)\\}",
-      "name": "constant.character.entity.markit"
+    "greekMode": {
+      "begin": "(\\{\\{)",
+      "end": "(\\}\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.greek-mode.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.greek-mode.end.markit" }
+      },
+      "name": "meta.greek-mode.markit",
+      "patterns": [
+        {
+          "match": "[Tt][Hh]|[Pp][Hh]|[Cc][Hh]|[Pp][Ss]",
+          "name": "constant.character.digraph.markit"
+        },
+        {
+          "match": "[)(/'`^\"\\|]",
+          "name": "constant.character.diacritic.markit"
+        },
+        {
+          "match": "\\\\[)(/'`^\"\\|\\\\]",
+          "name": "constant.character.escape.markit"
+        }
+      ]
+    },
+    "characterMode": {
+      "begin": "(?<!\\\\)(\\{)(?!\\{)",
+      "end": "(\\})",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.character-mode.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.character-mode.end.markit" }
+      },
+      "name": "meta.character-mode.markit",
+      "patterns": [
+        {
+          "match": "--",
+          "name": "constant.character.em-dash.markit"
+        },
+        {
+          "match": "AE|ae|OE|oe|[cC],",
+          "name": "constant.character.digraph.markit"
+        },
+        {
+          "match": "-",
+          "name": "constant.character.en-dash.markit"
+        },
+        {
+          "match": "[/'`^\"$]",
+          "name": "constant.character.diacritic.markit"
+        },
+        {
+          "match": "\\\\[/'`^\"$\\-\\\\]",
+          "name": "constant.character.escape.markit"
+        }
+      ]
     },
     "footnoteRef": {
       "match": "(<)(n[^\\s#{}]+)(>)",
@@ -297,7 +379,7 @@
       }
     },
     "escape": {
-      "match": "\\\\[\\\\*_\"$@+\\-=<>\\[\\]{}£~|/#]",
+      "match": "\\\\[\\\\*_\"$@%+\\-=<>\\[\\]{}£~|/#]",
       "name": "constant.character.escape.markit"
     }
   }

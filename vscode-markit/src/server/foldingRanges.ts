@@ -1,4 +1,10 @@
-import { compile, endLine, startLine, type MarkitDocument } from "markit";
+import {
+  compile,
+  endLine,
+  startLine,
+  type MarkitDocument,
+  type Ranges,
+} from "markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 
@@ -17,6 +23,25 @@ const collectFoldingRanges = (doc: MarkitDocument, ranges: FoldingRange[]) => {
     endLine: doc[endLine],
     kind: FoldingRangeKind.Region,
   });
+
+  if (doc.metadata) {
+    ranges.push({
+      startLine: doc.metadata[startLine],
+      endLine: doc.metadata[endLine],
+      kind: FoldingRangeKind.Region,
+    });
+
+    for (const value of Object.values(doc.metadata)) {
+      if (typeof value === "object" && !Array.isArray(value)) {
+        const sub = value as Record<string, unknown> & Ranges;
+        ranges.push({
+          startLine: sub[startLine],
+          endLine: sub[endLine],
+          kind: FoldingRangeKind.Region,
+        });
+      }
+    }
+  }
 
   for (const block of doc.blocks) {
     ranges.push({

@@ -1,10 +1,5 @@
-import type {
-  BlockMetadataKey,
-  MarkitError,
-  Metadata,
-  MetadataValue,
-} from "../types.js";
-import { footnoteReferenceSpec, VALID_BLOCK_METADATA_KEYS } from "../types.js";
+import type { MarkitError, Metadata, MetadataValue } from "../types.js";
+import { endLine, footnoteReferenceSpec, startLine } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
@@ -12,30 +7,24 @@ import type { Line, RawBlock } from "./splitIntoBlocks.js";
 /**
  * Parse the TextTree into a tree with metadata.
  */
-export type TextTreeWithMetadata<TextMetadata extends Metadata> = Omit<
-  TextTree,
-  "blocks" | "children"
-> & {
-  metadata: TextMetadata;
+export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
+  metadata?: Metadata;
   blocks: BlockWithMetadata[];
-  children: TextTreeWithMetadata<TextMetadata>[];
+  children: TextTreeWithMetadata[];
 };
 
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
-  metadata: Partial<Record<BlockMetadataKey, string>>;
   lines: Line[];
 };
 
-export default <TextMetadata extends Metadata>(
-  textTree: TextTree,
-): [TextTreeWithMetadata<TextMetadata>, MarkitError[]] => {
-  return parseTextMetadata<TextMetadata>(textTree);
+export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
+  return parseTextMetadata(textTree);
 };
 
-const parseTextMetadata = <TextMetadata extends Metadata>(
+const parseTextMetadata = (
   text: TextTree,
-): [TextTreeWithMetadata<TextMetadata>, MarkitError[]] => {
+): [TextTreeWithMetadata, MarkitError[]] => {
   // Consume all leading blocks that start with a [header] (before the first content block).
   // Valid headers ([metadata] and [metadata.subkey]) are parsed; invalid ones produce errors.
   let metadataBlockCount = 0;
@@ -53,7 +42,13 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   const contentBlocks = text.blocks.slice(metadataBlockCount);
 
   const allMetadataErrors: MarkitError[] = [];
-  const metadata = {} as TextMetadata;
+  const metadata: Metadata | undefined =
+    metadataBlocks.length > 0
+      ? {
+          [startLine]: metadataBlocks[0]!.startLine,
+          [endLine]: metadataBlocks.at(-1)!.endLine,
+        }
+      : undefined;
   let hasTopLevelBlock = false;
 
   for (const block of metadataBlocks) {
@@ -63,7 +58,7 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
     if (subkey === null) {
       // Top-level [metadata] block
       hasTopLevelBlock = true;
-      Object.assign(metadata, parsedMetadata);
+      Object.assign(metadata!, parsedMetadata);
     } else {
       // Nested [metadata.subkey] block
       if (!hasTopLevelBlock) {
@@ -77,10 +72,10 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
           }),
         );
       }
-      (metadata as Metadata)[subkey] = parsedMetadata as Record<
-        string,
-        MetadataValue
-      >;
+      metadata![subkey] = Object.assign(
+        parsedMetadata as Record<string, MetadataValue>,
+        { [startLine]: block.startLine, [endLine]: block.endLine },
+      );
     }
   }
 
@@ -133,10 +128,10 @@ const parseTextMetadata = <TextMetadata extends Metadata>(
   // Put it all together and return
   const textWithMetadata = {
     ...text,
-    metadata,
+    ...(metadata ? { metadata } : {}),
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
-  } as TextTreeWithMetadata<TextMetadata>;
+  };
   const errors = [
     ...allMetadataErrors,
     ...blockErrors,
@@ -355,11 +350,10 @@ const parseBlockMetadata = (
   const blockTagContent = blockTagMatch
     ? blockTagMatch[1]!.trim()
     : `${block.startLine}`;
-  const blockTagParts = blockTagContent.split(",").map((part) => part.trim());
 
   // fallback to start line as ID if ID not provided
   // error will be reported by blockTagMatch check above
-  let id = blockTagParts[0]!;
+  let id = blockTagContent;
 
   // Validate block ID characters (only when a block tag was matched, not the fallback)
   if (blockTagMatch && !/^[^\s#{}]+$/.test(id)) {
@@ -429,51 +423,6 @@ const parseBlockMetadata = (
     );
   }
 
-  const metadata: Partial<Record<BlockMetadataKey, string>> = {};
-  blockTagParts.slice(1).forEach((part) => {
-    const eqIndex = part.indexOf("=");
-    if (eqIndex === -1) {
-      errors.push(
-        makeError({
-          message: "Invalid block metadata, expected 'key=value'",
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: part.length,
-        }),
-      );
-      return;
-    }
-
-    const key = part.slice(0, eqIndex).trim();
-    const value = part.slice(eqIndex + 1).trim();
-
-    if (!key || !value) {
-      errors.push(
-        makeError({
-          message: "Invalid block metadata, expected 'key=value'",
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: part.length,
-        }),
-      );
-      return;
-    }
-
-    if (!VALID_BLOCK_METADATA_KEYS.includes(key as BlockMetadataKey)) {
-      errors.push(
-        makeError({
-          message: `Block tag key '${key}' is not a valid metadata key (valid keys: ${VALID_BLOCK_METADATA_KEYS.join(", ")})`,
-          line: block.startLine,
-          column: firstLine.charOffset + firstLine.content.indexOf(part),
-          length: key.length,
-        }),
-      );
-      return;
-    }
-
-    metadata[key as BlockMetadataKey] = value;
-  });
-
   const contentAfterTag = blockTagMatch
     ? firstLine.content.slice(blockTagMatch[0]!.length).trim()
     : firstLine.content.trim().startsWith("{#")
@@ -493,7 +442,6 @@ const parseBlockMetadata = (
   const blockWithMetadata: BlockWithMetadata = {
     ...block,
     id,
-    metadata,
     lines,
   };
 

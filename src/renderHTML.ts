@@ -31,25 +31,9 @@ const documentToHTML = (
 const blockToHTML = (block: Block, depth: number): string => {
   const line = block[startLine];
   const headingDepth = block.type === "subtitle" ? depth + 1 : depth;
-  let blockPrefix = "";
-  if (block.type === "paragraph") {
-    if (typeof block.subsection === "string") {
-      blockPrefix += `<span class="subsection">${block.subsection}.</span> `;
-    }
-    if (typeof block.speaker === "string") {
-      blockPrefix += `<span class="speaker">${block.speaker}.</span> `;
-    }
-  }
   const footnoteId = block.type === "footnote" ? block.id : null;
   const inner = block.content
-    .map((el, i) =>
-      blockElementToHTML(
-        el,
-        footnoteId,
-        headingDepth,
-        i === 0 ? blockPrefix : "",
-      ),
-    )
+    .map((el) => blockElementToHTML(el, footnoteId, headingDepth))
     .join("");
   return `<div data-line="${line}">${inner}</div>`;
 };
@@ -58,13 +42,12 @@ const blockElementToHTML = (
   element: BlockElement,
   footnotePrefix: string | null,
   depth: number,
-  blockPrefix: string = "",
 ): string => {
   switch (element.type) {
     case "paragraph": {
       const fnPrefix =
         footnotePrefix !== null ? `<sup>${footnotePrefix}</sup> ` : "";
-      return `<p>${blockPrefix}${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
+      return `<p>${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
     }
     case "heading": {
       const hLevel = Math.min(depth + 1, 6);
@@ -78,19 +61,8 @@ const blockElementToHTML = (
     }
     case "blockquote":
       return `<blockquote>${element.content
-        .map((el, i) =>
-          blockElementToHTML(el, null, depth, i === 0 ? blockPrefix : ""),
-        )
+        .map((el) => blockElementToHTML(el, null, depth))
         .join("")}</blockquote>`;
-    case "list": {
-      const tag = element.ordered ? "ol" : "ul";
-      return `<${tag}>${element.content
-        .map(
-          (item, i) =>
-            `<li>${i === 0 ? blockPrefix : ""}${inlineElementsToHTML(item.content)}</li>`,
-        )
-        .join("")}</${tag}>`;
-    }
   }
 };
 
@@ -103,12 +75,12 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return element.content.replace(/&/g, "&amp;");
     case "lineBreak":
       return "<br />";
-    case "pageBreak":
-      return '<span class="page-break">|</span>';
     case "nbSpace":
       return "&nbsp;";
     case "emSpace":
       return "&emsp;";
+    case "illegible":
+      return '<span class="illegible">&lt;illegible&gt;</span>';
     case "footnoteReference":
       return `<a href="#footnote-${element.id}" id="footnote-ref-${element.id}"><sup>${element.id}</sup></a>`;
     case "strong":
@@ -117,20 +89,32 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<em>${inlineElementsToHTML(element.content)}</em>`;
     case "quote":
       return `<q>${inlineElementsToHTML(element.content)}</q>`;
-    case "foreign":
-      return `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
-    case "greek":
-      return `<em class="greek">${inlineElementsToHTML(element.content)}</em>`;
+    case "speaker":
+      return `<span class="speaker">${inlineElementsToHTML(element.content)}</span>`;
     case "aside":
       return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
     case "insertion":
       return `<ins>${inlineElementsToHTML(element.content)}</ins>`;
     case "deletion":
       return `<del>${inlineElementsToHTML(element.content)}</del>`;
+    case "uncertain":
+      return `<span class="uncertain">${inlineElementsToHTML(element.content)}</span>`;
     case "highlight":
       return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
     case "citation":
       return `<cite>${inlineElementsToHTML(element.content)}</cite>`;
+    case "person":
+      return `<span class="person">${inlineElementsToHTML(element.content)}</span>`;
+    case "place":
+      return `<span class="place">${inlineElementsToHTML(element.content)}</span>`;
+    case "language":
+      return element.lang !== undefined
+        ? `<em lang="${element.lang}">${inlineElementsToHTML(element.content)}</em>`
+        : `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
+    case "pageBreak":
+      return element.ref !== undefined
+        ? `<span class="pageBreak" data-ref="${element.ref}"></span>`
+        : `<span class="pageBreak"></span>`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

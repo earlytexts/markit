@@ -2,8 +2,8 @@
 
 Markit is a markup language for textual preservation. The compiler is error-tolerant: it always produces output and accumulates diagnostics, enabling live preview workflows.
 
-Syntax: [SPECIFICATION.md](../SPECIFICATION.md)
-Example: [test/fixtures/example.mit](../test/fixtures/example.mit)
+Syntax: [SPECIFICATION.md](../docs/SPECIFICATION.md)
+Example: [example.mit](../docs/example.mit)
 
 ## Architecture
 

@@ -1,6 +1,5 @@
-import type { InlineElement, MarkitError } from "../types.js";
+import type { InlineElement, Language, MarkitError } from "../types.js";
 import {
-  braceCodes,
   footnoteReferenceSpec,
   isWrapperElement,
   leafElements,
@@ -8,12 +7,16 @@ import {
 } from "../types.js";
 import type { PositionInfo } from "./buildPositionMap.js";
 import makeError from "./makeError.js";
-import transliterateGreek from "./transliterateGreek.js";
+import {
+  processCharacterMode,
+  processGreekMode,
+} from "./transliterateGreek.js";
 
 export default (
   input: string,
   positionMap: PositionInfo[],
   footnoteIds: string[],
+  textId: string,
 ): [InlineElement[], MarkitError[]] => {
   const errors: MarkitError[] = [];
   const [elements] = parseElements(
@@ -23,6 +26,8 @@ export default (
     positionMap,
     footnoteIds,
     errors,
+    false,
+    textId,
   );
   const cleanedElements = cleanupElements(elements);
   return [cleanedElements, errors];
@@ -35,6 +40,8 @@ const parseElements = (
   positionMap: PositionInfo[],
   footnoteIds: string[],
   errors: MarkitError[],
+  suppressEscape: boolean,
+  textId: string,
 ): [InlineElement[], number] => {
   const result: InlineElement[] = [];
   let pos = startPos;
@@ -54,8 +61,8 @@ const parseElements = (
       return [result, pos + closeMarker.length];
     }
 
-    // 1. Escape character
-    if (input[pos] === "\\") {
+    // 1. Escape character (suppressed inside language wrappers)
+    if (!suppressEscape && input[pos] === "\\") {
       if (pos + 1 < input.length) {
         plainTextBuffer += input[pos + 1];
         pos += 2;
@@ -68,48 +75,55 @@ const parseElements = (
       }
     }
 
-    // 2. Brace code
-    if (input[pos] === "{") {
-      const closeBracePos = input.indexOf("}", pos + 1);
-      if (closeBracePos === -1) {
+    // 2. Greek mode: {{...}}
+    if (input.startsWith("{{", pos)) {
+      const closePos = input.indexOf("}}", pos + 2);
+      if (closePos === -1) {
         const position = positionMap[pos]!;
         errors.push(
           makeError({
-            message: "Unclosed brace code",
+            message: "Unclosed Greek mode",
+            line: position.line,
+            column: position.column,
+            length: 2,
+          }),
+        );
+        plainTextBuffer += "{{";
+        pos += 2;
+        continue;
+      }
+      const content = input.slice(pos + 2, closePos);
+      flushPlainText();
+      result.push({ type: "plainText", content: processGreekMode(content) });
+      pos = closePos + 2;
+      continue;
+    }
+
+    // 2b. Character mode: {...}
+    if (input[pos] === "{") {
+      const closePos = input.indexOf("}", pos + 1);
+      if (closePos === -1) {
+        const position = positionMap[pos]!;
+        errors.push(
+          makeError({
+            message: "Unclosed character mode",
             line: position.line,
             column: position.column,
             length: 1,
           }),
         );
-        // Treat as literal
-        plainTextBuffer += input[pos];
+        plainTextBuffer += "{";
         pos++;
         continue;
       }
-
-      const code = input.slice(pos + 1, closeBracePos);
-      const braceCode = braceCodes.find((bc) => bc.code === code);
-
-      if (braceCode) {
-        flushPlainText();
-        result.push({ type: "plainText", content: braceCode.result });
-        pos = closeBracePos + 1;
-        continue;
-      } else {
-        const position = positionMap[pos + 1]!;
-        errors.push(
-          makeError({
-            message: `Unknown brace code: ${code}`,
-            line: position.line,
-            column: position.column,
-            length: code.length,
-          }),
-        );
-        // Treat as literal
-        plainTextBuffer += input.slice(pos, closeBracePos + 1);
-        pos = closeBracePos + 1;
-        continue;
-      }
+      const content = input.slice(pos + 1, closePos);
+      flushPlainText();
+      result.push({
+        type: "plainText",
+        content: processCharacterMode(content),
+      });
+      pos = closePos + 1;
+      continue;
     }
 
     // 3. Leaf elements (check longest first)
@@ -127,14 +141,37 @@ const parseElements = (
     }
     if (leafMatched) continue;
 
-    // 4. Footnote reference
+    // 4. Page break: || (bare) or |ref| (with reference) — only outside language wrappers
+    if (!suppressEscape && input[pos] === "|") {
+      if (input[pos + 1] === "|") {
+        flushPlainText();
+        result.push({ type: "pageBreak" });
+        pos += 2;
+        continue;
+      }
+      const closeBarPos = input.indexOf("|", pos + 1);
+      if (closeBarPos !== -1) {
+        const ref = input.slice(pos + 1, closeBarPos);
+        if (ref.length > 0 && !/\s/.test(ref)) {
+          flushPlainText();
+          result.push({ type: "pageBreak", ref });
+          pos = closeBarPos + 1;
+          continue;
+        }
+      }
+      plainTextBuffer += "|";
+      pos++;
+      continue;
+    }
+
+    // 5. Footnote reference
     if (input[pos] === "<") {
       const closeAnglePos = input.indexOf(">", pos + 1);
       if (closeAnglePos !== -1) {
         const refId = input.slice(pos + 1, closeAnglePos);
         if (footnoteReferenceSpec.pattern.test(refId)) {
           flushPlainText();
-          result.push({ type: "footnoteReference", id: refId });
+          result.push({ type: "footnoteReference", id: `${textId}.${refId}` });
 
           if (!footnoteIds.includes(refId)) {
             const position = positionMap[pos]!;
@@ -154,7 +191,49 @@ const parseElements = (
       }
     }
 
-    // 5. Wrapper elements (check longest first)
+    // 6. Language wrapper: $lang:...$  or generic foreign $...$
+    if (input[pos] === "$") {
+      const langMatch = /[a-z]+:/y;
+      langMatch.lastIndex = pos + 1;
+      const match = langMatch.exec(input);
+      const lang = match ? match[0].slice(0, -1) : undefined;
+      const openMarker = match ? `$${match[0]}` : "$";
+      const startAfterOpen = pos + openMarker.length;
+
+      const [wrapperContent, newPos] = parseElements(
+        input,
+        startAfterOpen,
+        "$",
+        positionMap,
+        footnoteIds,
+        errors,
+        false,
+        textId,
+      );
+
+      if (newPos === startAfterOpen || !input.startsWith("$", newPos - 1)) {
+        const position = positionMap[pos]!;
+        errors.push(
+          makeError({
+            message: `Unclosed formatting: ${openMarker}`,
+            line: position.line,
+            column: position.column,
+            length: openMarker.length,
+          }),
+        );
+      }
+
+      flushPlainText();
+      const languageElement: Language =
+        lang !== undefined
+          ? { type: "language", lang, content: wrapperContent }
+          : { type: "language", content: wrapperContent };
+      result.push(languageElement);
+      pos = newPos;
+      continue;
+    }
+
+    // 7. Wrapper elements (check longest first)
     let wrapperMatched = false;
     for (const wrapper of [...wrapperElements].sort(
       (a, b) => b.open.length - a.open.length,
@@ -167,6 +246,8 @@ const parseElements = (
           positionMap,
           footnoteIds,
           errors,
+          suppressEscape,
+          textId,
         );
 
         if (
@@ -186,14 +267,7 @@ const parseElements = (
         }
 
         flushPlainText();
-
-        // Apply Greek transliteration if needed
-        const finalContent =
-          wrapper.type === "greek"
-            ? transliterateGreek(wrapperContent)
-            : wrapperContent;
-
-        result.push({ type: wrapper.type, content: finalContent });
+        result.push({ type: wrapper.type, content: wrapperContent });
         pos = newPos;
         wrapperMatched = true;
         break;
@@ -221,8 +295,8 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Recursively clean wrapper element content
-    if (isWrapperElement(element)) {
+    // Recursively clean wrapper and language element content
+    if (isWrapperElement(element) || element.type === "language") {
       result.push({ ...element, content: cleanupElements(element.content) });
     } else {
       result.push(element);
@@ -251,9 +325,9 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
     }
   }
 
-  // Trim whitespace adjacent to lineBreak elements
+  // Trim whitespace adjacent to lineBreak and pageBreak elements
   for (let i = 0; i < result.length; i++) {
-    if (result[i]?.type === "lineBreak") {
+    if (result[i]?.type === "lineBreak" || result[i]?.type === "pageBreak") {
       const prev = result[i - 1];
       if (prev?.type === "plainText") {
         const trimmed = prev.content.trimEnd();

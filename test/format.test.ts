@@ -121,6 +121,37 @@ describe("formatter", () => {
       );
     });
 
+    it("ensures blank line between metadata blocks", () => {
+      const input = markit(
+        "# mytext",
+        "",
+        "[metadata]",
+        "title = value",
+        "[metadata.links]",
+        "url = value",
+        "",
+        "{#1}",
+        "Content",
+        "",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markit(
+          "# mytext",
+          "",
+          "[metadata]",
+          "title = value",
+          "",
+          "[metadata.links]",
+          "url = value",
+          "",
+          "{#1}",
+          "Content",
+          "",
+        ),
+      );
+    });
+
     it("ensures blank line before block tags", () => {
       const input = markitWithContent(
         "{#1}",
@@ -231,37 +262,6 @@ describe("formatter", () => {
       expect(result).toBe(markitWithContent("{#1}", "Content"));
     });
 
-    it("normalizes block tag metadata spacing", () => {
-      const input = markitWithContent("{#1 , margin = true}", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, margin=true}", "Content"));
-    });
-
-    it("normalizes multiple metadata key-value pairs", () => {
-      const input = markitWithContent(
-        '{#1,margin=true,label="hello"}',
-        "Content",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent('{#1, margin=true, label="hello"}', "Content"),
-      );
-    });
-
-    it("handles multiple key-value pairs with various spacing", () => {
-      const input = markitWithContent(
-        "{#1,  pages=12-15 ,   speaker=John Smith ,subsection=3}",
-        "Content",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent(
-          "{#1, pages=12-15, speaker=John Smith, subsection=3}",
-          "Content",
-        ),
-      );
-    });
-
     it("inserts newline between block tag and content if missing", () => {
       const input = markitWithContent("{#1} Content here");
       const result = formatDocument(input);
@@ -278,18 +278,6 @@ describe("formatter", () => {
       const input = markitWithContent("{#1 Content");
       const result = formatDocument(input);
       expect(result).toBe(markitWithContent("{#1 Content"));
-    });
-
-    it("handles block tag with metadata pair missing =", () => {
-      const input = markitWithContent("{#1, standalone}", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, standalone}", "Content"));
-    });
-
-    it("trims whitespace around values", () => {
-      const input = markitWithContent("{#1, speaker=  Alice  }", "Content");
-      const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1, speaker=Alice}", "Content"));
     });
   });
 
@@ -339,23 +327,6 @@ describe("formatter", () => {
       expect(result).toBe(input);
     });
 
-    it("preserves list items on their own lines", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "Unordered list:",
-        "",
-        "- List item 1",
-        "- List item 2",
-        "",
-        "Numbered list:",
-        "",
-        "1. List item 1",
-        "2. List item 2",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(input);
-    });
-
     it("collapses paragraphs into a single line", () => {
       const input = markitWithContent(
         "{#1}",
@@ -395,18 +366,6 @@ describe("formatter", () => {
           "> This is a block quote that spans multiple lines.",
         ),
       );
-    });
-
-    it("doesn't collapse block quotations containing unordered lists", () => {
-      const input = markitWithContent("{#1}", "> - Item 1", "> - Item 2");
-      const result = formatDocument(input);
-      expect(result).toBe(input);
-    });
-
-    it("doesn't collapse block quotations containing ordered lists", () => {
-      const input = markitWithContent("{#1}", "> 1. Item 1", "> 2. Item 2");
-      const result = formatDocument(input);
-      expect(result).toBe(input);
     });
 
     it("preserves blank lines between paragraphs in block quotations", () => {
@@ -459,40 +418,6 @@ describe("formatter", () => {
       );
     });
 
-    it("collapses paragraphs in block quotations to a single line while preserving lists", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "> This is a block quote with a list.",
-        "> It has multiple paragraphs, but they should be collapsed.",
-        ">",
-        "> - List item 1",
-        "> - List item 2",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent(
-          "{#1}",
-          "> This is a block quote with a list. It has multiple paragraphs, but they should be collapsed.",
-          ">",
-          "> - List item 1",
-          "> - List item 2",
-        ),
-      );
-    });
-
-    it("corrects sequential numbering in lists", () => {
-      const input = markitWithContent(
-        "{#1}",
-        "2. Item 1",
-        "5. Item 2",
-        "1. Item 3",
-      );
-      const result = formatDocument(input);
-      expect(result).toBe(
-        markitWithContent("{#1}", "1. Item 1", "2. Item 2", "3. Item 3"),
-      );
-    });
-
     it("adds blank lines between block-level elements in content", () => {
       const input = markitWithContent(
         "{#1}",
@@ -502,8 +427,6 @@ describe("formatter", () => {
         "> A blockquote.",
         "More text.",
         "^3 Another heading",
-        "- list item 1",
-        "- list item 2",
         "Even more text.",
       );
       const result = formatDocument(input);
@@ -521,9 +444,6 @@ describe("formatter", () => {
           "",
           "^3 Another heading",
           "",
-          "- list item 1",
-          "- list item 2",
-          "",
           "Even more text.",
         ),
       );
@@ -533,28 +453,14 @@ describe("formatter", () => {
       const input = markitWithContent(
         "{#1}",
         "> First paragraph.",
-        "> - list item 1",
-        "> - list item 2",
-        "> More text.",
-        "> 1. Numbered item 1",
-        "> 2. Numbered item 2",
-        "> Even more text.",
+        "> Second paragraph.",
+        "> Third paragraph.",
       );
       const result = formatDocument(input);
       expect(result).toBe(
         markitWithContent(
           "{#1}",
-          "> First paragraph.",
-          ">",
-          "> - list item 1",
-          "> - list item 2",
-          ">",
-          "> More text.",
-          ">",
-          "> 1. Numbered item 1",
-          "> 2. Numbered item 2",
-          ">",
-          "> Even more text.",
+          "> First paragraph. Second paragraph. Third paragraph.",
         ),
       );
     });
@@ -696,7 +602,7 @@ describe("formatter", () => {
           "{#0}",
           "^1 Book One",
           "",
-          "{#1, margin=true}",
+          "{#1 , margin = true}",
           "*Important* paragraph.",
           "",
           "{#n1}",

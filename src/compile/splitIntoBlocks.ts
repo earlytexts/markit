@@ -3,6 +3,7 @@
  *
  * Blocks are delimited by:
  *   - Text ID lines (# id, ## id, etc.) — always start a new block
+ *   - Bracket header lines ([metadata], [metadata.sub], etc.) — always start a new block
  *   - Block tag lines ({#id}) — always start a new block
  *   - Blank lines *outside* a content block — act as separators, so the next
  *     non-blank line starts a new block (same behaviour as the old splitter)
@@ -38,6 +39,24 @@ export default (text: string): RawBlock[] => {
 
     // Text ID line: one or more # followed by whitespace
     if (/^#+\s/.test(trimmed)) {
+      insideContentBlock = false;
+      blankBreak = false;
+      blocks.push({
+        startLine: index,
+        endLine: index,
+        lines: [
+          {
+            lineNumber: index,
+            charOffset: line.indexOf(trimmed),
+            content: trimmed,
+          },
+        ],
+      });
+      return;
+    }
+
+    // Bracket header line: [metadata], [metadata.subkey], etc.
+    if (/^\[.+\]$/.test(trimmed)) {
       insideContentBlock = false;
       blankBreak = false;
       blocks.push({

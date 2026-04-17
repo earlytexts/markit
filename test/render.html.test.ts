@@ -31,7 +31,7 @@ describe("document structure", () => {
         "{#1}",
         "Intro",
         "",
-        "## Parent.Child",
+        "## Child",
         "",
         "{#1}",
         "Child content",
@@ -59,7 +59,7 @@ describe("block elements", () => {
 
   it("renders h2 heading at child document depth", () => {
     const [document] = compile(
-      markit("# Parent", "", "## Parent.Child", "", "{#title}", "^1 Sub", ""),
+      markit("# Parent", "", "## Child", "", "{#title}", "^1 Sub", ""),
     );
     expect(renderHTML(document)).toContain(
       '<h2><span class="size-1">Sub</span></h2>',
@@ -83,28 +83,12 @@ describe("block elements", () => {
     );
   });
 
-  it("renders unordered lists", () => {
-    const [document] = compile(markitWithContent("{#1}", "- Alpha", "- Beta"));
-    expect(renderHTML(document)).toContain(
-      "<ul><li>Alpha</li><li>Beta</li></ul>",
-    );
-  });
-
-  it("renders ordered lists", () => {
-    const [document] = compile(
-      markitWithContent("{#1}", "1. First", "2. Second"),
-    );
-    expect(renderHTML(document)).toContain(
-      "<ol><li>First</li><li>Second</li></ol>",
-    );
-  });
-
   it("renders footnote block with superscript id prefix", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
     );
     expect(renderHTML(document)).toContain(
-      "<p><sup>n1</sup> The footnote.</p>",
+      "<p><sup>Text.n1</sup> The footnote.</p>",
     );
   });
 });
@@ -150,9 +134,25 @@ describe("inline elements", () => {
     expect(renderHTML(document)).toContain("<del>removed</del>");
   });
 
+  it('renders uncertain text as <span class="uncertain">', () => {
+    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    expect(renderHTML(document)).toContain(
+      '<span class="uncertain">uncertain</span>',
+    );
+  });
+
   it("renders highlight as <mark>", () => {
     const [document] = compile(markitWithContent("{#1}", "==highlighted=="));
     expect(renderHTML(document)).toContain("<mark>highlighted</mark>");
+  });
+
+  it("renders speaker as <span class='speaker'>", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+    );
+    expect(renderHTML(document)).toContain(
+      '<span class="speaker">Speaker.</span>',
+    );
   });
 
   it('renders aside as <span class="aside">', () => {
@@ -162,14 +162,36 @@ describe("inline elements", () => {
     );
   });
 
-  it('renders foreign text as <em class="foreign">', () => {
+  it('renders generic foreign text as <em class="foreign">', () => {
     const [document] = compile(markitWithContent("{#1}", "$foreign$"));
     expect(renderHTML(document)).toContain('<em class="foreign">foreign</em>');
   });
 
-  it('renders Greek text as <em class="greek">', () => {
-    const [document] = compile(markitWithContent("{#1}", "$$logos$$"));
-    expect(renderHTML(document)).toContain('<em class="greek">');
+  it("renders language-coded text as <em> with lang attribute", () => {
+    const [document] = compile(markitWithContent("{#1}", "$grc:logos$"));
+    expect(renderHTML(document)).toContain('<em lang="grc">');
+  });
+
+  it('renders person names as <span class="person">', () => {
+    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    expect(renderHTML(document)).toContain('<span class="person">Locke</span>');
+  });
+
+  it('renders place names as <span class="place">', () => {
+    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    expect(renderHTML(document)).toContain('<span class="place">London</span>');
+  });
+
+  it('renders bare page break as <span class="pageBreak">', () => {
+    const [document] = compile(markitWithContent("{#1}", "text || more"));
+    expect(renderHTML(document)).toContain('<span class="pageBreak"></span>');
+  });
+
+  it('renders page break with ref as <span class="pageBreak" data-ref="...">', () => {
+    const [document] = compile(markitWithContent("{#1}", "text |12r| more"));
+    expect(renderHTML(document)).toContain(
+      '<span class="pageBreak" data-ref="12r"></span>',
+    );
   });
 
   it("renders footnote reference as anchor with superscript", () => {
@@ -177,13 +199,18 @@ describe("inline elements", () => {
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "Footnote."),
     );
     expect(renderHTML(document)).toContain(
-      '<a href="#footnote-n1" id="footnote-ref-n1"><sup>n1</sup></a>',
+      '<a href="#footnote-Text.n1" id="footnote-ref-Text.n1"><sup>Text.n1</sup></a>',
     );
   });
 
-  it("renders page break as span", () => {
-    const [document] = compile(markitWithContent("{#1}", "before | after"));
-    expect(renderHTML(document)).toContain('<span class="page-break">|</span>');
+  it("renders Latin text as <em lang='la'>", () => {
+    const [document] = compile(markitWithContent("{#1}", "$la:Roma$"));
+    expect(renderHTML(document)).toContain('<em lang="la">Roma</em>');
+  });
+
+  it("renders French text as <em lang='fr'>", () => {
+    const [document] = compile(markitWithContent("{#1}", "$fr:Paris$"));
+    expect(renderHTML(document)).toContain('<em lang="fr">Paris</em>');
   });
 
   it("renders line break as <br />", () => {
@@ -202,96 +229,11 @@ describe("inline elements", () => {
     const [document] = compile(markitWithContent("{#1}", "a~~b"));
     expect(renderHTML(document)).toContain("&emsp;");
   });
-});
 
-describe("subsection and speaker metadata", () => {
-  it("renders subsection as span before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=42}", "Hello"),
-    );
+  it('renders illegible text as <span class="illegible">', () => {
+    const [document] = compile(markitWithContent("{#1}", "???"));
     expect(renderHTML(document)).toContain(
-      '<p><span class="subsection">42.</span> Hello</p>',
+      '<span class="illegible">&lt;illegible&gt;</span>',
     );
-  });
-
-  it("renders speaker as span before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, speaker=Alice}", "Hello"),
-    );
-    expect(renderHTML(document)).toContain(
-      '<p><span class="speaker">Alice.</span> Hello</p>',
-    );
-  });
-
-  it("renders both subsection and speaker before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3, speaker=Bob}", "Hello"),
-    );
-    expect(renderHTML(document)).toContain(
-      '<p><span class="subsection">3.</span> <span class="speaker">Bob.</span> Hello</p>',
-    );
-  });
-
-  it("only prefixes the first block-level element, not subsequent ones", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=1}", "First.", "", "Second."),
-    );
-    const html = renderHTML(document);
-    expect(html).toContain('<p><span class="subsection">1.</span> First.</p>');
-    expect(html).toContain("<p>Second.</p>");
-  });
-
-  it("prefixes first element when block starts with a blockquote", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=2}", "> Quoted."),
-    );
-    expect(renderHTML(document)).toContain(
-      '<blockquote><p><span class="subsection">2.</span> Quoted.</p></blockquote>',
-    );
-  });
-
-  it("only prefixes the first paragraph inside a multi-paragraph blockquote", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3}", "> First.", ">", "> Second."),
-    );
-    const html = renderHTML(document);
-    expect(html).toContain('<p><span class="subsection">3.</span> First.</p>');
-    expect(html).toContain("<p>Second.</p>");
-  });
-
-  it("prefixes first list item when block starts with a list", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=5}", "- Alpha", "- Beta"),
-    );
-    const html = renderHTML(document);
-    expect(html).toContain('<li><span class="subsection">5.</span> Alpha</li>');
-    expect(html).toContain("<li>Beta</li>");
-  });
-
-  it("does not prefix title blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#title, subsection=1}", "^1 My Title"),
-    );
-    expect(renderHTML(document)).not.toContain("subsection");
-  });
-
-  it("does not prefix subtitle blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#subtitle, subsection=1}", "^2 A Subtitle"),
-    );
-    expect(renderHTML(document)).not.toContain("subsection");
-  });
-
-  it("does not prefix footnote blocks", () => {
-    const [document] = compile(
-      markitWithContent(
-        "{#1}",
-        "See <n1>.",
-        "",
-        "{#n1, subsection=1}",
-        "Note.",
-      ),
-    );
-    expect(renderHTML(document)).not.toContain("subsection");
   });
 });

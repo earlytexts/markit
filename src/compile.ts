@@ -3,7 +3,7 @@ import makeError from "./compile/makeError.js";
 import parseContent from "./compile/parseContent.js";
 import parseMetadata from "./compile/parseMetadata.js";
 import splitIntoBlocks from "./compile/splitIntoBlocks.js";
-import type { MarkitDocument, MarkitError, Metadata } from "./types.js";
+import type { MarkitDocument, MarkitError } from "./types.js";
 import { endLine, startLine } from "./types.js";
 
 /**
@@ -14,9 +14,7 @@ import { endLine, startLine } from "./types.js";
  *   [0] The parsed document (always produced, even if there are errors)
  *   [1] An array of any errors and warnings encountered during parsing and validation
  */
-export default <TextMetadata extends Metadata = {}>(
-  text: string,
-): [MarkitDocument<TextMetadata>, MarkitError[]] => {
+export default (text: string): [MarkitDocument, MarkitError[]] => {
   // Parse the text into blocks separated by one or more blank lines
   const [firstBlock, ...otherBlocks] = splitIntoBlocks(text);
   if (!firstBlock) {
@@ -26,7 +24,7 @@ export default <TextMetadata extends Metadata = {}>(
       children: [],
       [startLine]: 0,
       [endLine]: 0,
-    } as unknown as MarkitDocument<TextMetadata>;
+    };
 
     const emptyDocumentError = makeError({
       message: "Document is empty",
@@ -42,8 +40,7 @@ export default <TextMetadata extends Metadata = {}>(
   const [textTree, treeErrors] = generateTextTree([firstBlock, ...otherBlocks]);
 
   // Parse metadata for each text and block in the tree
-  const [treeWithMetadata, metaDataErrors] =
-    parseMetadata<TextMetadata>(textTree);
+  const [treeWithMetadata, metaDataErrors] = parseMetadata(textTree);
 
   // Parse block content for each block, including for internal children recursively
   const [document, contentErrors] = parseContent(treeWithMetadata);

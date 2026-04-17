@@ -16,32 +16,18 @@ const documentToText = (document: MarkitDocument): string => {
 
 const blockToText = (block: Block): string => {
   const footnoteId = block.type === "footnote" ? block.id : null;
-  let blockPrefix = "";
-  if (block.type === "paragraph") {
-    if (typeof block.subsection === "string") {
-      blockPrefix += `${block.subsection}. `;
-    }
-    if (typeof block.speaker === "string") {
-      blockPrefix += `${block.speaker}. `;
-    }
-  }
-  const parts = block.content.map((el, i) =>
-    blockElementToText(el, footnoteId, i === 0 ? blockPrefix : ""),
-  );
+  const parts = block.content.map((el) => blockElementToText(el, footnoteId));
   return parts.join("\n\n").trim();
 };
 
 const blockElementToText = (
   element: BlockElement,
   footnoteId: string | null,
-  blockPrefix: string = "",
 ): string => {
   switch (element.type) {
     case "paragraph": {
       const text = inlineElementsToText(element.content);
-      return footnoteId !== null
-        ? `[^${footnoteId}]: ${blockPrefix}${text}`
-        : `${blockPrefix}${text}`;
+      return footnoteId !== null ? `[^${footnoteId}]: ${text}` : text;
     }
     case "heading":
       return element.content
@@ -49,19 +35,8 @@ const blockElementToText = (
         .join("\n");
     case "blockquote":
       return element.content
-        .map(
-          (el, i) =>
-            `    ${blockElementToText(el, null, i === 0 ? blockPrefix : "")}`,
-        )
+        .map((el) => `    ${blockElementToText(el, null)}`)
         .join("\n\n");
-    case "list":
-      return element.content
-        .map((item, i) =>
-          element.ordered
-            ? `${i + 1}. ${i === 0 ? blockPrefix : ""}${inlineElementsToText(item.content)}`
-            : `${i === 0 ? blockPrefix : ""}${inlineElementsToText(item.content)}`,
-        )
-        .join("\n");
   }
 };
 
@@ -74,12 +49,12 @@ const inlineElementToText = (element: InlineElement): string => {
       return element.content;
     case "lineBreak":
       return "\n";
-    case "pageBreak":
-      return "|";
     case "nbSpace":
       return " ";
     case "emSpace":
       return "  ";
+    case "illegible":
+      return "<illegible>";
     case "footnoteReference":
       return `<${element.id}>`;
     case "strong":
@@ -88,9 +63,15 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "quote":
       return `"${inlineElementsToText(element.content)}"`;
-    case "foreign":
+    case "language":
       return inlineElementsToText(element.content);
-    case "greek":
+    case "person":
+      return inlineElementsToText(element.content);
+    case "place":
+      return inlineElementsToText(element.content);
+    case "pageBreak":
+      return "";
+    case "speaker":
       return inlineElementsToText(element.content);
     case "aside":
       return "";
@@ -98,6 +79,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "deletion":
       return "";
+    case "uncertain":
+      return inlineElementsToText(element.content);
     case "highlight":
       return inlineElementsToText(element.content);
     case "citation":

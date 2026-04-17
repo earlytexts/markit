@@ -8,7 +8,17 @@ export type MarkitError = {
   severity: "error" | "warning";
 };
 
-// Metadata base type
+// Ranges type (used by the language server for code folding)
+export type Ranges = {
+  [startLine]: number;
+  [endLine]: number;
+};
+
+export const startLine = Symbol("startLine");
+
+export const endLine = Symbol("endLine");
+
+// Metadata types
 export type MetadataValue =
   | number
   | boolean
@@ -19,26 +29,17 @@ export type MetadataValue =
 
 export type Metadata = Record<
   string,
-  MetadataValue | Record<string, MetadataValue>
->;
+  MetadataValue | (Record<string, MetadataValue> & Ranges)
+> &
+  Ranges;
 
 // Document type
-export type MarkitDocument<TextMetadata extends Metadata = Metadata> = {
+export type MarkitDocument = {
   id: string;
-  metadata?: TextMetadata;
+  metadata?: Metadata;
   blocks: Block[];
-  children: MarkitDocument<TextMetadata>[];
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-};
-
-// Block metadata
-export const VALID_BLOCK_METADATA_KEYS = [
-  "pages",
-  "subsection",
-  "speaker",
-] as const;
-export type BlockMetadataKey = (typeof VALID_BLOCK_METADATA_KEYS)[number];
+  children: MarkitDocument[];
+} & Ranges;
 
 // Block types
 export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
@@ -47,20 +48,10 @@ export type Block = {
   id: string;
   type: BlockType;
   content: BlockElement[];
-  [startLine]: number; // used by the language server
-  [endLine]: number; // used by the language server
-  pages?: string;
-  subsection?: string;
-  speaker?: string;
-};
-
-// Source range symbols (used by the language server)
-export const startLine = Symbol("startLine");
-
-export const endLine = Symbol("endLine");
+} & Ranges;
 
 // Block-level element types
-export type BlockElement = Heading | Paragraph | Blockquote | List;
+export type BlockElement = Heading | Paragraph | Blockquote;
 
 export type Heading = {
   type: "heading";
@@ -80,18 +71,7 @@ export type Paragraph = {
 
 export type Blockquote = {
   type: "blockquote";
-  content: (Paragraph | List)[];
-};
-
-export type List = {
-  type: "list";
-  ordered: boolean;
-  content: ListItem[];
-};
-
-export type ListItem = {
-  type: "listItem";
-  content: InlineElement[];
+  content: Paragraph[];
 };
 
 export const headingSpec = {
@@ -105,7 +85,24 @@ export const blockquoteSpec = {
 } as const;
 
 // Inline element types
-export type InlineElement = PlainText | Leaf | FootnoteReference | Wrapper;
+export type Language = {
+  type: "language";
+  lang?: string;
+  content: InlineElement[];
+};
+
+export type PageBreak = {
+  type: "pageBreak";
+  ref?: string;
+};
+
+export type InlineElement =
+  | PlainText
+  | Leaf
+  | FootnoteReference
+  | Wrapper
+  | Language
+  | PageBreak;
 
 export type PlainText = {
   type: "plainText";
@@ -120,7 +117,7 @@ export const leafElements = [
   { trigger: "~~", type: "emSpace" },
   { trigger: "~", type: "nbSpace" },
   { trigger: "//", type: "lineBreak" },
-  { trigger: "|", type: "pageBreak" },
+  { trigger: "???", type: "illegible" },
 ] as const;
 
 export type LeafType = (typeof leafElements)[number]["type"];
@@ -146,26 +143,18 @@ export const wrapperElements = [
   { open: '"', close: '"', type: "quote" },
   { open: "*", close: "*", type: "strong" },
   { open: "_", close: "_", type: "emphasis" },
-  { open: "$$", close: "$$", type: "greek" },
-  { open: "$", close: "$", type: "foreign" },
   { open: "@", close: "@", type: "aside" },
+  { open: "%", close: "%", type: "speaker" },
   { open: "++", close: "++", type: "insertion" },
   { open: "--", close: "--", type: "deletion" },
+  { open: "??", close: "??", type: "uncertain" },
   { open: "==", close: "==", type: "highlight" },
+  { open: "!person[", close: "]", type: "person" },
+  { open: "!place[", close: "]", type: "place" },
   { open: "[", close: "]", type: "citation" },
 ] as const;
 
 export type WrapperType = (typeof wrapperElements)[number]["type"];
-
-export const braceCodes = [
-  { code: "SS", result: "§" },
-  { code: "ae", result: "æ" },
-  { code: "AE", result: "Æ" },
-  { code: "oe", result: "œ" },
-  { code: "OE", result: "Œ" },
-  { code: "-", result: "–" },
-  { code: "--", result: "—" },
-] as const;
 
 export const isWrapperElement = (element: InlineElement): element is Wrapper =>
   wrapperElements.some((wrapper) => wrapper.type === element.type);

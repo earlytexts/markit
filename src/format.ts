@@ -3,7 +3,7 @@ import formatIdBlock from "./format/formatIdBlock.js";
 import formatMetadata from "./format/formatMetadata.js";
 import handleBlankLine from "./format/handleBlankLine.js";
 import handleContentLine from "./format/handleContentLine.js";
-import { emitLine, flushContent } from "./format/helpers.js";
+import { emitBlank, emitLine, flushContent } from "./format/helpers.js";
 import type { State } from "./format/types.js";
 
 /**
@@ -45,10 +45,10 @@ const formatLine = (state: State, line: string): State => {
   const isId = /^(#+)\s+(.+)$/.test(normalized.trim());
   const isBlockTag = normalized.trim().startsWith("{#");
 
-  // TOML metadata header: [metadata] or [metadata.subkey]
+  // Bracket header: [metadata], [metadata.subkey], or any [header]
   const isMetadataHeader =
     (state.context === "afterId" || state.context === "inMetadata") &&
-    /^\[metadata(\.\w+)?\]$/.test(normalized.trim());
+    /^\[.+\]$/.test(normalized.trim());
 
   // TOML key = value line (only in metadata context, after a header)
   const isMetadataKeyValue =
@@ -88,7 +88,11 @@ const formatLine = (state: State, line: string): State => {
 
 // Emit a [metadata] or [metadata.subkey] header line, transitioning to inMetadata context
 const handleMetadataHeader = (state: State, line: string): State => {
-  const newState = emitLine(state, line.trim());
+  let newState: State = state;
+  if (state.context === "inMetadata") {
+    newState = emitBlank(newState);
+  }
+  newState = emitLine(newState, line.trim());
   return { ...newState, context: "inMetadata" };
 };
 

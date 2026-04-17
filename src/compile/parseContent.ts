@@ -4,11 +4,8 @@ import type {
   BlockType,
   Heading,
   HeadingLine,
-  List,
-  ListItem,
   MarkitDocument,
   MarkitError,
-  Metadata,
   Paragraph,
 } from "../types.js";
 import {
@@ -28,18 +25,15 @@ import type {
 /**
  * Parse the content of each block in the TextTree, returning a fully parsed MarkitDocument.
  */
-export default <TextMetadata extends Metadata>(
-  tree: TextTreeWithMetadata<TextMetadata>,
-  externalChildren: MarkitDocument<TextMetadata>[] = [],
-): [MarkitDocument<TextMetadata>, MarkitError[]] => {
-  return parseTextContent(tree, externalChildren, {} as TextMetadata);
+export default (
+  tree: TextTreeWithMetadata,
+): [MarkitDocument, MarkitError[]] => {
+  return parseTextContent(tree);
 };
 
-const parseTextContent = <TextMetadata extends Metadata>(
-  text: TextTreeWithMetadata<TextMetadata>,
-  externalChildren: MarkitDocument<TextMetadata>[] = [],
-  parentMetadata: TextMetadata,
-): [MarkitDocument<TextMetadata>, MarkitError[]] => {
+const parseTextContent = (
+  text: TextTreeWithMetadata,
+): [MarkitDocument, MarkitError[]] => {
   // Get footnote reference ids to validate footnote references
   const footnoteIds = text.blocks
     .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
@@ -47,31 +41,25 @@ const parseTextContent = <TextMetadata extends Metadata>(
 
   // Parse content for each block
   const blockResults = text.blocks.map((block) =>
-    parseBlockContent(block, footnoteIds),
+    parseBlockContent(block, footnoteIds, text.id),
   );
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
 
-  // Merge parent metadata with this text's own metadata (child overrides parent)
-  const mergedMetadata = { ...parentMetadata, ...text.metadata };
-
   // Parse blocks for all internal children recursively, passing merged metadata down
-  const childResults = text.children.map((child) =>
-    parseTextContent(child, [], mergedMetadata),
-  );
+  const childResults = text.children.map((child) => parseTextContent(child));
   const children = childResults.map((result) => result[0]);
   const childErrors = childResults.flatMap((result) => result[1]);
 
   // Put it all together
-  const hasMetadata = Object.keys(mergedMetadata).length > 0;
   const document = {
     id: text.id,
-    ...(hasMetadata ? { metadata: mergedMetadata } : {}),
+    ...(text.metadata ? { metadata: text.metadata } : {}),
     blocks,
-    children: [...children, ...externalChildren],
+    children,
     [startLine]: text.startLine,
     [endLine]: text.endLine,
-  } as MarkitDocument<TextMetadata>;
+  };
 
   return [document, [...blockErrors, ...childErrors]];
 };
@@ -79,6 +67,7 @@ const parseTextContent = <TextMetadata extends Metadata>(
 const parseBlockContent = (
   block: BlockWithMetadata,
   footnoteIds: string[],
+  textId: string,
 ): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
@@ -99,11 +88,11 @@ const parseBlockContent = (
     errors,
     allowHeadings,
     "Headings are only allowed in title or subtitle blocks.",
+    textId,
   );
 
   const parsedBlock: Block = {
-    ...block.metadata,
-    id: block.id,
+    id: `${textId}.${block.id}`,
     type: blockType,
     content,
     [startLine]: block.startLine,
@@ -123,6 +112,7 @@ const parseBlockLevelElements = (
   errors: MarkitError[],
   allowHeadings: boolean,
   headingErrorMessage = "Headings are not allowed inside block quotations.",
+  textId: string,
 ): BlockElement[] => {
   const elements: BlockElement[] = [];
 
@@ -132,13 +122,12 @@ const parseBlockLevelElements = (
     | { kind: "none" }
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
-    | { kind: "list"; ordered: boolean; lines: Line[] }
     | { kind: "heading"; entries: HeadingEntry[] };
 
   let state: State = { kind: "none" };
 
   const flushParagraph = (paragraphLines: Line[]): void => {
-    const el = buildParagraph(paragraphLines, footnoteIds, errors);
+    const el = buildParagraph(paragraphLines, footnoteIds, errors, textId);
     elements.push(el);
   };
 
@@ -156,34 +145,13 @@ const parseBlockLevelElements = (
         headingText,
         posMap,
         footnoteIds,
+        textId,
       );
       errors.push(...inlineErrors);
       return { type: "headingLine", level, content: inlineContent };
     });
     const heading: Heading = { type: "heading", content: parsedLines };
     elements.push(heading);
-  };
-
-  const flushList = (listLines: Line[], ordered: boolean): void => {
-    const items: ListItem[] = listLines.map((line) => {
-      const prefixLen = ordered ? line.content.match(/^\d+\. /)![0]!.length : 2; // "- "
-      const itemContent = line.content.slice(prefixLen);
-      const posMap = buildPositionMap([
-        {
-          lineNumber: line.lineNumber,
-          charOffset: line.charOffset + prefixLen,
-          content: itemContent,
-        },
-      ]);
-      const [inlineContent, inlineErrors] = parseElements(
-        itemContent,
-        posMap,
-        footnoteIds,
-      );
-      errors.push(...inlineErrors);
-      return { type: "listItem", content: inlineContent };
-    });
-    elements.push({ type: "list", ordered, content: items });
   };
 
   const flushBlockquote = (bqLines: Line[]): void => {
@@ -206,19 +174,20 @@ const parseBlockLevelElements = (
       footnoteIds,
       errors,
       false,
+      "Headings are not allowed inside block quotations.",
+      textId,
     );
 
-    // Only keep paragraphs and lists inside blockquotes (headings/blockquotes inside are handled
+    // Only keep paragraphs inside blockquotes (headings/blockquotes inside are handled
     // by the allowHeadings=false guard; any stray other elements are dropped)
-    const paragraphsAndLists = innerElements.filter(
-      (el): el is Paragraph | List =>
-        el.type === "paragraph" || el.type === "list",
+    const paragraphs = innerElements.filter(
+      (el): el is Paragraph => el.type === "paragraph",
     );
 
     // A blockquote with no content can't happen with valid input, but could happen if
     // a blockquote only contains a heading (which is not allowed and therefore removed)
-    if (paragraphsAndLists.length > 0) {
-      elements.push({ type: "blockquote", content: paragraphsAndLists });
+    if (paragraphs.length > 0) {
+      elements.push({ type: "blockquote", content: paragraphs });
     }
   };
 
@@ -227,8 +196,6 @@ const parseBlockLevelElements = (
       flushParagraph(state.lines);
     } else if (state.kind === "blockquote") {
       flushBlockquote(state.lines);
-    } else if (state.kind === "list") {
-      flushList(state.lines, state.ordered);
     } else if (state.kind === "heading") {
       flushHeading(state.entries);
     }
@@ -241,6 +208,35 @@ const parseBlockLevelElements = (
     // Blank line
     if (content === "") {
       flush();
+      continue;
+    }
+
+    // Heading line with invalid level (digit > 6)
+    const invalidLevelMatch = /^\^([7-9]) /.exec(content);
+    if (invalidLevelMatch) {
+      flush();
+      errors.push({
+        message: "Heading level must be between 1 and 6.",
+        line: line.lineNumber + 1,
+        column: line.charOffset + 1,
+        endLine: line.lineNumber + 1,
+        endColumn: line.charOffset + 3,
+        severity: "error",
+      });
+      continue;
+    }
+
+    // Heading marker without a level digit
+    if (/^\^ /.test(content)) {
+      flush();
+      errors.push({
+        message: "Heading must be given a level between 1 and 6.",
+        line: line.lineNumber + 1,
+        column: line.charOffset + 1,
+        endLine: line.lineNumber + 1,
+        endColumn: line.charOffset + 2,
+        severity: "error",
+      });
       continue;
     }
 
@@ -280,28 +276,6 @@ const parseBlockLevelElements = (
       continue;
     }
 
-    // Unordered list line: starts with "- " (bare "-" falls through to paragraph)
-    if (content.startsWith("- ")) {
-      if (state.kind === "list" && !state.ordered) {
-        state.lines.push(line);
-      } else {
-        flush();
-        state = { kind: "list", ordered: false, lines: [line] };
-      }
-      continue;
-    }
-
-    // Ordered list line: starts with digits + ". " (e.g. "1. ", "12. ")
-    if (/^\d+\. /.test(content)) {
-      if (state.kind === "list" && state.ordered) {
-        state.lines.push(line);
-      } else {
-        flush();
-        state = { kind: "list", ordered: true, lines: [line] };
-      }
-      continue;
-    }
-
     // Regular content line → paragraph
     if (state.kind !== "none" && state.kind !== "paragraph") {
       flush();
@@ -326,6 +300,7 @@ const buildParagraph = (
   lines: Line[],
   footnoteIds: string[],
   errors: MarkitError[],
+  textId: string,
 ): Paragraph => {
   const nonBlank = lines.filter((l) => l.content !== "");
 
@@ -340,6 +315,7 @@ const buildParagraph = (
     text,
     posMap,
     footnoteIds,
+    textId,
   );
   errors.push(...inlineErrors);
 

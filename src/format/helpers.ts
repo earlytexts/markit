@@ -44,11 +44,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   const output: string[] = [];
   let paragraphLines: string[] = [];
   let blockquoteLines: string[] = [];
-  let listLines: string[] = [];
   let headingLines: string[] = [];
-
-  const isUnorderedListItem = (line: string): boolean => /^-\s/.test(line);
-  const isOrderedListItem = (line: string): boolean => /^\d+\.\s/.test(line);
 
   const flushParagraph = (): void => {
     if (paragraphLines.length === 0) return;
@@ -68,27 +64,6 @@ const extractBlockElements = (buffer: string[]): string[] => {
       output.push(line === "" ? ">" : `> ${line}`);
     }
     blockquoteLines = [];
-  };
-
-  const flushList = (): void => {
-    if (listLines.length === 0) return;
-    // Add blank line before list if we already have content
-    if (output.length > 0 && output.at(-1) !== "") {
-      output.push("");
-    }
-    // Renumber ordered list items sequentially
-    let orderCounter = 1;
-    for (const line of listLines) {
-      if (isOrderedListItem(line)) {
-        // Replace number with sequential counter
-        const content = line.replace(/^\d+\.\s/, "");
-        output.push(`${orderCounter}. ${content}`);
-        orderCounter++;
-      } else {
-        output.push(line);
-      }
-    }
-    listLines = [];
   };
 
   const flushHeading = (): void => {
@@ -112,7 +87,6 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (trimmed === "") {
       flushParagraph();
       flushBlockquote();
-      flushList();
       flushHeading();
       // Only emit a blank line if we've already output something
       if (output.length > 0 && output.at(-1) !== "") {
@@ -125,24 +99,13 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (/^\^[1-6] /.test(trimmed)) {
       flushParagraph();
       flushBlockquote();
-      flushList();
       headingLines.push(trimmed);
-      continue;
-    }
-
-    // List item: unordered (-) or ordered (1., 2., etc.)
-    if (isUnorderedListItem(trimmed) || isOrderedListItem(trimmed)) {
-      flushParagraph();
-      flushBlockquote();
-      flushHeading();
-      listLines.push(trimmed);
       continue;
     }
 
     // Blockquote line: starts with >
     if (trimmed.startsWith(">")) {
       flushParagraph();
-      flushList();
       flushHeading();
       const inner = trimmed.slice(1).trim();
       if (inner) {
@@ -156,7 +119,6 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
     // Regular content line — accumulate as paragraph
     flushBlockquote();
-    flushList();
     flushHeading();
     // Add blank line before paragraph if we already have content
     if (
@@ -171,7 +133,6 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
   flushParagraph();
   flushBlockquote();
-  flushList();
   flushHeading();
 
   // Strip any trailing blank or bare blockquote separator lines

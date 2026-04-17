@@ -61,26 +61,11 @@ describe("block elements", () => {
     expect(renderText(document)).toContain("    A quote.");
   });
 
-  it("renders unordered list items as plain text without prefix", () => {
-    const [document] = compile(markitWithContent("{#1}", "- Alpha", "- Beta"));
-    const text = renderText(document);
-    expect(text).toContain("Alpha");
-    expect(text).toContain("Beta");
-    expect(text).not.toContain("1. Alpha");
-  });
-
-  it("renders ordered list items with numeric prefix", () => {
-    const [document] = compile(
-      markitWithContent("{#1}", "1. First", "2. Second"),
-    );
-    expect(renderText(document)).toContain("1. First\n2. Second");
-  });
-
   it("renders footnote block as [^id]: text", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
     );
-    expect(renderText(document)).toContain("[^n1]: The footnote.");
+    expect(renderText(document)).toContain("[^Text.n1]: The footnote.");
   });
 });
 
@@ -128,11 +113,28 @@ describe("inline elements", () => {
     expect(text).toContain("a  b");
   });
 
+  it("renders uncertain text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    const text = renderText(document);
+    expect(text).toContain("uncertain");
+    expect(text).not.toContain("??");
+  });
+
   it("renders highlight as inner text", () => {
     const [document] = compile(markitWithContent("{#1}", "==bright=="));
     const text = renderText(document);
     expect(text).toContain("bright");
     expect(text).not.toContain("==");
+  });
+
+  it("renders speaker as inner text", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+    );
+    const text = renderText(document);
+    expect(text).toContain("Speaker.");
+    expect(text).toContain("This is dialogue.");
+    expect(text).not.toContain("%");
   });
 
   it("renders aside as empty string", () => {
@@ -145,21 +147,44 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("foreign");
   });
 
-  it("renders Greek text as transliterated inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$$logos$$"));
+  it("renders Latin text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "$la:Roma$"));
+    expect(renderText(document)).toContain("Roma");
+  });
+
+  it("renders French text as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "$fr:Paris$"));
+    expect(renderText(document)).toContain("Paris");
+  });
+
+  it("renders Greek mode text as transliterated plain text", () => {
+    const [document] = compile(markitWithContent("{#1}", "{{logos}}"));
     expect(renderText(document)).toContain("λογος");
+  });
+
+  it("renders person name as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    expect(renderText(document)).toContain("Locke");
+  });
+
+  it("renders place name as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    expect(renderText(document)).toContain("London");
+  });
+
+  it("renders page break as empty string", () => {
+    const [document] = compile(markitWithContent("{#1}", "before || after"));
+    const text = renderText(document);
+    expect(text).not.toContain("||");
+    expect(text).toContain("before");
+    expect(text).toContain("after");
   });
 
   it("renders footnote reference as <id>", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "Footnote."),
     );
-    expect(renderText(document)).toContain("<n1>");
-  });
-
-  it("renders page break as |", () => {
-    const [document] = compile(markitWithContent("{#1}", "before | after"));
-    expect(renderText(document)).toContain("|");
+    expect(renderText(document)).toContain("<Text.n1>");
   });
 
   it("renders line break as newline", () => {
@@ -178,75 +203,9 @@ describe("inline elements", () => {
     const [document] = compile(markitWithContent("{#1}", "a~~b"));
     expect(renderText(document)).toContain("a  b");
   });
-});
 
-describe("subsection and speaker metadata", () => {
-  it("renders subsection before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=42}", "Hello"),
-    );
-    expect(renderText(document)).toContain("42. Hello");
-  });
-
-  it("renders speaker before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, speaker=Alice}", "Hello"),
-    );
-    expect(renderText(document)).toContain("Alice. Hello");
-  });
-
-  it("renders both subsection and speaker before first paragraph element", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3, speaker=Bob}", "Hello"),
-    );
-    expect(renderText(document)).toContain("3. Bob. Hello");
-  });
-
-  it("only prefixes the first block-level element, not subsequent ones", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=1}", "First.", "", "Second."),
-    );
-    const text = renderText(document);
-    expect(text).toContain("1. First.");
-    expect(text).not.toContain("1. Second.");
-  });
-
-  it("only prefixes the first paragraph inside a multi-paragraph blockquote", () => {
-    const [document] = compile(
-      markitWithContent("{#1, subsection=3}", "> First.", ">", "> Second."),
-    );
-    const text = renderText(document);
-    expect(text).toContain("3. First.");
-    expect(text).not.toContain("3. Second.");
-  });
-
-  it("does not prefix title blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#title, subsection=1}", "^1 My Title"),
-    );
-    expect(renderText(document)).not.toContain("1. My Title");
-    expect(renderText(document)).toContain("My Title");
-  });
-
-  it("does not prefix subtitle blocks", () => {
-    const [document] = compile(
-      markitWithContent("{#subtitle, subsection=1}", "^2 A Subtitle"),
-    );
-    expect(renderText(document)).not.toContain("1. A Subtitle");
-    expect(renderText(document)).toContain("A Subtitle");
-  });
-
-  it("does not prefix footnote blocks", () => {
-    const [document] = compile(
-      markitWithContent(
-        "{#1}",
-        "See <n1>.",
-        "",
-        "{#n1, subsection=1}",
-        "Note.",
-      ),
-    );
-    expect(renderText(document)).not.toContain("1. Note.");
-    expect(renderText(document)).toContain("Note.");
+  it("renders illegible text as <illegible>", () => {
+    const [document] = compile(markitWithContent("{#1}", "???"));
+    expect(renderText(document)).toContain("<illegible>");
   });
 });

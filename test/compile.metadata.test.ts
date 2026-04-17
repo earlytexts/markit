@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
+import { endLine, startLine } from "../src/types.js";
 import { markit, markitWithMetadata } from "./utils/factories.js";
 
-describe("text metadata", () => {
+describe("null case", () => {
+  it("returns no metadata for a document with no metadata blocks", () => {
+    const [document] = compile(markit("# Text", "", "{#0}", "Content"));
+
+    expect(document.metadata).toBeUndefined();
+  });
+});
+
+describe("boolean values", () => {
   it("parses boolean metadata", () => {
     const [document, errors] = compile(
       markitWithMetadata("metadataBoolean1 = true", "metadataBoolean2 = false"),
@@ -16,7 +25,9 @@ describe("text metadata", () => {
       }),
     );
   });
+});
 
+describe("numeric values", () => {
   it("parses numeric metadata", () => {
     const [document, errors] = compile(
       markitWithMetadata("metadataNumber = 42"),
@@ -36,7 +47,9 @@ describe("text metadata", () => {
     expect(errors).toHaveLength(0);
     expect(document.metadata).toEqual(expect.objectContaining({ offset: -1 }));
   });
+});
 
+describe("string values", () => {
   it("parses string metadata", () => {
     const [document, errors] = compile(
       markitWithMetadata('metadataString = "the answer"'),
@@ -62,7 +75,9 @@ describe("text metadata", () => {
       }),
     );
   });
+});
 
+describe("inline arrays", () => {
   it("parses inline array metadata", () => {
     const [document, errors] = compile(
       markitWithMetadata(
@@ -82,6 +97,25 @@ describe("text metadata", () => {
     );
   });
 
+  it("returns error for mixed-type inline arrays", () => {
+    const [, errors] = compile(
+      markitWithMetadata('mixedInlineArray = [true, 1, "a"]'),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message:
+        "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 34,
+      severity: "error",
+    });
+  });
+});
+
+describe("multiline arrays", () => {
   it("parses multiline array metadata", () => {
     const [document, errors] = compile(
       markitWithMetadata(
@@ -132,6 +166,83 @@ describe("text metadata", () => {
     );
   });
 
+  it("returns error for mixed-type multiline arrays", () => {
+    const [, errors] = compile(
+      markitWithMetadata(
+        "mixedArray = [",
+        "    true,",
+        "    1,",
+        '    "a",',
+        "]",
+      ),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message:
+        "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 15,
+      severity: "error",
+    });
+  });
+
+  it("returns error for invalid values in multiline arrays", () => {
+    const [, errors] = compile(
+      markitWithMetadata("badArray = [", "    troo,", '    "unclosed,', "]"),
+    );
+
+    expect(errors).toHaveLength(2);
+    expect(errors[0]).toMatchObject({
+      message: "Invalid metadata value: troo",
+      line: 5,
+      column: 5,
+      endLine: 5,
+      endColumn: 9,
+      severity: "error",
+    });
+    expect(errors[1]).toEqual({
+      message: 'Invalid metadata value: "unclosed',
+      line: 6,
+      column: 5,
+      endLine: 6,
+      endColumn: 14,
+      severity: "error",
+    });
+  });
+
+  it("returns error for null in multiline array", () => {
+    const [, errors] = compile(markitWithMetadata("arr = [", "    null,", "]"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Invalid metadata value: null",
+      line: 5,
+      column: 5,
+      endLine: 5,
+      endColumn: 9,
+      severity: "error",
+    });
+  });
+
+  it("returns error for empty multiline arrays", () => {
+    const [, errors] = compile(markitWithMetadata("emptyArray = [", "]"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Multiline array must have at least one item",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 15,
+      severity: "error",
+    });
+  });
+});
+
+describe("nested tables", () => {
   it("parses nested metadata tables", () => {
     const [document, errors] = compile(
       markit(
@@ -154,17 +265,45 @@ describe("text metadata", () => {
     expect(document.metadata).toEqual(
       expect.objectContaining({
         title: "The Full Title",
-        links: {
+        links: expect.objectContaining({
           googleBooks: "https://books.google.com/",
           wikipedia: "https://en.wikipedia.org/",
-        },
+        }),
+      }),
+    );
+  });
+
+  it("parses nested metadata tables without blank line between blocks", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "",
+        "[metadata]",
+        'title = "The Full Title"',
+        "[metadata.links]",
+        'googleBooks = "https://books.google.com/"',
+        'wikipedia = "https://en.wikipedia.org/"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.metadata).toEqual(
+      expect.objectContaining({
+        title: "The Full Title",
+        links: expect.objectContaining({
+          googleBooks: "https://books.google.com/",
+          wikipedia: "https://en.wikipedia.org/",
+        }),
       }),
     );
   });
 
   it("parses [metadata.subkey] without a top-level [metadata] block", () => {
-    // It's an error, but the compiler should still produce output
-    const [document, errors] = compile(
+    const [, errors] = compile(
       markit(
         "# Text",
         "",
@@ -181,19 +320,76 @@ describe("text metadata", () => {
     expect(errors[0]!.message).toContain(
       "Nested metadata block '[metadata.links]' must appear after the top-level '[metadata]' block",
     );
+  });
+});
+
+describe("metadata headers", () => {
+  it("parses metadata without blank line after text ID", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "[metadata]",
+        'title = "Hello"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
     expect(document.metadata).toEqual(
       expect.objectContaining({
-        links: { googleBooks: "https://books.google.com/" },
+        title: "Hello",
       }),
     );
   });
 
+  it("omits metadata key when no metadata block is present", () => {
+    const [document, errors] = compile(
+      markit("# Text", "", "{#0}", "Title", ""),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.metadata).toBeUndefined();
+  });
+
+  it("reports error for invalid bracket header without blank line", () => {
+    const [document, errors] = compile(
+      markit(
+        "# Text",
+        "[incorrect]",
+        'title = "Hello"',
+        "",
+        "{#0}",
+        "Title",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toContain("Invalid metadata header");
+    expect(document.metadata).toBeDefined();
+    expect(Object.keys(document.metadata!)).toHaveLength(0);
+  });
+
+  it("returns error for unrecognized metadata header", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "[foo]", 'key = "value"', "", "{#0}", "Title", ""),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toContain("Invalid metadata header '[foo]'");
+  });
+});
+
+describe("child texts", () => {
   it("parses metadata from child texts", () => {
     const [document, errors] = compile(
       markit(
         "# Text",
         "",
-        "## Child.Text",
+        "## ChildText",
         "",
         "[metadata]",
         'note = "Child texts can contain metadata too."',
@@ -208,74 +404,16 @@ describe("text metadata", () => {
       }),
     );
   });
-
-  it("embeds parent metadata in child texts", () => {
-    const [document, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "[metadata]",
-        'parentKey = "parentValue"',
-        "",
-        "## Child.Text",
-        "",
-        "[metadata]",
-        'childKey = "childValue"',
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    const section1 = document.children[0]!;
-    expect(section1.metadata).toEqual(
-      expect.objectContaining({
-        parentKey: "parentValue",
-        childKey: "childValue",
-      }),
-    );
-  });
-
-  it("overrides parent metadata with child metadata", () => {
-    const [document, errors] = compile(
-      markit(
-        "# Text",
-        "",
-        "[metadata]",
-        'key = "parentValue"',
-        "",
-        "## Child.Text",
-        "",
-        "[metadata]",
-        'key = "childValue"',
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    const section1 = document.children[0]!;
-    expect(section1.metadata).toEqual(
-      expect.objectContaining({
-        key: "childValue",
-      }),
-    );
-  });
-
-  it("omits metadata key when no metadata block is present", () => {
-    const [document, errors] = compile(
-      markit("# Text", "", "{#0}", "Title", ""),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.metadata).toBeUndefined();
-  });
 });
 
-describe("text metadata errors", () => {
+describe("general errors", () => {
   it("returns error for invalid metadata values", () => {
     const [, errors] = compile(
       markitWithMetadata("badBoolean = troo", 'badString = "no closing quote'),
     );
 
     expect(errors).toHaveLength(2);
-    expect(errors[0]).toEqual({
+    expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: troo",
       line: 4,
       column: 14,
@@ -289,6 +427,20 @@ describe("text metadata errors", () => {
       column: 13,
       endLine: 5,
       endColumn: 30,
+      severity: "error",
+    });
+  });
+
+  it("returns error for null as inline metadata value", () => {
+    const [, errors] = compile(markitWithMetadata("key = null"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Invalid metadata value: null",
+      line: 4,
+      column: 7,
+      endLine: 4,
+      endColumn: 11,
       severity: "error",
     });
   });
@@ -308,127 +460,12 @@ describe("text metadata errors", () => {
       ),
     );
 
-    expect(errors[0]).toEqual({
+    expect(errors[0]).toMatchObject({
       message: "Invalid metadata line, expected 'key = value'",
       line: 5,
       column: 1,
       endLine: 5,
       endColumn: 17,
-      severity: "error",
-    });
-  });
-
-  it("returns error for mixed-type inline arrays", () => {
-    const [, errors] = compile(
-      markitWithMetadata('mixedInlineArray = [true, 1, "a"]'),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 34,
-      severity: "error",
-    });
-  });
-
-  it("returns error for mixed-type multiline arrays", () => {
-    const [, errors] = compile(
-      markitWithMetadata(
-        "mixedArray = [",
-        "    true,",
-        "    1,",
-        '    "a",',
-        "]",
-      ),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message:
-        "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 15,
-      severity: "error",
-    });
-  });
-
-  it("returns error for invalid JSON values in multiline arrays", () => {
-    const [, errors] = compile(
-      markitWithMetadata("badArray = [", "    troo,", '    "unclosed,', "]"),
-    );
-
-    expect(errors).toHaveLength(2);
-    expect(errors[0]).toEqual({
-      message: "Invalid metadata value: troo",
-      line: 5,
-      column: 5,
-      endLine: 5,
-      endColumn: 9,
-      severity: "error",
-    });
-    expect(errors[1]).toEqual({
-      message: 'Invalid metadata value: "unclosed',
-      line: 6,
-      column: 5,
-      endLine: 6,
-      endColumn: 14,
-      severity: "error",
-    });
-  });
-
-  it("returns error for empty multiline arrays", () => {
-    const [, errors] = compile(markitWithMetadata("emptyArray = [", "]"));
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message: "Multiline array must have at least one item",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 15,
-      severity: "error",
-    });
-  });
-
-  it("returns error for unrecognized metadata header", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "[foo]", 'key = "value"', "", "{#0}", "Title", ""),
-    );
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]!.message).toContain("Invalid metadata header '[foo]'");
-  });
-
-  it("returns error for null as inline metadata value", () => {
-    const [, errors] = compile(markitWithMetadata("key = null"));
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message: "Invalid metadata value: null",
-      line: 4,
-      column: 7,
-      endLine: 4,
-      endColumn: 11,
-      severity: "error",
-    });
-  });
-
-  it("returns error for null in multiline array", () => {
-    const [, errors] = compile(markitWithMetadata("arr = [", "    null,", "]"));
-
-    expect(errors).toHaveLength(1);
-    expect(errors[0]).toEqual({
-      message: "Invalid metadata value: null",
-      line: 5,
-      column: 5,
-      endLine: 5,
-      endColumn: 9,
       severity: "error",
     });
   });
