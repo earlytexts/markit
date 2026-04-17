@@ -59,6 +59,7 @@
   box-sizing: border-box;
   font-family: inherit;
   font-style: inherit;
+  font-size: inherit;
   background: inherit;
   border: 0;
   margin: 0;
@@ -99,26 +100,33 @@ h6 {
   font-weight: normal;
   text-align: center;
   line-height: 1.2;
-}
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 
-h1 {
-  font-size: 2.25rem;
-}
+  .size-1 {
+    font-size: 2rem;
+  }
 
-h2 {
-  font-size: 1.75rem;
-}
+  .size-2 {
+    font-size: 1.875rem;
+  }
 
-h3 {
-  font-size: 1.5rem;
-}
+  .size-3 {
+    font-size: 1.75rem;
+  }
 
-h4 {
-  font-size: 1.25rem;
-}
+  .size-4 {
+    font-size: 1.625rem;
+  }
 
-h5 {
-  font-size: 1.125rem;
+  .size-5 {
+    font-size: 1.5rem;
+  }
+
+  .size-6 {
+    font-size: 1.375rem;
+  }
 }
 
 p,
@@ -131,6 +139,11 @@ blockquote {
   padding-right: 1rem;
 }
 
+a {
+  text-decoration: underline;
+  color: #1e90ff;
+}
+
 strong {
   font-family: "IM Fell English SC", serif;
   font-weight: normal;
@@ -138,10 +151,27 @@ strong {
 
 em {
   font-style: italic;
+
+  .greek {
+    font-family: "GFS Didot", serif;
+  }
 }
 
-.greek {
-  font-family: "GFS Didot", serif;
+ins {
+  background-color: #a3f3a3;
+}
+
+del {
+  text-decoration: line-through;
+  background-color: #ed8a8a;
+}
+
+mark {
+  background-color: #f5f5dc;
+}
+
+cite {
+  color: #1e90ff;
 }
 
 .aside {
@@ -155,11 +185,18 @@ em {
   max-width: 10em;
 }
 
-ins {
-  background-color: #a3f3a3;
+.illegible,
+.uncertain {
+  color: #2f4f4f;
+  text-decoration: wavy;
 }
 
-del {
-  text-decoration: line-through;
-  background-color: #ed8a8a;
+.speaker {
+  font-family: "IM Fell English SC", serif;
+  font-weight: normal;
+}
+
+.person,
+.place {
+  color: #1e90ff;
 }
