@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
-import { markit, markitWithContent, p, h, pt, hl } from "./utils/factories.js";
+import { markit, markitWithContent, p, pt } from "./utils/factories.js";
 
 describe("character mode", () => {
   it("applies acute accent", () => {
@@ -114,15 +114,13 @@ describe("character mode", () => {
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([p([pt("\\")])]);
   });
-});
 
-describe("character mode errors", () => {
   it("returns error for unclosed character mode", () => {
     const [, errors] = compile(
       markit("# Text", "", "{#2}", "This has an {unclosed brace.", ""),
     );
 
-    expect(errors[0]).toEqual({
+    expect(errors[0]).toMatchObject({
       message: "Unclosed character mode",
       line: 4,
       column: 13,

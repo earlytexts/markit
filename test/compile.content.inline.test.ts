@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import { markit, markitWithContent, p, h, pt, hl } from "./utils/factories.js";
 
-describe("block content", () => {
+describe("inline formatting", () => {
   it("parses inline formatting (bold and italic)", () => {
     const [document, errors] = compile(
       markitWithContent(
@@ -53,6 +53,49 @@ describe("block content", () => {
     ]);
   });
 
+  it("preserves space between inline elements", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "*bold* text"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "strong", content: [pt("bold")] }, pt(" text")]),
+    ]);
+  });
+
+  it("returns error for unclosed formatting", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#3}", "This has *unclosed bold.", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: *",
+      line: 4,
+      column: 10,
+      endLine: 4,
+      endColumn: 11,
+      severity: "error",
+    });
+  });
+
+  it("returns error for overlapping inline formatting", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#1}", "*bold _italic* wrong_", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: *",
+      line: 4,
+      column: 1,
+      endLine: 4,
+      endColumn: 2,
+      severity: "error",
+    });
+  });
+});
+
+describe("inline quotes", () => {
   it("parses inline quotes", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", 'This is an inline quote: "like this".'),
@@ -67,7 +110,9 @@ describe("block content", () => {
       ]),
     ]);
   });
+});
 
+describe("citations", () => {
   it("parses citations", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "This is a citation: [cite me]."),
@@ -82,7 +127,9 @@ describe("block content", () => {
       ]),
     ]);
   });
+});
 
+describe("editorial marks", () => {
   it("parses editorial deletions ", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "This text has some --deleted content--."),
@@ -155,6 +202,23 @@ describe("block content", () => {
     ]);
   });
 
+  it("parses illegible markers", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "This is a quote with ??? illegible text."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("This is a quote with "),
+        { type: "illegible" },
+        pt(" illegible text."),
+      ]),
+    ]);
+  });
+});
+
+describe("speakers", () => {
   it("parses speakers", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "%Speaker.% This is a line of dialogue."),
@@ -168,7 +232,9 @@ describe("block content", () => {
       ]),
     ]);
   });
+});
 
+describe("asides", () => {
   it("parses asides (margin comments)", () => {
     const [document, errors] = compile(
       markitWithContent(
@@ -185,7 +251,9 @@ describe("block content", () => {
       ]),
     ]);
   });
+});
 
+describe("whitespace and line breaks", () => {
   it("parses line breaks", () => {
     const [document, errors] = compile(
       markitWithContent(
@@ -223,71 +291,6 @@ describe("block content", () => {
     ]);
   });
 
-  it("parses illegible markers", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "This is a quote with ??? illegible text."),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        pt("This is a quote with "),
-        { type: "illegible" },
-        pt(" illegible text."),
-      ]),
-    ]);
-  });
-
-  it("parses foreign text", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "This is foreign text: $like this$."),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        pt("This is foreign text: "),
-        { type: "language", content: [pt("like this")] },
-        pt("."),
-      ]),
-    ]);
-  });
-
-  it("parses footnote references", () => {
-    const [document, errors] = compile(
-      markitWithContent(
-        "{#1}",
-        "This is a sentence with a footnote<n1>.",
-        "",
-        "{#n1}",
-        "And here is the footnote.",
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        pt("This is a sentence with a footnote"),
-        { type: "footnoteReference", id: "Text.n1" },
-        pt("."),
-      ]),
-    ]);
-  });
-
-  it("parses escaped characters as literals", () => {
-    const [document, errors] = compile(
-      markitWithContent(
-        "{#1}",
-        "Escaped block id: \\{#1} and escaped asterisk: \\*not bold\\*.",
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([pt("Escaped block id: {#1} and escaped asterisk: *not bold*.")]),
-    ]);
-  });
-
   it("parses em spaces (double tildes)", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "before~~after"),
@@ -296,86 +299,6 @@ describe("block content", () => {
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       p([pt("before"), { type: "emSpace" }, pt("after")]),
-    ]);
-  });
-
-  it("parses escape character at start of content", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "\\*not bold"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("*not bold")])]);
-  });
-
-  it("treats trailing backslash as literal", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "text\\"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("text\\")])]);
-  });
-
-  it("treats lone backslash as literal", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "\\"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("\\")])]);
-  });
-
-  it("treats angle bracket without closing as plain text", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "a < b"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("a < b")])]);
-  });
-
-  it("treats angle brackets with non-footnote content as plain text", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "a <b> c"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("a <b> c")])]);
-  });
-
-  it("parses escaped pipe as literal pipe character", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "price: \\| tax"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("price: | tax")])]);
-  });
-
-  it("parses multiple references to the same footnote", () => {
-    const [document, errors] = compile(
-      markitWithContent(
-        "{#1}",
-        "First ref <n1> and second ref <n1>.",
-        "",
-        "{#n1}",
-        "The footnote.",
-      ),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        pt("First ref "),
-        { type: "footnoteReference", id: "Text.n1" },
-        pt(" and second ref "),
-        { type: "footnoteReference", id: "Text.n1" },
-        pt("."),
-      ]),
-    ]);
-  });
-
-  it("preserves space between inline elements", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "*bold* text"),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "strong", content: [pt("bold")] }, pt(" text")]),
     ]);
   });
 
@@ -434,36 +357,71 @@ describe("block content", () => {
   });
 });
 
-describe("language wrappers", () => {
-  it("parses Latin text with $la: syntax", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$la:Roma$"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "language", lang: "la", content: [pt("Roma")] }]),
-    ]);
-  });
-
-  it("parses French text with $fr: syntax", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "$fr:Paris$"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "language", lang: "fr", content: [pt("Paris")] }]),
-    ]);
-  });
-
-  it("parses arbitrary language code", () => {
+describe("foreign text", () => {
+  it("parses generic foreign text", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "$he:shalom$"),
+      markitWithContent("{#1}", "This is foreign text: $like this$."),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([{ type: "language", lang: "he", content: [pt("shalom")] }]),
+      p([
+        pt("This is foreign text: "),
+        { type: "language", content: [pt("like this")] },
+        pt("."),
+      ]),
     ]);
   });
 
+  it("parses foreign text with $la: syntax", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "$la:Rome$ $fr:Paris$ $grc:Athens$"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "language", lang: "la", content: [pt("Rome")] },
+        { type: "plainText", content: " " },
+        { type: "language", lang: "fr", content: [pt("Paris")] },
+        { type: "plainText", content: " " },
+        { type: "language", lang: "grc", content: [pt("Athens")] },
+      ]),
+    ]);
+  });
+
+  it("returns error for unclosed generic foreign wrapper", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", "some $unclosed text", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: $",
+      line: 4,
+      column: 6,
+      endLine: 4,
+      endColumn: 7,
+      severity: "error",
+    });
+  });
+
+  it("returns error for unclosed language wrapper", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", "some $grc:unclosed text", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: $grc:",
+      line: 4,
+      column: 6,
+      endLine: 4,
+      endColumn: 11,
+      severity: "error",
+    });
+  });
+});
+
+describe("named entities", () => {
   it("parses person names", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "!person[John Locke] wrote the Essay."),
@@ -493,25 +451,38 @@ describe("language wrappers", () => {
     ]);
   });
 
-  it("parses person and place names in the same paragraph", () => {
-    const [document, errors] = compile(
-      markitWithContent(
-        "{#1}",
-        "!person[Newton] was born in !place[Woolsthorpe].",
-      ),
+  it("returns error for unclosed person name wrapper", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", "some !person[unclosed name", ""),
     );
 
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        { type: "person", content: [pt("Newton")] },
-        pt(" was born in "),
-        { type: "place", content: [pt("Woolsthorpe")] },
-        pt("."),
-      ]),
-    ]);
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: !person[",
+      line: 4,
+      column: 6,
+      endLine: 4,
+      endColumn: 14,
+      severity: "error",
+    });
   });
 
+  it("returns error for unclosed place name wrapper", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", "some !place[unclosed name", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: !place[",
+      line: 4,
+      column: 6,
+      endLine: 4,
+      endColumn: 13,
+      severity: "error",
+    });
+  });
+});
+
+describe("page breaks", () => {
   it("parses bare page break ||", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "end of page || start of next"),
@@ -555,28 +526,71 @@ describe("language wrappers", () => {
   });
 });
 
-describe("block content errors", () => {
-  it("returns error for unclosed formatting", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#3}", "This has *unclosed bold.", ""),
+describe("footnote references", () => {
+  it("parses footnote references", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "This is a sentence with a footnote<n1>.",
+        "",
+        "{#n1}",
+        "And here is the footnote.",
+      ),
     );
 
-    expect(errors[0]).toEqual({
-      message: "Unclosed formatting: *",
-      line: 4,
-      column: 10,
-      endLine: 4,
-      endColumn: 11,
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("This is a sentence with a footnote"),
+        { type: "footnoteReference", id: "Text.n1" },
+        pt("."),
+      ]),
+    ]);
+  });
+
+  it("parses multiple references to the same footnote", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "First ref <n1> and second ref <n1>.",
+        "",
+        "{#n1}",
+        "The footnote.",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("First ref "),
+        { type: "footnoteReference", id: "Text.n1" },
+        pt(" and second ref "),
+        { type: "footnoteReference", id: "Text.n1" },
+        pt("."),
+      ]),
+    ]);
+  });
+
+  it("treats angle bracket without closing as plain text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "a < b"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("a < b")])]);
+  });
+
+  it("treats angle brackets with non-footnote content as plain text", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "a <b> c"));
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("a <b> c")])]);
   });
 
   it("returns error for missing footnote reference", () => {
     const [, errors] = compile(
-      markit("# Text", "", "{#5}", "This has a ref to <n99>.", ""),
+      markitWithContent("{#5}", "This has a ref to <n99>.", ""),
     );
 
-    expect(errors[0]).toEqual({
+    expect(errors[0]).toMatchObject({
       message: "Footnote not found: n99",
       line: 4,
       column: 19,
@@ -585,63 +599,52 @@ describe("block content errors", () => {
       severity: "error",
     });
   });
+});
 
-  it("returns error for overlapping inline formatting", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1}", "*bold _italic* wrong_", ""),
+describe("escape sequences", () => {
+  it("parses escaped characters as literals", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#1}",
+        "Escaped block id: \\{#1} and escaped asterisk: \\*not bold\\*.",
+      ),
     );
 
-    expect(errors[0]).toEqual({
-      message: "Unclosed formatting: *",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 2,
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("Escaped block id: {#1} and escaped asterisk: *not bold*.")]),
+    ]);
   });
 
-  it("returns error for unclosed language wrapper", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1}", "some $grc:unclosed text", ""),
+  it("parses escape character at start of content", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "\\*not bold"),
     );
 
-    expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: $grc:",
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("*not bold")])]);
   });
 
-  it("returns error for unclosed generic foreign wrapper", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1}", "some $unclosed text", ""),
-    );
+  it("treats trailing backslash as literal", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "text\\"));
 
-    expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: $",
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("text\\")])]);
   });
 
-  it("returns error for unclosed person name wrapper", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1}", "some !person[unclosed name", ""),
-    );
+  it("treats lone backslash as literal", () => {
+    const [document, errors] = compile(markitWithContent("{#1}", "\\"));
 
-    expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: !person[",
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("\\")])]);
   });
 
-  it("returns error for unclosed place name wrapper", () => {
-    const [, errors] = compile(
-      markit("# Text", "", "{#1}", "some !place[unclosed name", ""),
+  it("parses escaped pipe as literal pipe character", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "price: \\| tax"),
     );
 
-    expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: !place[",
-      severity: "error",
-    });
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([p([pt("price: | tax")])]);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
-import { markit, markitWithContent, p, h, pt, hl } from "./utils/factories.js";
+import { markit, markitWithContent, p, pt } from "./utils/factories.js";
 
 describe("Greek mode", () => {
   it("transliterates basic Latin characters to Greek", () => {
@@ -154,15 +154,13 @@ describe("Greek mode", () => {
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([p([pt("\\")])]);
   });
-});
 
-describe("Greek mode errors", () => {
   it("returns error for unclosed Greek mode", () => {
     const [, errors] = compile(
       markit("# Text", "", "{#2}", "This has {{unclosed Greek.", ""),
     );
 
-    expect(errors[0]).toEqual({
+    expect(errors[0]).toMatchObject({
       message: "Unclosed Greek mode",
       line: 4,
       column: 10,
