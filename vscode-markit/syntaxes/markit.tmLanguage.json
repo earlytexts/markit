@@ -65,19 +65,27 @@
       "name": "meta.block-tag.markit",
       "patterns": [
         {
-          "match": "\\s*([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)",
+          "match": "(\\w+)\\s*(=)",
           "captures": {
-            "1": { "name": "entity.name.tag.block-id.markit" },
-            "2": { "name": "punctuation.operator.key-value.markit" }
+            "1": { "name": "entity.name.tag.markit" },
+            "2": { "name": "punctuation.separator.key-value.markit" }
           }
         },
         {
-          "match": ",",
-          "name": "punctuation.separator.comma.markit"
+          "match": "\\b(true|false)\\b",
+          "name": "constant.language.boolean.markit"
         },
         {
-          "match": "\b[^},]*\b",
+          "match": "\\b-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
+          "name": "constant.numeric.markit"
+        },
+        {
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\"",
           "name": "string.quoted.double.markit"
+        },
+        {
+          "match": "[\\[\\],]",
+          "name": "punctuation.definition.array.markit"
         }
       ]
     },

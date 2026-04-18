@@ -81,6 +81,12 @@ Arrays can span multiple lines. All elements in an array must be the same type {
 {#4}
 Metadata supports one level of nesting using \[metadata.key\] headers. This document's root text uses nested metadata to store links separately from top-level fields.
 
+{#subtitle}
+^2 Block Metadata
+
+{#5, scope="block", reviewed=true}
+Individual blocks can also carry metadata, written as a comma-separated list of key=value pairs inside the block tag after the ID. The same value types are supported as for text metadata: booleans, numbers, strings, and homogeneous arrays. This block's own tag is an example.
+
 ## Headings
 
 {#title}

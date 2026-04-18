@@ -102,6 +102,16 @@ Following the metadata blocks (if any), a text can have any number of _content b
 
 With the exception of `subtitle` (see below), block IDs must be unique (relative to the text). In the compiled output, block IDs are prefixed with the text's (full) ID to ensure uniqueness across the entire document (e.g. `Title.Chapter1.Section2.12`). They are conventionally numbered sequentially, but this is not required.
 
+### Block Metadata
+
+A block tag can optionally carry metadata — a comma-separated list of `key=value` pairs following the ID:
+
+```
+{#2, subsection=4, speaker="Philo", edits=["2014-10-12", "2014-11-01"], modified=true}
+```
+
+Block metadata follows the same type rules as text metadata: booleans, numbers, strings, and homogeneous arrays of these are supported. Nested objects are not permitted, and there is no equivalent of `[metadata.<key>]` for blocks. Block metadata must all be on one line (inside the block tag), with key-value pairs separated by commas.
+
 ### Block Types
 
 There are four types of content block, determined by the block ID:

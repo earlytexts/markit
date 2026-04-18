@@ -281,6 +281,85 @@ describe("formatter", () => {
     });
   });
 
+  describe("block tag metadata normalization", () => {
+    it("strips whitespace around the ID, commas, and =", () => {
+      const input = markitWithContent(
+        "{#1 ,  subsection = 4 , modified = true }",
+        "Content.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1, subsection=4, modified=true}", "Content."),
+      );
+    });
+
+    it("preserves whitespace inside string values", () => {
+      const input = markitWithContent(
+        '{#1, speaker = "Philo of  Alexandria"}',
+        "Content.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent('{#1, speaker="Philo of  Alexandria"}', "Content."),
+      );
+    });
+
+    it("preserves commas and braces inside string values", () => {
+      const input = markitWithContent('{#1 , s = "a, b }"}', "Content.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent('{#1, s="a, b }"}', "Content."));
+    });
+
+    it("normalizes spacing inside inline arrays", () => {
+      const input = markitWithContent(
+        '{#1, edits = [ "2014-10-12" ,   "2014-11-01" ]}',
+        "Content.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          '{#1, edits=["2014-10-12", "2014-11-01"]}',
+          "Content.",
+        ),
+      );
+    });
+
+    it("splits content after metadata onto its own line", () => {
+      const input = markitWithContent("{#1, foo = 1}   Content after tag");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1, foo=1}", "Content after tag"),
+      );
+    });
+
+    it("drops trailing commas", () => {
+      const input = markitWithContent("{#1, foo=1,}", "Content.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent("{#1, foo=1}", "Content."));
+    });
+
+    it("is idempotent on canonically formatted block metadata", () => {
+      const input = markitWithContent(
+        '{#1, subsection=4, speaker="Philo", edits=["2014-10-12", "2014-11-01"], modified=true}',
+        "Content.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves an empty block tag", () => {
+      const input = markitWithContent("{#}", "Content.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent("{#}", "Content."));
+    });
+
+    it("leaves a malformed pair unchanged inside the tag", () => {
+      const input = markitWithContent("{#1, notvalid}", "Content.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent("{#1, notvalid}", "Content."));
+    });
+  });
+
   describe("content white space normalization", () => {
     it("removes surrounding whitespace from content lines", () => {
       const input = markitWithContent("   Content with surrounding spaces   ");
@@ -602,7 +681,7 @@ describe("formatter", () => {
           "{#0}",
           "^1 Book One",
           "",
-          "{#1 , margin = true}",
+          "{#1, margin=true}",
           "*Important* paragraph.",
           "",
           "{#n1}",

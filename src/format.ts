@@ -37,13 +37,18 @@ const initialState: State = {
 };
 
 const formatLine = (state: State, line: string): State => {
+  // Block tags are handled before whitespace normalisation so that strings
+  // inside the tag keep their internal whitespace intact.
+  if (line.trimStart().startsWith("{#")) {
+    return formatBlockTag(state, line);
+  }
+
   // Trim trailing whitespace and collapse internal whitespace to single spaces
   const normalized = line.trimEnd().replace(/(?<=\S)\s+/g, " ");
 
   // Divide...
   const isBlank = normalized.trim() === "";
   const isId = /^(#+)\s+(.+)$/.test(normalized.trim());
-  const isBlockTag = normalized.trim().startsWith("{#");
 
   // Bracket header: [metadata], [metadata.subkey], or any [header]
   const isMetadataHeader =
@@ -54,7 +59,6 @@ const formatLine = (state: State, line: string): State => {
   const isMetadataKeyValue =
     state.context === "inMetadata" &&
     !isBlank &&
-    !isBlockTag &&
     !isMetadataHeader &&
     normalized.includes("=") &&
     !normalized.trim().startsWith("[");
@@ -63,7 +67,6 @@ const formatLine = (state: State, line: string): State => {
   const isMetadataArrayStart =
     state.context === "inMetadata" &&
     !isBlank &&
-    !isBlockTag &&
     /^\w+\s*=\s*\[$/.test(normalized.trim());
 
   // Inside a multiline array
@@ -77,7 +80,6 @@ const formatLine = (state: State, line: string): State => {
   // ... and conquer
   if (isBlank) return handleBlankLine(state);
   if (isId) return formatIdBlock(state, normalized);
-  if (isBlockTag) return formatBlockTag(state, normalized);
   if (isMetadataHeader) return handleMetadataHeader(state, normalized);
   if (isMetadataArrayStart) return handleMetadataArrayStart(state, normalized);
   if (isMetadataArrayEnd) return handleMetadataArrayEnd(state, normalized);

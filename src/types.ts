@@ -47,6 +47,7 @@ export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
 export type Block = {
   id: string;
   type: BlockType;
+  metadata?: Metadata;
   content: BlockElement[];
 } & Ranges;
 

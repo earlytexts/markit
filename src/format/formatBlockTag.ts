@@ -1,3 +1,4 @@
+import { findClosingBrace, splitTopLevelCommas } from "../blockTagLexer.js";
 import { emitBlank, emitLine, flushContent } from "./helpers.js";
 import type { State } from "./types.js";
 
@@ -34,18 +35,49 @@ export default (state: State, line: string): State => {
   return newState;
 };
 
-const formatBlockTag = (line: string) => {
-  const trimmed = line.trim();
-
-  const closingBrace = trimmed.indexOf("}");
+const formatBlockTag = (line: string): { tag: string; content: string } => {
+  const trimmed = line.trimStart();
+  const closingBrace = findClosingBrace(trimmed, 2);
   if (closingBrace === -1) {
-    // Malformed - return unchanged
-    return { tag: line, content: "" };
+    // Malformed — return unchanged (minus leading/trailing whitespace)
+    return { tag: trimmed.trimEnd(), content: "" };
   }
 
-  const inner = trimmed.slice(2, closingBrace).trim();
+  const chunks = splitTopLevelCommas(trimmed.slice(2, closingBrace));
   const rest = trimmed.slice(closingBrace + 1).trim();
 
-  const formattedTag = `{#${inner}}`;
-  return { tag: formattedTag, content: rest };
+  if (chunks.length === 0) {
+    // Empty tag like "{#}" — preserve as-is
+    return { tag: "{#}", content: rest };
+  }
+
+  const id = chunks[0]!.content;
+  const pairs = chunks.slice(1).map((c) => formatPair(c.content));
+  const inner = [`#${id}`, ...pairs].join(", ");
+
+  return { tag: `{${inner}}`, content: rest };
+};
+
+// Canonicalise a single `key=value` pair: strip whitespace around `=`, preserve
+// string contents verbatim, and normalise spacing inside array literals.
+const formatPair = (chunk: string): string => {
+  const match = /^(\w+)\s*=\s*(.*)$/s.exec(chunk);
+  if (!match) {
+    // Malformed pair — leave as-is so the compiler's diagnostic still points
+    // at the intact text.
+    return chunk;
+  }
+  const [, key, rawValue] = match;
+  return `${key}=${formatValue(rawValue!)}`;
+};
+
+// Canonicalise a value: arrays get one space after each top-level comma;
+// strings and scalars are returned verbatim (modulo outer trimming).
+const formatValue = (value: string): string => {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    const items = splitTopLevelCommas(trimmed.slice(1, -1));
+    return `[${items.map((i) => i.content).join(", ")}]`;
+  }
+  return trimmed;
 };

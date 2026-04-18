@@ -1,7 +1,9 @@
+import { findClosingBrace, splitTopLevelCommas } from "../blockTagLexer.js";
 import type { MarkitError, Metadata, MetadataValue } from "../types.js";
 import { endLine, footnoteReferenceSpec, startLine } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
 import makeError from "./makeError.js";
+import parseMetadataValue from "./parseMetadataValue.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
 
 /**
@@ -15,6 +17,7 @@ export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
 
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
+  metadata?: Metadata;
   lines: Line[];
 };
 
@@ -202,18 +205,9 @@ const parseMetadataBlock = (
           const itemStartColumn =
             arrayLine.charOffset + arrayLine.content.indexOf(itemString);
 
-          let itemValue: number | boolean | string;
-          try {
-            itemValue = JSON.parse(itemString) as number | boolean | string;
-            if (
-              typeof itemValue !== "number" &&
-              typeof itemValue !== "boolean" &&
-              typeof itemValue !== "string"
-            ) {
-              throw new Error("invalid type");
-            }
-          } catch {
-            itemValue = itemString;
+          const { value: itemValue, diagnostics } =
+            parseMetadataValue(itemString);
+          if (diagnostics.includes("invalid-value")) {
             errors.push(
               makeError({
                 message: `Invalid metadata value: ${itemString}`,
@@ -224,7 +218,7 @@ const parseMetadataBlock = (
             );
           }
 
-          arrayItems.push(itemValue);
+          arrayItems.push(itemValue as number | boolean | string);
           arrayIndex++;
         }
 
@@ -277,19 +271,8 @@ const parseMetadataBlock = (
     const key = match[1]!;
     const valueString = match[2]!.trim();
 
-    let value: MetadataValue;
-    try {
-      value = JSON.parse(valueString) as MetadataValue;
-      if (
-        typeof value !== "number" &&
-        typeof value !== "boolean" &&
-        typeof value !== "string" &&
-        !Array.isArray(value)
-      ) {
-        throw new Error("invalid type");
-      }
-    } catch {
-      value = valueString;
+    const { value, diagnostics } = parseMetadataValue(valueString);
+    if (diagnostics.includes("invalid-value")) {
       errors.push(
         makeError({
           message: `Invalid metadata value: ${valueString}`,
@@ -299,23 +282,16 @@ const parseMetadataBlock = (
         }),
       );
     }
-
-    // Check for mixed types in inline arrays
-    if (Array.isArray(value)) {
-      const types = new Set(
-        (value as (number | boolean | string)[]).map((item) => typeof item),
+    if (diagnostics.includes("mixed-array")) {
+      errors.push(
+        makeError({
+          message:
+            "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+          line: block.startLine + 1 + index,
+          column: line.charOffset,
+          length: line.content.length,
+        }),
       );
-      if (types.size > 1) {
-        errors.push(
-          makeError({
-            message:
-              "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-            line: block.startLine + 1 + index,
-            column: line.charOffset,
-            length: line.content.length,
-          }),
-        );
-      }
     }
 
     result[key] = value;
@@ -331,15 +307,23 @@ const parseBlockMetadata = (
   const errors: MarkitError[] = [];
 
   const [firstLine, ...otherLines] = block.lines;
-  const blockTagMatch = firstLine.content.match(/^\{#(.+?)\}/);
+  const isBlockTag = firstLine.content.startsWith("{#");
+  const closingBrace = isBlockTag ? findClosingBrace(firstLine.content, 2) : -1;
+  const hasValidTag = isBlockTag && closingBrace !== -1;
 
-  if (!blockTagMatch) {
-    const message = firstLine.content.trim().startsWith("{#")
-      ? "Block tag is not properly closed with '}'"
-      : "Block is missing metadata tag '{#id}'";
+  if (!isBlockTag) {
     errors.push(
       makeError({
-        message,
+        message: "Block is missing metadata tag '{#id}'",
+        line: block.startLine,
+        column: firstLine.charOffset,
+        length: firstLine.content.length,
+      }),
+    );
+  } else if (closingBrace === -1) {
+    errors.push(
+      makeError({
+        message: "Block tag is not properly closed with '}'",
         line: block.startLine,
         column: firstLine.charOffset,
         length: firstLine.content.length,
@@ -347,16 +331,17 @@ const parseBlockMetadata = (
     );
   }
 
-  const blockTagContent = blockTagMatch
-    ? blockTagMatch[1]!.trim()
-    : `${block.startLine}`;
+  // Parse the tag body (between `{#` and `}`) into comma-separated chunks.
+  // The first chunk is the ID; the rest are key=value metadata pairs.
+  const chunks = hasValidTag
+    ? splitTopLevelCommas(firstLine.content.slice(2, closingBrace))
+    : [];
 
-  // fallback to start line as ID if ID not provided
-  // error will be reported by blockTagMatch check above
-  let id = blockTagContent;
+  let id = chunks[0]?.content ?? `${block.startLine}`;
+  const metadata: Record<string, MetadataValue> = {};
 
   // Validate block ID characters (only when a block tag was matched, not the fallback)
-  if (blockTagMatch && !/^[^\s#{}]+$/.test(id)) {
+  if (hasValidTag && !/^[^\s#{}]+$/.test(id)) {
     const idOffset = firstLine.content.indexOf(id, 2);
     errors.push(
       makeError({
@@ -367,7 +352,7 @@ const parseBlockMetadata = (
       }),
     );
   } else if (
-    blockTagMatch &&
+    hasValidTag &&
     id.startsWith("n") &&
     !footnoteReferenceSpec.pattern.test(id)
   ) {
@@ -380,6 +365,52 @@ const parseBlockMetadata = (
         length: id.length,
       }),
     );
+  }
+
+  // Parse metadata pairs from the remaining chunks.
+  for (let i = 1; i < chunks.length; i++) {
+    const chunk = chunks[i]!;
+    const chunkColumn = firstLine.charOffset + 2 + chunk.offset;
+    const match = /^(\w+)\s*=\s*(.+)$/.exec(chunk.content);
+    if (!match) {
+      errors.push(
+        makeError({
+          message: "Invalid metadata pair, expected 'key=value'",
+          line: block.startLine,
+          column: chunkColumn,
+          length: chunk.content.length,
+        }),
+      );
+      continue;
+    }
+    const key = match[1]!;
+    const valueString = match[2]!;
+    const valueLocalOffset = chunk.content.length - valueString.length;
+
+    const { value, diagnostics } = parseMetadataValue(valueString);
+    if (diagnostics.includes("invalid-value")) {
+      errors.push(
+        makeError({
+          message: `Invalid metadata value: ${valueString}`,
+          line: block.startLine,
+          column: chunkColumn + valueLocalOffset,
+          length: valueString.length,
+        }),
+      );
+    }
+    if (diagnostics.includes("mixed-array")) {
+      errors.push(
+        makeError({
+          message:
+            "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+          line: block.startLine,
+          column: chunkColumn,
+          length: chunk.content.length,
+        }),
+      );
+    }
+
+    metadata[key] = value;
   }
 
   // Title block validation: only one allowed, and it must be first
@@ -423,9 +454,9 @@ const parseBlockMetadata = (
     );
   }
 
-  const contentAfterTag = blockTagMatch
-    ? firstLine.content.slice(blockTagMatch[0]!.length).trim()
-    : firstLine.content.trim().startsWith("{#")
+  const contentAfterTag = hasValidTag
+    ? firstLine.content.slice(closingBrace + 1).trim()
+    : isBlockTag
       ? ""
       : firstLine.content.trim();
   const newFirstLine = contentAfterTag
@@ -439,9 +470,18 @@ const parseBlockMetadata = (
 
   const lines = newFirstLine ? [newFirstLine, ...otherLines] : otherLines;
 
+  const metadataWithRanges =
+    Object.keys(metadata).length > 0
+      ? Object.assign(metadata, {
+          [startLine]: block.startLine,
+          [endLine]: block.startLine,
+        })
+      : undefined;
+
   const blockWithMetadata: BlockWithMetadata = {
     ...block,
     id,
+    ...(metadataWithRanges ? { metadata: metadataWithRanges } : {}),
     lines,
   };
 

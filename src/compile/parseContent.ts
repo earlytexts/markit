@@ -94,6 +94,7 @@ const parseBlockContent = (
   const parsedBlock: Block = {
     id: `${textId}.${block.id}`,
     type: blockType,
+    ...(block.metadata ? { metadata: block.metadata } : {}),
     content,
     [startLine]: block.startLine,
     [endLine]: block.endLine,
