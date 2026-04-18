@@ -46,6 +46,9 @@ const extractBlockElements = (buffer: string[]): string[] => {
   let paragraphLines: string[] = [];
   let blockquoteLines: string[] = [];
   let headingLines: string[] = [];
+  let listLines: string[] = [];
+  let listOrdered: boolean = false;
+  let listStart: number | undefined = undefined;
 
   const flushParagraph = (): void => {
     if (paragraphLines.length === 0) return;
@@ -80,16 +83,106 @@ const extractBlockElements = (buffer: string[]): string[] => {
     headingLines = [];
   };
 
+  const flushList = (): void => {
+    if (listLines.length === 0) return;
+    // Add blank line before list if needed
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+
+    // Build a map of actual indent to normalized level
+    const indents = listLines
+      .map((line) => {
+        const match = /^(\s*)(?:-|\d+\.)/.exec(line);
+        return match ? match[1]!.length : 0;
+      })
+      .filter((indent, index, arr) => arr.indexOf(indent) === index)
+      .sort((a, b) => a - b);
+
+    const indentToLevel = new Map<number, number>();
+    indents.forEach((indent, index) => {
+      indentToLevel.set(indent, index);
+    });
+
+    // Process list lines: normalize indentation and renumber ordered lists
+    const processedLines: string[] = [];
+    const numberStack: number[] = []; // Track numbering at each indent level
+    const firstNumberAtLevel: Map<number, number> = new Map(); // Track first number at each level
+
+    for (const line of listLines) {
+      // Detect ordered list item
+      const orderedMatch = /^(\s*)(\d+)\. (.+)$/.exec(line);
+      if (orderedMatch) {
+        const indent = orderedMatch[1]!.length;
+        const originalNumber = parseInt(orderedMatch[2]!, 10);
+        const content = orderedMatch[3]!;
+
+        // Get normalized level
+        const level = indentToLevel.get(indent) ?? 0;
+
+        // Track first number at this level
+        if (!firstNumberAtLevel.has(level)) {
+          firstNumberAtLevel.set(level, originalNumber);
+        }
+
+        // Ensure numberStack has enough levels
+        while (numberStack.length <= level) {
+          const initNumber = firstNumberAtLevel.get(numberStack.length) ?? 1;
+          numberStack.push(initNumber);
+        }
+
+        // For level 0, use listStart if available and this is the first item
+        if (
+          level === 0 &&
+          listStart !== undefined &&
+          processedLines.length === 0
+        ) {
+          numberStack[level] = listStart;
+          firstNumberAtLevel.set(0, listStart);
+        }
+
+        const number = numberStack[level]!;
+        processedLines.push(`${"  ".repeat(level)}${number}. ${content}`);
+
+        // Increment for this level, reset deeper levels
+        numberStack[level] = numberStack[level]! + 1;
+        numberStack.splice(level + 1);
+      } else {
+        // Unordered list item
+        const unorderedMatch = /^(\s*)- (.+)$/.exec(line);
+        if (unorderedMatch) {
+          const indent = unorderedMatch[1]!.length;
+          const content = unorderedMatch[2]!;
+
+          // Get normalized level
+          const level = indentToLevel.get(indent) ?? 0;
+
+          processedLines.push(`${"  ".repeat(level)}- ${content}`);
+        } else {
+          // Shouldn't happen, but preserve as-is if we can't parse
+          processedLines.push(line);
+        }
+      }
+    }
+
+    output.push(...processedLines);
+    listLines = [];
+    listOrdered = false;
+    listStart = undefined;
+  };
+
   for (let i = 0; i < buffer.length; i++) {
     const line = buffer[i]!;
     const trimmed = line.trim();
-    const classification = classifyBlockLine(trimmed);
+    // Classify using original line to preserve indent information for lists
+    const classification = classifyBlockLine(line);
 
     // Blank line — separator between block-level elements
     if (classification.kind === "blank") {
       flushParagraph();
       flushBlockquote();
       flushHeading();
+      flushList();
       // Only emit a blank line if we've already output something
       if (output.length > 0 && output.at(-1) !== "") {
         output.push("");
@@ -101,6 +194,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (classification.kind === "heading") {
       flushParagraph();
       flushBlockquote();
+      flushList();
       headingLines.push(trimmed);
       continue;
     }
@@ -109,6 +203,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (classification.kind === "blockquote") {
       flushParagraph();
       flushHeading();
+      flushList();
       const inner = trimmed.slice(1).trim();
       if (inner) {
         blockquoteLines.push(inner);
@@ -119,10 +214,46 @@ const extractBlockElements = (buffer: string[]): string[] => {
       continue;
     }
 
+    // Unordered list item
+    if (classification.kind === "unorderedListItem") {
+      flushParagraph();
+      flushHeading();
+      flushBlockquote();
+      // If we were accumulating an ordered list at base indent, flush it first
+      if (listLines.length > 0 && listOrdered && classification.indent === 0) {
+        flushList();
+      }
+      if (listLines.length === 0) {
+        listOrdered = false;
+      }
+      listLines.push(line);
+      continue;
+    }
+
+    // Ordered list item
+    if (classification.kind === "orderedListItem") {
+      flushParagraph();
+      flushHeading();
+      flushBlockquote();
+      // If we were accumulating an unordered list at base indent, flush it first
+      if (listLines.length > 0 && !listOrdered && classification.indent === 0) {
+        flushList();
+      }
+      // Detect start number from first item at base indent
+      if (listLines.length === 0) {
+        listOrdered = true;
+        const { number } = classification;
+        listStart = number !== 1 ? number : undefined;
+      }
+      listLines.push(line);
+      continue;
+    }
+
     // Regular content line (paragraph) — also handles invalid heading variants
     // Invalid headings and headings without level are treated as regular content
     flushBlockquote();
     flushHeading();
+    flushList();
     // Add blank line before paragraph if we already have content
     if (
       paragraphLines.length === 0 &&
@@ -137,6 +268,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   flushParagraph();
   flushBlockquote();
   flushHeading();
+  flushList();
 
   // Strip any trailing blank or bare blockquote separator lines
   while (output.at(-1) === "" || output.at(-1) === ">") output.pop();

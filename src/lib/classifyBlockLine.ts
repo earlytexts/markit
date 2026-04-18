@@ -1,4 +1,4 @@
-import { blockquoteSpec, headingSpec } from "../types.js";
+import { blockquoteSpec, headingSpec, listSpec } from "../types.js";
 
 /**
  * Classification result for a line of block-level content.
@@ -11,6 +11,8 @@ export type BlockLineKind =
   | { kind: "invalidHeading"; level: number }
   | { kind: "headingWithoutLevel" }
   | { kind: "blockquote" }
+  | { kind: "unorderedListItem"; indent: number }
+  | { kind: "orderedListItem"; indent: number; number: number }
   | { kind: "paragraph" };
 
 /**
@@ -49,6 +51,23 @@ export default (content: string): BlockLineKind => {
   // Blockquote: starts with blockquote marker
   if (content.startsWith(blockquoteSpec.marker)) {
     return { kind: "blockquote" };
+  }
+
+  // Unordered list item: starts with optional spaces, hyphen, and space
+  const unorderedMatch = new RegExp(
+    `^(\\s*)\\${listSpec.unorderedMarker} `,
+  ).exec(content);
+  if (unorderedMatch) {
+    const indent = unorderedMatch[1]!.length;
+    return { kind: "unorderedListItem", indent };
+  }
+
+  // Ordered list item: starts with optional spaces, digit(s), period, and space
+  const orderedMatch = /^(\s*)(\d+)\. /.exec(content);
+  if (orderedMatch) {
+    const indent = orderedMatch[1]!.length;
+    const number = parseInt(orderedMatch[2]!, 10);
+    return { kind: "orderedListItem", indent, number };
   }
 
   // Everything else is a paragraph

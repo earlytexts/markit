@@ -543,6 +543,120 @@ describe("formatter", () => {
         ),
       );
     });
+
+    it("preserves unordered lists with compact spacing", () => {
+      const input = markitWithContent("{#1}", "- First item", "- Second item");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves ordered lists with compact spacing", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "1. First item",
+        "2. Second item",
+        "3. Third item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("renumbers ordered lists starting from first item number", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "5. First item",
+        "7. Second item",
+        "2. Third item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "5. First item",
+          "6. Second item",
+          "7. Third item",
+        ),
+      );
+    });
+
+    it("preserves custom start numbers for ordered lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "5. Fifth item",
+        "8. Sixth item",
+        "3. Seventh item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "5. Fifth item",
+          "6. Sixth item",
+          "7. Seventh item",
+        ),
+      );
+    });
+
+    it("preserves nested list indentation with 2 spaces", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- First",
+        "  - Nested",
+        "  - Also nested",
+        "- Second",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("normalizes nested list indentation to 2-space increments", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "1. First",
+        "    2. Nested (4 spaces)",
+        "2. Second",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "1. First",
+          "  2. Nested (4 spaces)",
+          "2. Second",
+        ),
+      );
+    });
+
+    it("adds blank lines before and after lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "A paragraph.",
+        "- List item",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "A paragraph.",
+          "",
+          "- List item",
+          "",
+          "More text.",
+        ),
+      );
+    });
+
+    it("preserves blank lines between separate lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- First list",
+        "",
+        "- Second list",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
   });
 
   describe("inline content normalization", () => {

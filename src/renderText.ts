@@ -37,7 +37,33 @@ const blockElementToText = (
       return element.content
         .map((el) => `    ${blockElementToText(el, null)}`)
         .join("\n\n");
+    case "list":
+      return listToText(element, 0, element.start ?? 1);
   }
+};
+
+const listToText = (
+  list: import("./types.js").List,
+  indentLevel: number,
+  startNumber: number,
+): string => {
+  const indent = "  ".repeat(indentLevel);
+  let currentNumber = startNumber;
+  return list.items
+    .map((item) => {
+      const marker = list.ordered ? `${currentNumber++}. ` : "- ";
+      const content = inlineElementsToText(item.content);
+      const nested = item.nestedList
+        ? "\n" +
+          listToText(
+            item.nestedList,
+            indentLevel + 1,
+            item.nestedList.start ?? 1,
+          )
+        : "";
+      return `${indent}${marker}${content}${nested}`;
+    })
+    .join("\n");
 };
 
 const inlineElementsToText = (content: InlineElement[]): string =>

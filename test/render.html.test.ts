@@ -83,6 +83,62 @@ describe("block elements", () => {
     );
   });
 
+  it("renders unordered lists", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "- First", "- Second"),
+    );
+    expect(renderHTML(document)).toContain(
+      "<ul><li>First</li><li>Second</li></ul>",
+    );
+  });
+
+  it("renders ordered lists", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "1. First", "2. Second"),
+    );
+    expect(renderHTML(document)).toContain(
+      "<ol><li>First</li><li>Second</li></ol>",
+    );
+  });
+
+  it("renders ordered lists with custom start attribute", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "5. Fifth", "6. Sixth"),
+    );
+    expect(renderHTML(document)).toContain(
+      '<ol start="5"><li>Fifth</li><li>Sixth</li></ol>',
+    );
+  });
+
+  it("omits start attribute for lists starting at 1", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "1. First", "2. Second"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain("<ol>");
+    expect(html).not.toContain("start=");
+  });
+
+  it("renders nested lists", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "- First", "  - Nested", "- Second"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain(
+      "<ul><li>First<ul><li>Nested</li></ul></li><li>Second</li></ul>",
+    );
+  });
+
+  it("renders mixed nested lists (ordered in unordered)", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "- Item", "  1. Nested ordered"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain(
+      "<ul><li>Item<ol><li>Nested ordered</li></ol></li></ul>",
+    );
+  });
+
   it("renders footnote block with superscript id prefix", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),

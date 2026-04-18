@@ -112,23 +112,27 @@ export default (text: string): RawBlock[] => {
     const lastBlock = blocks.at(-1);
     if (lastBlock && !blankBreak) {
       // Append to current block
+      // For content blocks, preserve original content (including leading/trailing spaces)
+      // to maintain indentation for lists and empty list markers
+      const content = insideContentBlock ? line : trimmed;
       lastBlock.lines.push({
         lineNumber: index,
-        charOffset: line.indexOf(trimmed),
-        content: trimmed,
+        charOffset: insideContentBlock ? 0 : line.indexOf(trimmed),
+        content,
       });
       lastBlock.endLine = index;
     } else {
       // Start a new block (either no block yet, or a blank break occurred)
       blankBreak = false;
+      const content = insideContentBlock ? line : trimmed;
       blocks.push({
         startLine: index,
         endLine: index,
         lines: [
           {
             lineNumber: index,
-            charOffset: line.indexOf(trimmed),
-            content: trimmed,
+            charOffset: insideContentBlock ? 0 : line.indexOf(trimmed),
+            content,
           },
         ],
       });

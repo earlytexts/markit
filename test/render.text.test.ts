@@ -61,6 +61,46 @@ describe("block elements", () => {
     expect(renderText(document)).toContain("    A quote.");
   });
 
+  it("renders unordered list with hyphen markers", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "- First", "- Second"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("- First\n- Second");
+  });
+
+  it("renders ordered list with numbered markers", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "1. First", "2. Second"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("1. First\n2. Second");
+  });
+
+  it("renders ordered list with custom start number", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "5. Fifth", "6. Sixth"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("5. Fifth\n6. Sixth");
+  });
+
+  it("renders nested lists with 2-space indentation", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "- First", "  - Nested", "- Second"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("- First\n  - Nested\n- Second");
+  });
+
+  it("renders mixed nested lists", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "1. Item", "  - Nested unordered"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("1. Item\n  - Nested unordered");
+  });
+
   it("renders footnote block as [^id]: text", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),

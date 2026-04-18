@@ -63,6 +63,23 @@ const blockElementToHTML = (
       return `<blockquote>${element.content
         .map((el) => blockElementToHTML(el, null, depth))
         .join("")}</blockquote>`;
+    case "list": {
+      const tag = element.ordered ? "ol" : "ul";
+      const startAttr =
+        element.ordered && element.start !== undefined
+          ? ` start="${element.start}"`
+          : "";
+      const items = element.items
+        .map((item) => {
+          const content = inlineElementsToHTML(item.content);
+          const nested = item.nestedList
+            ? blockElementToHTML(item.nestedList, null, depth)
+            : "";
+          return `<li>${content}${nested}</li>`;
+        })
+        .join("");
+      return `<${tag}${startAttr}>${items}</${tag}>`;
+    }
   }
 };
 

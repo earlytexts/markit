@@ -4,6 +4,8 @@ import type {
   BlockType,
   Heading,
   HeadingLine,
+  List,
+  ListItem,
   MarkitDocument,
   MarkitError,
   Paragraph,
@@ -12,6 +14,7 @@ import {
   blockquoteSpec,
   endLine,
   footnoteReferenceSpec,
+  listSpec,
   startLine,
 } from "../types.js";
 import classifyBlockLine from "../lib/classifyBlockLine.js";
@@ -120,11 +123,18 @@ const parseBlockLevelElements = (
 
   type HeadingEntry = { level: number; line: Line };
 
+  type ListItemEntry = {
+    indent: number;
+    number: number; // Item number for ordered lists (ignored for unordered)
+    line: Line;
+  };
+
   type State =
     | { kind: "none" }
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
-    | { kind: "heading"; entries: HeadingEntry[] };
+    | { kind: "heading"; entries: HeadingEntry[] }
+    | { kind: "list"; ordered: boolean; items: ListItemEntry[] };
 
   let state: State = { kind: "none" };
 
@@ -193,6 +203,162 @@ const parseBlockLevelElements = (
     }
   };
 
+  const flushList = (ordered: boolean, items: ListItemEntry[]): void => {
+    const list = buildList(ordered, items, footnoteIds, errors, textId);
+    if (list) {
+      elements.push(list);
+    }
+  };
+
+  /**
+   * Build a list from a flat array of list item entries.
+   * Groups items by indent level and builds nested list structure.
+   */
+  const buildList = (
+    ordered: boolean,
+    items: ListItemEntry[],
+    footnoteIds: string[],
+    errors: MarkitError[],
+    textId: string,
+  ): List | null => {
+    if (items.length === 0) return null;
+
+    // Find the minimum indent level (base level for this list)
+    const baseIndent = Math.min(...items.map((item) => item.indent));
+
+    // Extract start number from first item at base indent if ordered and not 1
+    const firstItemAtBase = items.find((item) => item.indent === baseIndent);
+    const start =
+      ordered && firstItemAtBase && firstItemAtBase.number !== 1
+        ? firstItemAtBase.number
+        : undefined;
+
+    // Build list items recursively, handling nesting
+    const listItems = buildListItems(
+      ordered,
+      items,
+      baseIndent,
+      footnoteIds,
+      errors,
+      textId,
+    );
+
+    return {
+      type: "list",
+      ordered,
+      ...(start !== undefined ? { start } : {}),
+      items: listItems,
+    };
+  };
+
+  /**
+   * Recursively build list items, handling nesting by indent level.
+   */
+  const buildListItems = (
+    ordered: boolean,
+    items: ListItemEntry[],
+    baseIndent: number,
+    footnoteIds: string[],
+    errors: MarkitError[],
+    textId: string,
+  ): ListItem[] => {
+    const result: ListItem[] = [];
+    let i = 0;
+
+    while (i < items.length) {
+      const item = items[i]!;
+
+      // Skip items at lower indent (we've moved back to parent level)
+      if (item.indent < baseIndent) {
+        break;
+      }
+
+      // Skip items at deeper indent (they'll be processed as nested lists)
+      if (item.indent > baseIndent) {
+        i++;
+        continue;
+      }
+
+      // Item at current indent level - parse its content
+      const line = item.line;
+      // Strip the list marker prefix (e.g., "- " or "1. ")
+      const markerMatch = ordered
+        ? /^\s*\d+\. /.exec(line.content)
+        : /^\s*- /.exec(line.content);
+      const markerLength = markerMatch ? markerMatch[0].length : 0;
+      const itemText = line.content.slice(markerLength);
+
+      const posMap = buildPositionMap([
+        {
+          lineNumber: line.lineNumber,
+          charOffset: line.charOffset + markerLength,
+          content: itemText,
+        },
+      ]);
+
+      const [inlineContent, inlineErrors] = parseElements(
+        itemText,
+        posMap,
+        footnoteIds,
+        textId,
+      );
+      errors.push(...inlineErrors);
+
+      const listItem: ListItem = {
+        type: "listItem",
+        content: inlineContent,
+      };
+
+      // Check if the next items are nested (deeper indent)
+      if (i + 1 < items.length && items[i + 1]!.indent > baseIndent) {
+        // Find all consecutive items at deeper indents
+        const nestedStart = i + 1;
+        let nestedEnd = i + 1;
+        const nextIndent = items[nestedStart]!.indent;
+        while (
+          nestedEnd < items.length &&
+          items[nestedEnd]!.indent >= nextIndent
+        ) {
+          nestedEnd++;
+        }
+
+        // Take these items and recursively build a nested list
+        const nestedItems = items.slice(nestedStart, nestedEnd);
+        // Detect nested list type from first item at the nested base indent
+        const nestedBaseIndent = Math.min(
+          ...nestedItems.map((item) => item.indent),
+        );
+        const firstNestedItem = nestedItems.find(
+          (item) => item.indent === nestedBaseIndent,
+        );
+        const nestedOrdered = firstNestedItem
+          ? firstNestedItem.number > 0
+          : false;
+
+        const nestedList = buildList(
+          nestedOrdered,
+          nestedItems,
+          footnoteIds,
+          errors,
+          textId,
+        );
+
+        if (nestedList) {
+          listItem.nestedList = nestedList;
+        }
+
+        // Skip past the nested items
+        i = nestedEnd;
+      } else {
+        i++;
+      }
+
+      result.push(listItem);
+    }
+
+    return result;
+  };
+
   const flush = (): void => {
     if (state.kind === "paragraph") {
       flushParagraph(state.lines);
@@ -200,6 +366,8 @@ const parseBlockLevelElements = (
       flushBlockquote(state.lines);
     } else if (state.kind === "heading") {
       flushHeading(state.entries);
+    } else if (state.kind === "list") {
+      flushList(state.ordered, state.items);
     }
     state = { kind: "none" };
   };
@@ -273,6 +441,86 @@ const parseBlockLevelElements = (
         state = { kind: "blockquote", lines: [line] };
       } else {
         state.lines.push(line);
+      }
+      continue;
+    }
+
+    // Unordered list item
+    if (classification.kind === "unorderedListItem") {
+      const { indent } = classification;
+      // Validate indent is a multiple of indentSize
+      if (indent % listSpec.indentSize !== 0) {
+        flush();
+        errors.push({
+          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          line: line.lineNumber + 1,
+          column: line.charOffset + 1,
+          endLine: line.lineNumber + 1,
+          endColumn: line.charOffset + indent + 1,
+          severity: "error",
+        });
+        continue;
+      }
+      // If we're in a list state and this item is at base indent (0),
+      // check if type matches. If not, flush and start new list.
+      if (state.kind === "list") {
+        if (indent === 0 && state.ordered) {
+          flush();
+          state = {
+            kind: "list",
+            ordered: false,
+            items: [{ indent, number: 0, line }],
+          };
+        } else {
+          state.items.push({ indent, number: 0, line });
+        }
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: false,
+          items: [{ indent, number: 0, line }],
+        };
+      }
+      continue;
+    }
+
+    // Ordered list item
+    if (classification.kind === "orderedListItem") {
+      const { indent, number } = classification;
+      // Validate indent is a multiple of indentSize
+      if (indent % listSpec.indentSize !== 0) {
+        flush();
+        errors.push({
+          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          line: line.lineNumber + 1,
+          column: line.charOffset + 1,
+          endLine: line.lineNumber + 1,
+          endColumn: line.charOffset + indent + 1,
+          severity: "error",
+        });
+        continue;
+      }
+      // If we're in a list state and this item is at base indent (0),
+      // check if type matches. If not, flush and start new list.
+      if (state.kind === "list") {
+        if (indent === 0 && !state.ordered) {
+          flush();
+          state = {
+            kind: "list",
+            ordered: true,
+            items: [{ indent, number, line }],
+          };
+        } else {
+          state.items.push({ indent, number, line });
+        }
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: true,
+          items: [{ indent, number, line }],
+        };
       }
       continue;
     }

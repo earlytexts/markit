@@ -3,6 +3,8 @@ import type {
   InlineElement,
   Heading,
   HeadingLine,
+  List,
+  ListItem,
   Paragraph,
   PlainText,
 } from "../../src/types.js";
@@ -37,6 +39,23 @@ export const hl = (level: number, content: InlineElement[]): HeadingLine => ({
 export const bq = (content: Paragraph[]): Blockquote => ({
   type: "blockquote",
   content,
+});
+
+export const list = (
+  ordered: boolean,
+  items: ListItem[],
+  start?: number,
+): List => ({
+  type: "list",
+  ordered,
+  items,
+  ...(start !== undefined ? { start } : {}),
+});
+
+export const li = (content: InlineElement[], nestedList?: List): ListItem => ({
+  type: "listItem",
+  content,
+  ...(nestedList !== undefined ? { nestedList } : {}),
 });
 
 export const pt = (text: string): PlainText => ({
