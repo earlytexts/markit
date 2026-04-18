@@ -1,7 +1,7 @@
 {
   "chat.tools.terminal.autoApprove": {
-    "npx vitest": true,
     "npm run format": true,
+    "npx vitest": true,
     "npm run test": true,
     "npm run test:coverage": true
   }
