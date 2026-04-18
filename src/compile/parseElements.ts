@@ -6,11 +6,9 @@ import {
   wrapperElements,
 } from "../types.js";
 import type { PositionInfo } from "./buildPositionMap.js";
-import makeError from "./makeError.js";
-import {
-  processCharacterMode,
-  processGreekMode,
-} from "./transliterateGreek.js";
+import makeError from "../lib/makeError.js";
+import processGreekMode from "./greekMode.js";
+import processCharacterMode from "./characterMode.js";
 
 export default (
   input: string,

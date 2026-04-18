@@ -18,6 +18,23 @@ Example: [example.mit](../docs/example.mit)
 - [src/renderText.ts](../src/renderText.ts): Converts compiler output to plain text
 - [vscode-markit/](../vscode-markit/): VS Code LSP extension — thin wrapper, delegates to core, has no tests
 
+## Source Code Organization
+
+The `src/` directory is organized to separate public API from implementation details:
+
+```
+src/
+├── lib/           # Shared utilities used by multiple modules
+├── compile/       # Compiler pipeline implementation
+├── format/        # Formatter state machine implementation
+├── compile.ts     # Public API: compilation function (orchestration only)
+├── format.ts      # Public API: autoformatting function (orchestration only)
+├── renderHTML.ts  # Public API: HTML rendering (self-contained)
+├── renderText.ts  # Public API: text rendering (self-contained)
+├── types.ts       # Public API: language definition (types, grammar constants)
+└── index.ts       # Public API entry point (re-exports)
+```
+
 ## Source Code Conventions
 
 - **TypeScript strict**: all options on; `noUncheckedIndexedAccess` means array access may be undefined

@@ -1,4 +1,4 @@
-import { findClosingBrace, splitTopLevelCommas } from "../blockTagLexer.js";
+import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.js";
 import { emitBlank, emitLine, flushContent } from "./helpers.js";
 import type { State } from "./types.js";
 

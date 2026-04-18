@@ -1,5 +1,5 @@
 import type { MarkitError } from "../types.js";
-import makeError from "./makeError.js";
+import makeError from "../lib/makeError.js";
 import type { RawBlock } from "./splitIntoBlocks.js";
 
 /**
