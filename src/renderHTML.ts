@@ -80,6 +80,28 @@ const blockElementToHTML = (
         .join("");
       return `<${tag}${startAttr}>${items}</${tag}>`;
     }
+    case "table": {
+      const headerRow =
+        element.hasHeader && element.rows.length > 0 ? element.rows[0] : null;
+      const dataRows = element.hasHeader ? element.rows.slice(1) : element.rows;
+
+      const theadHTML = headerRow
+        ? `<thead><tr>${headerRow.cells
+            .map((cell) => `<th>${inlineElementsToHTML(cell.content)}</th>`)
+            .join("")}</tr></thead>`
+        : "";
+
+      const tbodyHTML = `<tbody>${dataRows
+        .map(
+          (row) =>
+            `<tr>${row.cells
+              .map((cell) => `<td>${inlineElementsToHTML(cell.content)}</td>`)
+              .join("")}</tr>`,
+        )
+        .join("")}</tbody>`;
+
+      return `<table>${theadHTML}${tbodyHTML}</table>`;
+    }
   }
 };
 

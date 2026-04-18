@@ -49,6 +49,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   let listLines: string[] = [];
   let listOrdered: boolean = false;
   let listStart: number | undefined = undefined;
+  let tableLines: string[] = [];
 
   const flushParagraph = (): void => {
     if (paragraphLines.length === 0) return;
@@ -149,19 +150,14 @@ const extractBlockElements = (buffer: string[]): string[] => {
         numberStack.splice(level + 1);
       } else {
         // Unordered list item
-        const unorderedMatch = /^(\s*)- (.+)$/.exec(line);
-        if (unorderedMatch) {
-          const indent = unorderedMatch[1]!.length;
-          const content = unorderedMatch[2]!;
+        const unorderedMatch = /^(\s*)- (.+)$/.exec(line)!;
+        const indent = unorderedMatch[1]!.length;
+        const content = unorderedMatch[2]!;
 
-          // Get normalized level
-          const level = indentToLevel.get(indent) ?? 0;
+        // Get normalized level
+        const level = indentToLevel.get(indent) ?? 0;
 
-          processedLines.push(`${"  ".repeat(level)}- ${content}`);
-        } else {
-          // Shouldn't happen, but preserve as-is if we can't parse
-          processedLines.push(line);
-        }
+        processedLines.push(`${"  ".repeat(level)}- ${content}`);
       }
     }
 
@@ -169,6 +165,76 @@ const extractBlockElements = (buffer: string[]): string[] => {
     listLines = [];
     listOrdered = false;
     listStart = undefined;
+  };
+
+  const flushTable = (): void => {
+    if (tableLines.length === 0) return;
+    // Add blank line before table if needed
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+
+    // Parse table rows and calculate column widths
+    const rows: { cells: string[]; isSeparator: boolean }[] = tableLines.map(
+      (line) => {
+        const trimmed = line.trim();
+        // Check if it's a separator row
+        const isSeparator = /^\|?\s*-+\s*(\|\s*-+\s*)*\|?\s*$/.test(trimmed);
+
+        // Split by | and remove leading/trailing empty parts
+        let parts = trimmed.split("|");
+        if (parts.length > 0 && parts[0] === "") {
+          parts.shift();
+        }
+        if (parts.length > 0 && parts[parts.length - 1] === "") {
+          parts.pop();
+        }
+
+        const cells = parts.map((cell) => cell.trim());
+        return { cells, isSeparator };
+      },
+    );
+
+    // Find maximum column count
+    const maxColumns = Math.max(
+      ...rows.map((row) => (row.isSeparator ? 0 : row.cells.length)),
+      0,
+    );
+
+    // Calculate column widths (maximum width for each column)
+    const columnWidths: number[] = new Array(maxColumns).fill(0);
+    for (const row of rows) {
+      if (!row.isSeparator) {
+        for (let i = 0; i < row.cells.length; i++) {
+          columnWidths[i] = Math.max(columnWidths[i]!, row.cells[i]!.length);
+        }
+      }
+    }
+
+    // Format each row
+    for (const row of rows) {
+      if (row.isSeparator) {
+        // Format separator row - fill column width plus spaces with dashes
+        const separatorCells = columnWidths.map((width) =>
+          "-".repeat(width + 2),
+        );
+        output.push(`|${separatorCells.join("|")}|`);
+      } else {
+        // Format data row with padding
+        const paddedCells = row.cells.map((cell, i) => {
+          const width = columnWidths[i] ?? 0;
+          return cell.padEnd(width, " ");
+        });
+        // Add empty cells for missing columns
+        while (paddedCells.length < maxColumns) {
+          const width = columnWidths[paddedCells.length] ?? 0;
+          paddedCells.push("".padEnd(width, " "));
+        }
+        output.push(`|${paddedCells.map((cell) => ` ${cell} `).join("|")}|`);
+      }
+    }
+
+    tableLines = [];
   };
 
   for (let i = 0; i < buffer.length; i++) {
@@ -183,6 +249,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushBlockquote();
       flushHeading();
       flushList();
+      flushTable();
       // Only emit a blank line if we've already output something
       if (output.length > 0 && output.at(-1) !== "") {
         output.push("");
@@ -195,6 +262,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushBlockquote();
       flushList();
+      flushTable();
       headingLines.push(trimmed);
       continue;
     }
@@ -204,6 +272,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushList();
+      flushTable();
       const inner = trimmed.slice(1).trim();
       if (inner) {
         blockquoteLines.push(inner);
@@ -219,6 +288,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushTable();
       // If we were accumulating an ordered list at base indent, flush it first
       if (listLines.length > 0 && listOrdered && classification.indent === 0) {
         flushList();
@@ -235,6 +305,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushTable();
       // If we were accumulating an unordered list at base indent, flush it first
       if (listLines.length > 0 && !listOrdered && classification.indent === 0) {
         flushList();
@@ -249,11 +320,25 @@ const extractBlockElements = (buffer: string[]): string[] => {
       continue;
     }
 
+    // Table row or separator
+    if (
+      classification.kind === "tableRow" ||
+      classification.kind === "tableSeparator"
+    ) {
+      flushParagraph();
+      flushHeading();
+      flushBlockquote();
+      flushList();
+      tableLines.push(line);
+      continue;
+    }
+
     // Regular content line (paragraph) — also handles invalid heading variants
     // Invalid headings and headings without level are treated as regular content
     flushBlockquote();
     flushHeading();
     flushList();
+    flushTable();
     // Add blank line before paragraph if we already have content
     if (
       paragraphLines.length === 0 &&
@@ -269,6 +354,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   flushBlockquote();
   flushHeading();
   flushList();
+  flushTable();
 
   // Strip any trailing blank or bare blockquote separator lines
   while (output.at(-1) === "" || output.at(-1) === ">") output.pop();

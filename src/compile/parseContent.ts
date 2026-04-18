@@ -9,6 +9,9 @@ import type {
   MarkitDocument,
   MarkitError,
   Paragraph,
+  Table,
+  TableCell,
+  TableRow,
 } from "../types.js";
 import {
   blockquoteSpec,
@@ -16,6 +19,7 @@ import {
   footnoteReferenceSpec,
   listSpec,
   startLine,
+  tableSpec,
 } from "../types.js";
 import classifyBlockLine from "../lib/classifyBlockLine.js";
 import buildPositionMap from "./buildPositionMap.js";
@@ -129,12 +133,15 @@ const parseBlockLevelElements = (
     line: Line;
   };
 
+  type TableRowEntry = { line: Line; isSeparator: boolean };
+
   type State =
     | { kind: "none" }
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
     | { kind: "heading"; entries: HeadingEntry[] }
-    | { kind: "list"; ordered: boolean; items: ListItemEntry[] };
+    | { kind: "list"; ordered: boolean; items: ListItemEntry[] }
+    | { kind: "table"; rows: TableRowEntry[] };
 
   let state: State = { kind: "none" };
 
@@ -210,6 +217,13 @@ const parseBlockLevelElements = (
     }
   };
 
+  const flushTable = (tableRows: TableRowEntry[]): void => {
+    const table = buildTable(tableRows, footnoteIds, errors, textId);
+    if (table) {
+      elements.push(table);
+    }
+  };
+
   /**
    * Build a list from a flat array of list item entries.
    * Groups items by indent level and builds nested list structure.
@@ -267,11 +281,6 @@ const parseBlockLevelElements = (
 
     while (i < items.length) {
       const item = items[i]!;
-
-      // Skip items at lower indent (we've moved back to parent level)
-      if (item.indent < baseIndent) {
-        break;
-      }
 
       // Skip items at deeper indent (they'll be processed as nested lists)
       if (item.indent > baseIndent) {
@@ -368,6 +377,8 @@ const parseBlockLevelElements = (
       flushHeading(state.entries);
     } else if (state.kind === "list") {
       flushList(state.ordered, state.items);
+    } else if (state.kind === "table") {
+      flushTable(state.rows);
     }
     state = { kind: "none" };
   };
@@ -525,6 +536,28 @@ const parseBlockLevelElements = (
       continue;
     }
 
+    // Table separator row
+    if (classification.kind === "tableSeparator") {
+      if (state.kind === "table") {
+        state.rows.push({ line, isSeparator: true });
+      } else {
+        flush();
+        state = { kind: "table", rows: [{ line, isSeparator: true }] };
+      }
+      continue;
+    }
+
+    // Table row
+    if (classification.kind === "tableRow") {
+      if (state.kind === "table") {
+        state.rows.push({ line, isSeparator: false });
+      } else {
+        flush();
+        state = { kind: "table", rows: [{ line, isSeparator: false }] };
+      }
+      continue;
+    }
+
     // Regular content line → paragraph
     if (state.kind !== "none" && state.kind !== "paragraph") {
       flush();
@@ -569,4 +602,138 @@ const buildParagraph = (
   errors.push(...inlineErrors);
 
   return { type: "paragraph", content: inlineContent };
+};
+
+/**
+ * Build a table from table row entries.
+ * Handles separator detection, cell parsing, and column normalization.
+ */
+const buildTable = (
+  rowEntries: { line: Line; isSeparator: boolean }[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): Table | null => {
+  if (rowEntries.length === 0) return null;
+
+  // Find separator row index (if any)
+  const separatorIndex = rowEntries.findIndex((entry) => entry.isSeparator);
+  const hasHeader = separatorIndex === 1; // Header requires separator at index 1
+
+  // Filter out separator rows from the data
+  const dataRows = rowEntries.filter((entry) => !entry.isSeparator);
+
+  if (dataRows.length === 0) return null;
+
+  // Parse each row into cells
+  const parsedRows: TableRow[] = dataRows.map((entry) =>
+    parseTableRow(entry.line, footnoteIds, errors, textId),
+  );
+
+  // Find maximum column count
+  const maxColumns = Math.max(...parsedRows.map((row) => row.cells.length), 0);
+
+  // Normalize rows: add empty cells to rows with fewer columns
+  parsedRows.forEach((row, rowIndex) => {
+    const rowLineNumber = dataRows[rowIndex]!.line.lineNumber;
+    if (row.cells.length < maxColumns) {
+      // Emit warning for inconsistent column count
+      if (row.cells.length > 0) {
+        errors.push({
+          message: `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
+          line: rowLineNumber + 1,
+          column: 1,
+          endLine: rowLineNumber + 1,
+          endColumn: dataRows[rowIndex]!.line.content.length + 1,
+          severity: "warning",
+        });
+      }
+      // Add empty cells
+      while (row.cells.length < maxColumns) {
+        row.cells.push({ type: "tableCell", content: [] });
+      }
+    }
+  });
+
+  // Warn if separator exists but not in correct position
+  if (separatorIndex !== -1 && separatorIndex !== 1) {
+    const sepLine = rowEntries[separatorIndex]!.line;
+    errors.push({
+      message:
+        "Table separator row should be the second row to define headers.",
+      line: sepLine.lineNumber + 1,
+      column: 1,
+      endLine: sepLine.lineNumber + 1,
+      endColumn: sepLine.content.length + 1,
+      severity: "warning",
+    });
+  }
+
+  return {
+    type: "table",
+    hasHeader,
+    rows: parsedRows,
+  };
+};
+
+/**
+ * Parse a single table row into cells.
+ */
+const parseTableRow = (
+  line: Line,
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): TableRow => {
+  const content = line.content.trim();
+
+  // Split by | and remove leading/trailing empty strings from optional leading/trailing pipes
+  let parts = content.split(tableSpec.cellDelimiter);
+
+  // Remove leading empty part if line starts with |
+  if (parts.length > 0 && parts[0] === "") {
+    parts.shift();
+  }
+
+  // Remove trailing empty part if line ends with |
+  if (parts.length > 0 && parts[parts.length - 1] === "") {
+    parts.pop();
+  }
+
+  // Parse each cell
+  const cells: TableCell[] = parts.map((cellText, cellIndex) => {
+    const trimmed = cellText.trim();
+
+    if (trimmed === "") {
+      return { type: "tableCell", content: [] };
+    }
+
+    // Calculate char offset for this cell
+    const cellStart = content.indexOf(
+      cellText,
+      cellIndex === 0 ? 0 : undefined,
+    );
+    const trimStart = cellText.indexOf(trimmed);
+    const charOffset = line.charOffset + cellStart + trimStart;
+
+    const posMap = buildPositionMap([
+      {
+        lineNumber: line.lineNumber,
+        charOffset,
+        content: trimmed,
+      },
+    ]);
+
+    const [inlineContent, inlineErrors] = parseElements(
+      trimmed,
+      posMap,
+      footnoteIds,
+      textId,
+    );
+    errors.push(...inlineErrors);
+
+    return { type: "tableCell", content: inlineContent };
+  });
+
+  return { type: "tableRow", cells };
 };

@@ -139,6 +139,56 @@ describe("block elements", () => {
     );
   });
 
+  it("renders tables without headers", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "| A | B |", "| C | D |"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain("<table>");
+    expect(html).toContain("<tbody>");
+    expect(html).not.toContain("<thead>");
+    expect(html).toContain("<tr><td>A</td><td>B</td></tr>");
+    expect(html).toContain("<tr><td>C</td><td>D</td></tr>");
+    expect(html).toContain("</tbody></table>");
+  });
+
+  it("renders tables with headers", () => {
+    const [document] = compile(
+      markitWithContent(
+        "{#1}",
+        "| Header 1 | Header 2 |",
+        "|----------|----------|",
+        "| Cell 1 | Cell 2 |",
+      ),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain("<table>");
+    expect(html).toContain("<thead>");
+    expect(html).toContain("<tbody>");
+    expect(html).toContain("<tr><th>Header 1</th><th>Header 2</th></tr>");
+    expect(html).toContain("</thead>");
+    expect(html).toContain("<tr><td>Cell 1</td><td>Cell 2</td></tr>");
+    expect(html).toContain("</tbody></table>");
+  });
+
+  it("renders tables with empty cells", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "| A |  |", "|  | D |"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain("<td>A</td><td></td>");
+    expect(html).toContain("<td></td><td>D</td>");
+  });
+
+  it("renders tables with inline formatting in cells", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "| *Bold* | _Italic_ |"),
+    );
+    const html = renderHTML(document);
+    expect(html).toContain("<td><strong>Bold</strong></td>");
+    expect(html).toContain("<td><em>Italic</em></td>");
+  });
+
   it("renders footnote block with superscript id prefix", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),

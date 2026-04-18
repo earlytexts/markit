@@ -52,7 +52,7 @@ export type Block = {
 } & Ranges;
 
 // Block-level element types
-export type BlockElement = Heading | Paragraph | Blockquote | List;
+export type BlockElement = Heading | Paragraph | Blockquote | List | Table;
 
 export type Heading = {
   type: "heading";
@@ -88,6 +88,22 @@ export type ListItem = {
   nestedList?: List;
 };
 
+export type Table = {
+  type: "table";
+  hasHeader: boolean;
+  rows: TableRow[];
+};
+
+export type TableRow = {
+  type: "tableRow";
+  cells: TableCell[];
+};
+
+export type TableCell = {
+  type: "tableCell";
+  content: InlineElement[];
+};
+
 export const headingSpec = {
   marker: "^",
   minLevel: 1,
@@ -102,6 +118,11 @@ export const listSpec = {
   unorderedMarker: "-",
   orderedMarker: ".",
   indentSize: 2,
+} as const;
+
+export const tableSpec = {
+  cellDelimiter: "|",
+  separatorPattern: /^\s*\|?\s*-+\s*(\|\s*-+\s*)*\|?\s*$/,
 } as const;
 
 // Inline element types

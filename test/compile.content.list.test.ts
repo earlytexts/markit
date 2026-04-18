@@ -334,5 +334,54 @@ describe("List compilation", () => {
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.start).toBe(100);
     });
+
+    it("separates unordered and ordered lists at base level", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- Unordered item",
+        "1. Ordered item",
+      );
+      const [result, errors] = compile(input);
+      expect(errors).toEqual([]);
+      expect(result.blocks[0]!.content).toHaveLength(2);
+      expect(result.blocks[0]!.content[0]!.type).toBe("list");
+      const unorderedList = result.blocks[0]!.content[0] as any;
+      expect(unorderedList.ordered).toBe(false);
+      const orderedList = result.blocks[0]!.content[1] as any;
+      expect(orderedList.ordered).toBe(true);
+    });
+
+    it("handles irregular nesting with skipped indent levels", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- Base",
+        "      - Deep nested (6 spaces)",
+        "  - Medium nested (2 spaces)",
+      );
+      const [result] = compile(input);
+      const listElement = result.blocks[0]!.content[0] as any;
+      expect(listElement.type).toBe("list");
+      // All nested items should be in a nested list
+      expect(listElement.items[0]!.nestedList).toBeDefined();
+    });
+
+    it("handles deeply nested lists returning to base level", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- Base 1",
+        "  - Nested",
+        "    - Deeply nested",
+        "- Base 2",
+      );
+      const [result] = compile(input);
+      const listElement = result.blocks[0]!.content[0] as any;
+      expect(listElement.items).toHaveLength(2);
+      expect(listElement.items[0]!.content).toEqual([pt("Base 1")]);
+      expect(listElement.items[1]!.content).toEqual([pt("Base 2")]);
+      // Verify the nested structure exists
+      expect(listElement.items[0]!.nestedList).toBeDefined();
+      const nested = listElement.items[0]!.nestedList;
+      expect(nested.items[0]!.nestedList).toBeDefined();
+    });
   });
 });

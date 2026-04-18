@@ -657,6 +657,146 @@ describe("formatter", () => {
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
+
+    it("adds blank lines between unordered and ordered lists", () => {
+      const input = markitWithContent("{#1}", "- Unordered", "1. Ordered");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "- Unordered", "", "1. Ordered"),
+      );
+    });
+
+    it("adds blank lines between ordered and unordered lists", () => {
+      const input = markitWithContent("{#1}", "1. Ordered", "- Unordered");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "1. Ordered", "", "- Unordered"),
+      );
+    });
+  });
+
+  describe("table formatting", () => {
+    it("aligns table columns and adds leading/trailing pipes", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Name | Age |",
+        "| Alice | 30 |",
+        "| Bob | 25 |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Name  | Age |",
+          "| Alice | 30  |",
+          "| Bob   | 25  |",
+        ),
+      );
+    });
+
+    it("normalizes tables without leading pipes", () => {
+      const input = markitWithContent("{#1}", "Name | Age |", "Alice | 30 |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| Name  | Age |", "| Alice | 30  |"),
+      );
+    });
+
+    it("normalizes tables without trailing pipes", () => {
+      const input = markitWithContent("{#1}", "| Name | Age", "| Alice | 30");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| Name  | Age |", "| Alice | 30  |"),
+      );
+    });
+
+    it("aligns tables with headers and separator rows", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Header 1 | Header 2 |",
+        "|---|---|",
+        "| Cell | Data |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Header 1 | Header 2 |",
+          "|----------|----------|",
+          "| Cell     | Data     |",
+        ),
+      );
+    });
+
+    it("handles empty cells in alignment", () => {
+      const input = markitWithContent("{#1}", "| A |  | C |", "|  | B |  |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| A |   | C |", "|   | B |   |"),
+      );
+    });
+
+    it("adds blank lines before and after tables", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "A paragraph.",
+        "| Cell 1 | Cell 2 |",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "A paragraph.",
+          "",
+          "| Cell 1 | Cell 2 |",
+          "",
+          "More text.",
+        ),
+      );
+    });
+
+    it("preserves blank lines between separate tables", () => {
+      const input = markitWithContent("{#1}", "| A | B |", "", "| C | D |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| A | B |", "", "| C | D |"),
+      );
+    });
+
+    it("handles tables with varying cell content lengths", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Short | VeryLongContent |",
+        "| VeryLongContent | Short |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Short           | VeryLongContent |",
+          "| VeryLongContent | Short           |",
+        ),
+      );
+    });
+
+    it("normalizes tables with uneven row lengths", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| A | B | C |",
+        "| D | E |",
+        "| F |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| A | B | C |",
+          "| D | E |   |",
+          "| F |   |   |",
+        ),
+      );
+    });
   });
 
   describe("inline content normalization", () => {

@@ -7,6 +7,9 @@ import type {
   ListItem,
   Paragraph,
   PlainText,
+  Table,
+  TableRow,
+  TableCell,
 } from "../../src/types.js";
 
 export const markit = (...lines: string[]): string => lines.join("\n");
@@ -56,6 +59,22 @@ export const li = (content: InlineElement[], nestedList?: List): ListItem => ({
   type: "listItem",
   content,
   ...(nestedList !== undefined ? { nestedList } : {}),
+});
+
+export const table = (rows: TableRow[], hasHeader: boolean): Table => ({
+  type: "table",
+  hasHeader,
+  rows,
+});
+
+export const tr = (cells: TableCell[]): TableRow => ({
+  type: "tableRow",
+  cells,
+});
+
+export const tc = (content: InlineElement[]): TableCell => ({
+  type: "tableCell",
+  content,
 });
 
 export const pt = (text: string): PlainText => ({

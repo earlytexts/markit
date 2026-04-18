@@ -39,7 +39,19 @@ const blockElementToText = (
         .join("\n\n");
     case "list":
       return listToText(element, 0, element.start ?? 1);
+    case "table":
+      return tableToText(element);
   }
+};
+
+const tableToText = (table: import("./types.js").Table): string => {
+  // Render table as plain text with simple formatting
+  return table.rows
+    .map((row) => {
+      const cells = row.cells.map((cell) => inlineElementsToText(cell.content));
+      return cells.join(" | ");
+    })
+    .join("\n");
 };
 
 const listToText = (

@@ -1,4 +1,4 @@
-import { blockquoteSpec, headingSpec, listSpec } from "../types.js";
+import { blockquoteSpec, headingSpec, listSpec, tableSpec } from "../types.js";
 
 /**
  * Classification result for a line of block-level content.
@@ -13,6 +13,8 @@ export type BlockLineKind =
   | { kind: "blockquote" }
   | { kind: "unorderedListItem"; indent: number }
   | { kind: "orderedListItem"; indent: number; number: number }
+  | { kind: "tableRow" }
+  | { kind: "tableSeparator" }
   | { kind: "paragraph" };
 
 /**
@@ -68,6 +70,19 @@ export default (content: string): BlockLineKind => {
     const indent = orderedMatch[1]!.length;
     const number = parseInt(orderedMatch[2]!, 10);
     return { kind: "orderedListItem", indent, number };
+  }
+
+  // Table separator row: contains only dashes and pipes
+  if (tableSpec.separatorPattern.test(content)) {
+    return { kind: "tableSeparator" };
+  }
+
+  // Table row: line must start or end with | (after trimming), or have | with surrounding whitespace
+  // This distinguishes tables from inline pageBreak syntax (|| or |ref|) which appears mid-paragraph
+  const trimmed = content.trim();
+  if (trimmed.startsWith("|") || trimmed.endsWith("|")) {
+    // Looks like a table row with proper formatting
+    return { kind: "tableRow" };
   }
 
   // Everything else is a paragraph

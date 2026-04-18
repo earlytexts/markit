@@ -101,6 +101,29 @@ describe("block elements", () => {
     expect(text).toContain("1. Item\n  - Nested unordered");
   });
 
+  it("renders table rows with pipe separators", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "| A | B |", "| C | D |"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("A | B");
+    expect(text).toContain("C | D");
+  });
+
+  it("renders table with header", () => {
+    const [document] = compile(
+      markitWithContent(
+        "{#1}",
+        "| Header 1 | Header 2 |",
+        "|----------|----------|",
+        "| Cell 1 | Cell 2 |",
+      ),
+    );
+    const text = renderText(document);
+    expect(text).toContain("Header 1 | Header 2");
+    expect(text).toContain("Cell 1 | Cell 2");
+  });
+
   it("renders footnote block as [^id]: text", () => {
     const [document] = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
