@@ -2,7 +2,7 @@
   "name": "vscode-markit",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Texts)",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "repository": {
     "url": "https://github.com/earlytexts/markit"
   },
