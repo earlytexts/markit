@@ -1,8 +1,8 @@
-import { findClosingBrace, splitTopLevelCommas } from "../blockTagLexer.js";
+import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.js";
 import type { MarkitError, Metadata, MetadataValue } from "../types.js";
 import { endLine, footnoteReferenceSpec, startLine } from "../types.js";
 import type { TextTree } from "./generateTextTree.js";
-import makeError from "./makeError.js";
+import makeError from "../lib/makeError.js";
 import parseMetadataValue from "./parseMetadataValue.js";
 import type { Line, RawBlock } from "./splitIntoBlocks.js";
 

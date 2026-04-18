@@ -1,3 +1,4 @@
+import classifyBlockLine from "../lib/classifyBlockLine.js";
 import type { State } from "./types.js";
 
 // Emit the given line
@@ -82,9 +83,10 @@ const extractBlockElements = (buffer: string[]): string[] => {
   for (let i = 0; i < buffer.length; i++) {
     const line = buffer[i]!;
     const trimmed = line.trim();
+    const classification = classifyBlockLine(trimmed);
 
     // Blank line — separator between block-level elements
-    if (trimmed === "") {
+    if (classification.kind === "blank") {
       flushParagraph();
       flushBlockquote();
       flushHeading();
@@ -95,16 +97,16 @@ const extractBlockElements = (buffer: string[]): string[] => {
       continue;
     }
 
-    // Heading line: ^ followed by digit 1-6 and a space
-    if (/^\^[1-6] /.test(trimmed)) {
+    // Heading line
+    if (classification.kind === "heading") {
       flushParagraph();
       flushBlockquote();
       headingLines.push(trimmed);
       continue;
     }
 
-    // Blockquote line: starts with >
-    if (trimmed.startsWith(">")) {
+    // Blockquote line
+    if (classification.kind === "blockquote") {
       flushParagraph();
       flushHeading();
       const inner = trimmed.slice(1).trim();
@@ -117,7 +119,8 @@ const extractBlockElements = (buffer: string[]): string[] => {
       continue;
     }
 
-    // Regular content line — accumulate as paragraph
+    // Regular content line (paragraph) — also handles invalid heading variants
+    // Invalid headings and headings without level are treated as regular content
     flushBlockquote();
     flushHeading();
     // Add blank line before paragraph if we already have content

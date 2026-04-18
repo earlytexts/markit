@@ -14,6 +14,7 @@ import {
   footnoteReferenceSpec,
   startLine,
 } from "../types.js";
+import classifyBlockLine from "../lib/classifyBlockLine.js";
 import buildPositionMap from "./buildPositionMap.js";
 import parseElements from "./parseElements.js";
 import type { Line } from "./splitIntoBlocks.js";
@@ -205,16 +206,16 @@ const parseBlockLevelElements = (
 
   for (const line of lines) {
     const content = line.content;
+    const classification = classifyBlockLine(content);
 
     // Blank line
-    if (content === "") {
+    if (classification.kind === "blank") {
       flush();
       continue;
     }
 
-    // Heading line with invalid level (digit > 6)
-    const invalidLevelMatch = /^\^([7-9]) /.exec(content);
-    if (invalidLevelMatch) {
+    // Heading line with invalid level
+    if (classification.kind === "invalidHeading") {
       flush();
       errors.push({
         message: "Heading level must be between 1 and 6.",
@@ -228,7 +229,7 @@ const parseBlockLevelElements = (
     }
 
     // Heading marker without a level digit
-    if (/^\^ /.test(content)) {
+    if (classification.kind === "headingWithoutLevel") {
       flush();
       errors.push({
         message: "Heading must be given a level between 1 and 6.",
@@ -241,9 +242,8 @@ const parseBlockLevelElements = (
       continue;
     }
 
-    // Heading line: ^ followed by a digit 1-6 and a space
-    const headingMatch = /^\^([1-6]) /.exec(content);
-    if (headingMatch) {
+    // Valid heading line
+    if (classification.kind === "heading") {
       if (!allowHeadings) {
         flush();
         errors.push({
@@ -255,7 +255,7 @@ const parseBlockLevelElements = (
           severity: "error",
         });
       } else {
-        const level = parseInt(headingMatch[1]!, 10);
+        const level = classification.level;
         if (state.kind === "heading") {
           state.entries.push({ level, line });
         } else {
@@ -266,8 +266,8 @@ const parseBlockLevelElements = (
       continue;
     }
 
-    // Blockquote line: starts with >
-    if (content.startsWith(blockquoteSpec.marker)) {
+    // Blockquote line
+    if (classification.kind === "blockquote") {
       if (state.kind !== "blockquote") {
         flush();
         state = { kind: "blockquote", lines: [line] };

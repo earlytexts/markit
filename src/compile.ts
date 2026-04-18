@@ -1,5 +1,5 @@
 import generateTextTree from "./compile/generateTextTree.js";
-import makeError from "./compile/makeError.js";
+import makeError from "./lib/makeError.js";
 import parseContent from "./compile/parseContent.js";
 import parseMetadata from "./compile/parseMetadata.js";
 import splitIntoBlocks from "./compile/splitIntoBlocks.js";
