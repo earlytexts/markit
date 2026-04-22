@@ -543,6 +543,299 @@ describe("formatter", () => {
         ),
       );
     });
+
+    it("preserves verse lines", () => {
+      const input = markitWithContent("{#1}", "* First line", "* Second line");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("adds blank line before verse block", () => {
+      const input = markitWithContent("{#1}", "Prose.", "* Verse line");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "Prose.", "", "* Verse line"),
+      );
+    });
+
+    it("preserves blank line between verse stanzas", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "* Stanza one",
+        "",
+        "* Stanza two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("adds blank line between list and verse when missing", () => {
+      const input = markitWithContent("{#1}", "- List item", "* Verse line");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "- List item", "", "* Verse line"),
+      );
+    });
+
+    it("preserves unordered lists with compact spacing", () => {
+      const input = markitWithContent("{#1}", "- First item", "- Second item");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves ordered lists with compact spacing", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "1. First item",
+        "2. Second item",
+        "3. Third item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("handles ordered list where first item is at a nested indent", () => {
+      const input = markitWithContent("{#1}", "  1. Nested first", "1. Parent");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("renumbers ordered lists starting from first item number", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "5. First item",
+        "7. Second item",
+        "2. Third item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "5. First item",
+          "6. Second item",
+          "7. Third item",
+        ),
+      );
+    });
+
+    it("preserves custom start numbers for ordered lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "5. Fifth item",
+        "8. Sixth item",
+        "3. Seventh item",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "5. Fifth item",
+          "6. Sixth item",
+          "7. Seventh item",
+        ),
+      );
+    });
+
+    it("preserves nested list indentation with 2 spaces", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- First",
+        "  - Nested",
+        "  - Also nested",
+        "- Second",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("normalizes nested list indentation to 2-space increments", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "1. First",
+        "    2. Nested (4 spaces)",
+        "2. Second",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "1. First",
+          "  2. Nested (4 spaces)",
+          "2. Second",
+        ),
+      );
+    });
+
+    it("adds blank lines before and after lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "A paragraph.",
+        "- List item",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "A paragraph.",
+          "",
+          "- List item",
+          "",
+          "More text.",
+        ),
+      );
+    });
+
+    it("preserves blank lines between separate lists", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- First list",
+        "",
+        "- Second list",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("adds blank lines between unordered and ordered lists", () => {
+      const input = markitWithContent("{#1}", "- Unordered", "1. Ordered");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "- Unordered", "", "1. Ordered"),
+      );
+    });
+
+    it("adds blank lines between ordered and unordered lists", () => {
+      const input = markitWithContent("{#1}", "1. Ordered", "- Unordered");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "1. Ordered", "", "- Unordered"),
+      );
+    });
+  });
+
+  describe("table formatting", () => {
+    it("aligns table columns and adds leading/trailing pipes", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Name | Age |",
+        "| Alice | 30 |",
+        "| Bob | 25 |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Name  | Age |",
+          "| Alice | 30  |",
+          "| Bob   | 25  |",
+        ),
+      );
+    });
+
+    it("normalizes tables without leading pipes", () => {
+      const input = markitWithContent("{#1}", "Name | Age |", "Alice | 30 |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| Name  | Age |", "| Alice | 30  |"),
+      );
+    });
+
+    it("normalizes tables without trailing pipes", () => {
+      const input = markitWithContent("{#1}", "| Name | Age", "| Alice | 30");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| Name  | Age |", "| Alice | 30  |"),
+      );
+    });
+
+    it("aligns tables with headers and separator rows", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Header 1 | Header 2 |",
+        "|---|---|",
+        "| Cell | Data |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Header 1 | Header 2 |",
+          "|----------|----------|",
+          "| Cell     | Data     |",
+        ),
+      );
+    });
+
+    it("handles empty cells in alignment", () => {
+      const input = markitWithContent("{#1}", "| A |  | C |", "|  | B |  |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| A |   | C |", "|   | B |   |"),
+      );
+    });
+
+    it("adds blank lines before and after tables", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "A paragraph.",
+        "| Cell 1 | Cell 2 |",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "A paragraph.",
+          "",
+          "| Cell 1 | Cell 2 |",
+          "",
+          "More text.",
+        ),
+      );
+    });
+
+    it("preserves blank lines between separate tables", () => {
+      const input = markitWithContent("{#1}", "| A | B |", "", "| C | D |");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "| A | B |", "", "| C | D |"),
+      );
+    });
+
+    it("handles tables with varying cell content lengths", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| Short | VeryLongContent |",
+        "| VeryLongContent | Short |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| Short           | VeryLongContent |",
+          "| VeryLongContent | Short           |",
+        ),
+      );
+    });
+
+    it("normalizes tables with uneven row lengths", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "| A | B | C |",
+        "| D | E |",
+        "| F |",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent(
+          "{#1}",
+          "| A | B | C |",
+          "| D | E |   |",
+          "| F |   |   |",
+        ),
+      );
+    });
   });
 
   describe("inline content normalization", () => {
@@ -554,23 +847,25 @@ describe("formatter", () => {
       );
     });
 
-    it("inserts a space before '//'", () => {
-      const input = markitWithContent("{#1}", "Line one.//");
+    it("inserts a space before '\\'", () => {
+      const input = markitWithContent("{#1}", "Line one.\\");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1}", "Line one. //"));
+      expect(result).toBe(markitWithContent("{#1}", "Line one. \\"));
     });
 
-    it("inserts a line break after '//'", () => {
-      const input = markitWithContent("{#1}", "Line one. // Line two.");
+    it("inserts a line break after '\\'", () => {
+      const input = markitWithContent("{#1}", "Line one. \\ Line two.");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1}", "Line one. //\nLine two."));
+      expect(result).toBe(
+        markitWithContent("{#1}", "Line one. \\", "Line two."),
+      );
     });
 
     it("handles line breaks inside blockquotes", () => {
-      const input = markitWithContent("{#1}", "> Line one. // Line two.");
+      const input = markitWithContent("{#1}", "> Line one. \\ Line two.");
       const result = formatDocument(input);
       expect(result).toBe(
-        markitWithContent("{#1}", "> Line one. //", "> Line two."),
+        markitWithContent("{#1}", "> Line one. \\", "> Line two."),
       );
     });
 

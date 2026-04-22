@@ -59,18 +59,22 @@ const parseElements = (
       return [result, pos + closeMarker.length];
     }
 
-    // 1. Escape character (suppressed inside language wrappers)
+    // 1. Line break: \ followed by whitespace or end of input
     if (!suppressEscape && input[pos] === "\\") {
-      if (pos + 1 < input.length) {
-        plainTextBuffer += input[pos + 1];
-        pos += 2;
-        continue;
-      } else {
-        // Backslash at end of input - treat as literal
-        plainTextBuffer += "\\";
-        pos++;
+      const next = pos + 1;
+      if (next >= input.length || /\s/.test(input[next]!)) {
+        flushPlainText();
+        result.push({ type: "lineBreak" });
+        pos = next;
         continue;
       }
+    }
+
+    // 2. Escape character (suppressed inside language wrappers)
+    if (!suppressEscape && input[pos] === "\\") {
+      plainTextBuffer += input[pos + 1]!;
+      pos += 2;
+      continue;
     }
 
     // 2. Greek mode: {{...}}
@@ -139,25 +143,25 @@ const parseElements = (
     }
     if (leafMatched) continue;
 
-    // 4. Page break: || (bare) or |ref| (with reference) — only outside language wrappers
-    if (!suppressEscape && input[pos] === "|") {
-      if (input[pos + 1] === "|") {
+    // 4. Page break: /// (bare) or //ref// (with reference)
+    if (!suppressEscape && input.startsWith("//", pos)) {
+      if (input[pos + 2] === "/") {
         flushPlainText();
         result.push({ type: "pageBreak" });
-        pos += 2;
+        pos += 3;
         continue;
       }
-      const closeBarPos = input.indexOf("|", pos + 1);
-      if (closeBarPos !== -1) {
-        const ref = input.slice(pos + 1, closeBarPos);
+      const closePos = input.indexOf("//", pos + 2);
+      if (closePos !== -1) {
+        const ref = input.slice(pos + 2, closePos);
         if (ref.length > 0 && !/\s/.test(ref)) {
           flushPlainText();
           result.push({ type: "pageBreak", ref });
-          pos = closeBarPos + 1;
+          pos = closePos + 2;
           continue;
         }
       }
-      plainTextBuffer += "|";
+      plainTextBuffer += "/";
       pos++;
       continue;
     }

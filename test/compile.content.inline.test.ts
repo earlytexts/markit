@@ -132,7 +132,7 @@ describe("citations", () => {
 describe("editorial marks", () => {
   it("parses editorial deletions ", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "This text has some --deleted content--."),
+      markitWithContent("{#1}", "This text has some [-deleted content-]."),
     );
 
     expect(errors).toHaveLength(0);
@@ -150,7 +150,7 @@ describe("editorial marks", () => {
 
   it("parses editorial insertions", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "This text has some ++inserted content++."),
+      markitWithContent("{#1}", "This text has some [+inserted content+]."),
     );
 
     expect(errors).toHaveLength(0);
@@ -168,7 +168,7 @@ describe("editorial marks", () => {
 
   it("parses uncertain text", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "This text has some ??uncertain content??."),
+      markitWithContent("{#1}", "This text has some [?uncertain content?]."),
     );
 
     expect(errors).toHaveLength(0);
@@ -184,27 +184,9 @@ describe("editorial marks", () => {
     ]);
   });
 
-  it("parses editorial highlights", () => {
-    const [document, errors] = compile(
-      markitWithContent("{#1}", "This text has some ==highlighted content==."),
-    );
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([
-      p([
-        pt("This text has some "),
-        {
-          type: "highlight",
-          content: [pt("highlighted content")],
-        },
-        pt("."),
-      ]),
-    ]);
-  });
-
   it("parses illegible markers", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "This is a quote with ??? illegible text."),
+      markitWithContent("{#1}", "This is a quote with [...] illegible text."),
     );
 
     expect(errors).toHaveLength(0);
@@ -221,7 +203,7 @@ describe("editorial marks", () => {
 describe("speakers", () => {
   it("parses speakers", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "%Speaker.% This is a line of dialogue."),
+      markitWithContent("{#1}", "@Speaker.@ This is a line of dialogue."),
     );
 
     expect(errors).toHaveLength(0);
@@ -239,7 +221,7 @@ describe("asides", () => {
     const [document, errors] = compile(
       markitWithContent(
         "{#1}",
-        "This is an example of an aside. @in the margin@",
+        "This is an example of an aside. #in the margin#",
       ),
     );
 
@@ -258,7 +240,7 @@ describe("whitespace and line breaks", () => {
     const [document, errors] = compile(
       markitWithContent(
         "{#1}",
-        "This is the first line. //",
+        "This is the first line. \\",
         "This is the second line.",
       ),
     );
@@ -303,11 +285,14 @@ describe("whitespace and line breaks", () => {
   });
 
   it("removes leading whitespace-only plainText inside wrapper content", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "* //text*"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "x *\\ text*"),
+    );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
       p([
+        pt("x "),
         {
           type: "strong",
           content: [{ type: "lineBreak" }, pt("text")],
@@ -317,7 +302,7 @@ describe("whitespace and line breaks", () => {
   });
 
   it("removes trailing whitespace-only plainText inside wrapper content", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "*text// *"));
+    const [document, errors] = compile(markitWithContent("{#1}", "*text\\ *"));
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
@@ -331,7 +316,9 @@ describe("whitespace and line breaks", () => {
   });
 
   it("removes whitespace-only plainText before line break", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "*x* //more"));
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "*x* \\ more"),
+    );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
@@ -344,7 +331,7 @@ describe("whitespace and line breaks", () => {
   });
 
   it("removes whitespace-only plainText after line break", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "text// *x*"));
+    const [document, errors] = compile(markitWithContent("{#1}", "text\\ *x*"));
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
@@ -424,7 +411,7 @@ describe("foreign text", () => {
 describe("named entities", () => {
   it("parses person names", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "!person[John Locke] wrote the Essay."),
+      markitWithContent("{#1}", "[p:John Locke] wrote the Essay."),
     );
 
     expect(errors).toHaveLength(0);
@@ -438,7 +425,7 @@ describe("named entities", () => {
 
   it("parses place names", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "He lived in !place[London]."),
+      markitWithContent("{#1}", "He lived in [l:London]."),
     );
 
     expect(errors).toHaveLength(0);
@@ -453,39 +440,39 @@ describe("named entities", () => {
 
   it("returns error for unclosed person name wrapper", () => {
     const [, errors] = compile(
-      markitWithContent("{#1}", "some !person[unclosed name", ""),
+      markitWithContent("{#1}", "some [p:unclosed name", ""),
     );
 
     expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: !person[",
+      message: "Unclosed formatting: [p:",
       line: 4,
       column: 6,
       endLine: 4,
-      endColumn: 14,
+      endColumn: 9,
       severity: "error",
     });
   });
 
   it("returns error for unclosed place name wrapper", () => {
     const [, errors] = compile(
-      markitWithContent("{#1}", "some !place[unclosed name", ""),
+      markitWithContent("{#1}", "some [l:unclosed name", ""),
     );
 
     expect(errors[0]).toMatchObject({
-      message: "Unclosed formatting: !place[",
+      message: "Unclosed formatting: [l:",
       line: 4,
       column: 6,
       endLine: 4,
-      endColumn: 13,
+      endColumn: 9,
       severity: "error",
     });
   });
 });
 
 describe("page breaks", () => {
-  it("parses bare page break ||", () => {
+  it("parses bare page break ///", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "end of page || start of next"),
+      markitWithContent("{#1}", "end of page /// start of next"),
     );
 
     expect(errors).toHaveLength(0);
@@ -494,9 +481,9 @@ describe("page breaks", () => {
     ]);
   });
 
-  it("parses page break with reference |12r|", () => {
+  it("parses page break with reference //12r//", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "end of page |12r| start of next"),
+      markitWithContent("{#1}", "end of page //12r// start of next"),
     );
 
     expect(errors).toHaveLength(0);
@@ -509,20 +496,24 @@ describe("page breaks", () => {
     ]);
   });
 
-  it("treats lone | as plain text", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "a | b"));
-
-    expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("a | b")])]);
-  });
-
-  it("treats | with spaced content as plain text", () => {
+  it("treats // with no closing // as plain text", () => {
     const [document, errors] = compile(
-      markitWithContent("{#1}", "price: |a b| tax"),
+      markitWithContent("{#1}", "text //unclosed"),
     );
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("price: |a b| tax")])]);
+    expect(document.blocks[0]!.content).toEqual([p([pt("text //unclosed")])]);
+  });
+
+  it("treats //ref with spaces// as plain text", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "text //12 r// more"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("text //12 r// more")]),
+    ]);
   });
 });
 
@@ -606,13 +597,13 @@ describe("escape sequences", () => {
     const [document, errors] = compile(
       markitWithContent(
         "{#1}",
-        "Escaped block id: \\{#1} and escaped asterisk: \\*not bold\\*.",
+        "Escaped bracket: \\[cite] and escaped asterisk: \\*not bold\\*.",
       ),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([pt("Escaped block id: {#1} and escaped asterisk: *not bold*.")]),
+      p([pt("Escaped bracket: [cite] and escaped asterisk: *not bold*.")]),
     ]);
   });
 
@@ -625,18 +616,20 @@ describe("escape sequences", () => {
     expect(document.blocks[0]!.content).toEqual([p([pt("*not bold")])]);
   });
 
-  it("treats trailing backslash as literal", () => {
+  it("treats trailing backslash as line break", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "text\\"));
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("text\\")])]);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("text"), { type: "lineBreak" }]),
+    ]);
   });
 
-  it("treats lone backslash as literal", () => {
+  it("treats lone backslash as line break", () => {
     const [document, errors] = compile(markitWithContent("{#1}", "\\"));
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]!.content).toEqual([p([pt("\\")])]);
+    expect(document.blocks[0]!.content).toEqual([p([{ type: "lineBreak" }])]);
   });
 
   it("parses escaped pipe as literal pipe character", () => {

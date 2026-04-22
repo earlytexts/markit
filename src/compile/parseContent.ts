@@ -4,15 +4,22 @@ import type {
   BlockType,
   Heading,
   HeadingLine,
+  List,
+  ListItem,
   MarkitDocument,
   MarkitError,
   Paragraph,
+  Table,
+  TableCell,
+  TableRow,
 } from "../types.js";
 import {
   blockquoteSpec,
   endLine,
   footnoteReferenceSpec,
+  listSpec,
   startLine,
+  tableSpec,
 } from "../types.js";
 import classifyBlockLine from "../lib/classifyBlockLine.js";
 import buildPositionMap from "./buildPositionMap.js";
@@ -120,11 +127,25 @@ const parseBlockLevelElements = (
 
   type HeadingEntry = { level: number; line: Line };
 
+  type ListItemEntry = {
+    indent: number;
+    number: number; // Item number for ordered lists (ignored for unordered)
+    line: Line;
+  };
+
+  type TableRowEntry = { line: Line; isSeparator: boolean };
+
   type State =
     | { kind: "none" }
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
-    | { kind: "heading"; entries: HeadingEntry[] };
+    | { kind: "heading"; entries: HeadingEntry[] }
+    | {
+        kind: "list";
+        ordered: "ordered" | "unordered" | "verse";
+        items: ListItemEntry[];
+      }
+    | { kind: "table"; rows: TableRowEntry[] };
 
   let state: State = { kind: "none" };
 
@@ -193,6 +214,160 @@ const parseBlockLevelElements = (
     }
   };
 
+  const flushList = (
+    ordered: "ordered" | "unordered" | "verse",
+    items: ListItemEntry[],
+  ): void => {
+    elements.push(buildList(ordered, items, footnoteIds, errors, textId));
+  };
+
+  const flushTable = (tableRows: TableRowEntry[]): void => {
+    const table = buildTable(tableRows, footnoteIds, errors, textId);
+    if (table) {
+      elements.push(table);
+    }
+  };
+
+  /**
+   * Build a list from a flat array of list item entries.
+   * Groups items by indent level and builds nested list structure.
+   */
+  const buildList = (
+    ordered: "ordered" | "unordered" | "verse",
+    items: ListItemEntry[],
+    footnoteIds: string[],
+    errors: MarkitError[],
+    textId: string,
+  ): List => {
+    // Find the minimum indent level (base level for this list)
+    const baseIndent = Math.min(...items.map((item) => item.indent));
+
+    // Extract start number from first item at base indent if ordered and not 1
+    const firstItemAtBase = items.find((item) => item.indent === baseIndent);
+    const start =
+      ordered === "ordered" && firstItemAtBase && firstItemAtBase.number !== 1
+        ? firstItemAtBase.number
+        : undefined;
+
+    // Build list items recursively, handling nesting
+    const listItems = buildListItems(
+      ordered,
+      items,
+      baseIndent,
+      footnoteIds,
+      errors,
+      textId,
+    );
+
+    return {
+      type: "list",
+      ordered,
+      ...(start !== undefined ? { start } : {}),
+      items: listItems,
+    };
+  };
+
+  /**
+   * Recursively build list items, handling nesting by indent level.
+   */
+  const buildListItems = (
+    ordered: "ordered" | "unordered" | "verse",
+    items: ListItemEntry[],
+    baseIndent: number,
+    footnoteIds: string[],
+    errors: MarkitError[],
+    textId: string,
+  ): ListItem[] => {
+    const result: ListItem[] = [];
+    let i = 0;
+
+    while (i < items.length) {
+      const item = items[i]!;
+
+      // Skip items at deeper indent (they'll be processed as nested lists)
+      if (item.indent > baseIndent) {
+        i++;
+        continue;
+      }
+
+      // Item at current indent level - parse its content
+      const line = item.line;
+      // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
+      const markerMatch =
+        ordered === "ordered"
+          ? /^\s*\d+\. /.exec(line.content)
+          : ordered === "verse"
+            ? /^\* /.exec(line.content)
+            : /^\s*- /.exec(line.content);
+      const markerLength = markerMatch![0].length;
+      const itemText = line.content.slice(markerLength);
+
+      const posMap = buildPositionMap([
+        {
+          lineNumber: line.lineNumber,
+          charOffset: line.charOffset + markerLength,
+          content: itemText,
+        },
+      ]);
+
+      const [inlineContent, inlineErrors] = parseElements(
+        itemText,
+        posMap,
+        footnoteIds,
+        textId,
+      );
+      errors.push(...inlineErrors);
+
+      const listItem: ListItem = {
+        type: "listItem",
+        content: inlineContent,
+      };
+
+      // Check if the next items are nested (deeper indent)
+      if (i + 1 < items.length && items[i + 1]!.indent > baseIndent) {
+        // Find all consecutive items at deeper indents
+        const nestedStart = i + 1;
+        let nestedEnd = i + 1;
+        const nextIndent = items[nestedStart]!.indent;
+        while (
+          nestedEnd < items.length &&
+          items[nestedEnd]!.indent >= nextIndent
+        ) {
+          nestedEnd++;
+        }
+
+        // Take these items and recursively build a nested list
+        const nestedItems = items.slice(nestedStart, nestedEnd);
+        // Detect nested list type from first item at the nested base indent
+        const nestedBaseIndent = Math.min(
+          ...nestedItems.map((item) => item.indent),
+        );
+        const firstNestedItem = nestedItems.find(
+          (item) => item.indent === nestedBaseIndent,
+        );
+        const nestedOrdered: "ordered" | "unordered" =
+          firstNestedItem!.number > 0 ? "ordered" : "unordered";
+
+        listItem.nestedList = buildList(
+          nestedOrdered,
+          nestedItems,
+          footnoteIds,
+          errors,
+          textId,
+        )!;
+
+        // Skip past the nested items
+        i = nestedEnd;
+      } else {
+        i++;
+      }
+
+      result.push(listItem);
+    }
+
+    return result;
+  };
+
   const flush = (): void => {
     if (state.kind === "paragraph") {
       flushParagraph(state.lines);
@@ -200,6 +375,10 @@ const parseBlockLevelElements = (
       flushBlockquote(state.lines);
     } else if (state.kind === "heading") {
       flushHeading(state.entries);
+    } else if (state.kind === "list") {
+      flushList(state.ordered, state.items);
+    } else if (state.kind === "table") {
+      flushTable(state.rows);
     }
     state = { kind: "none" };
   };
@@ -277,6 +456,123 @@ const parseBlockLevelElements = (
       continue;
     }
 
+    // Unordered list item
+    if (classification.kind === "unorderedListItem") {
+      const { indent } = classification;
+      // Validate indent is a multiple of indentSize
+      if (indent % listSpec.indentSize !== 0) {
+        flush();
+        errors.push({
+          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          line: line.lineNumber + 1,
+          column: line.charOffset + 1,
+          endLine: line.lineNumber + 1,
+          endColumn: line.charOffset + indent + 1,
+          severity: "error",
+        });
+        continue;
+      }
+      // If we're in a list state and this item is at base indent (0),
+      // check if type matches. If not, flush and start new list.
+      if (state.kind === "list") {
+        if (indent === 0 && state.ordered !== "unordered") {
+          flush();
+          state = {
+            kind: "list",
+            ordered: "unordered",
+            items: [{ indent, number: 0, line }],
+          };
+        } else {
+          state.items.push({ indent, number: 0, line });
+        }
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: "unordered",
+          items: [{ indent, number: 0, line }],
+        };
+      }
+      continue;
+    }
+
+    // Ordered list item
+    if (classification.kind === "orderedListItem") {
+      const { indent, number } = classification;
+      // Validate indent is a multiple of indentSize
+      if (indent % listSpec.indentSize !== 0) {
+        flush();
+        errors.push({
+          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          line: line.lineNumber + 1,
+          column: line.charOffset + 1,
+          endLine: line.lineNumber + 1,
+          endColumn: line.charOffset + indent + 1,
+          severity: "error",
+        });
+        continue;
+      }
+      // If we're in a list state and this item is at base indent (0),
+      // check if type matches. If not, flush and start new list.
+      if (state.kind === "list") {
+        if (indent === 0 && state.ordered !== "ordered") {
+          flush();
+          state = {
+            kind: "list",
+            ordered: "ordered",
+            items: [{ indent, number, line }],
+          };
+        } else {
+          state.items.push({ indent, number, line });
+        }
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: "ordered",
+          items: [{ indent, number, line }],
+        };
+      }
+      continue;
+    }
+
+    // Verse line
+    if (classification.kind === "verseListItem") {
+      if (state.kind === "list" && state.ordered === "verse") {
+        state.items.push({ indent: 0, number: 0, line });
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: "verse",
+          items: [{ indent: 0, number: 0, line }],
+        };
+      }
+      continue;
+    }
+
+    // Table separator row
+    if (classification.kind === "tableSeparator") {
+      if (state.kind === "table") {
+        state.rows.push({ line, isSeparator: true });
+      } else {
+        flush();
+        state = { kind: "table", rows: [{ line, isSeparator: true }] };
+      }
+      continue;
+    }
+
+    // Table row
+    if (classification.kind === "tableRow") {
+      if (state.kind === "table") {
+        state.rows.push({ line, isSeparator: false });
+      } else {
+        flush();
+        state = { kind: "table", rows: [{ line, isSeparator: false }] };
+      }
+      continue;
+    }
+
     // Regular content line → paragraph
     if (state.kind !== "none" && state.kind !== "paragraph") {
       flush();
@@ -321,4 +617,136 @@ const buildParagraph = (
   errors.push(...inlineErrors);
 
   return { type: "paragraph", content: inlineContent };
+};
+
+/**
+ * Build a table from table row entries.
+ * Handles separator detection, cell parsing, and column normalization.
+ */
+const buildTable = (
+  rowEntries: { line: Line; isSeparator: boolean }[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): Table | null => {
+  // Find separator row index (if any)
+  const separatorIndex = rowEntries.findIndex((entry) => entry.isSeparator);
+  const hasHeader = separatorIndex === 1; // Header requires separator at index 1
+
+  // Filter out separator rows from the data
+  const dataRows = rowEntries.filter((entry) => !entry.isSeparator);
+
+  if (dataRows.length === 0) return null;
+
+  // Parse each row into cells
+  const parsedRows: TableRow[] = dataRows.map((entry) =>
+    parseTableRow(entry.line, footnoteIds, errors, textId),
+  );
+
+  // Find maximum column count
+  const maxColumns = Math.max(...parsedRows.map((row) => row.cells.length), 0);
+
+  // Normalize rows: add empty cells to rows with fewer columns
+  parsedRows.forEach((row, rowIndex) => {
+    const rowLineNumber = dataRows[rowIndex]!.line.lineNumber;
+    if (row.cells.length < maxColumns) {
+      // Emit warning for inconsistent column count
+      if (row.cells.length > 0) {
+        errors.push({
+          message: `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
+          line: rowLineNumber + 1,
+          column: 1,
+          endLine: rowLineNumber + 1,
+          endColumn: dataRows[rowIndex]!.line.content.length + 1,
+          severity: "warning",
+        });
+      }
+      // Add empty cells
+      while (row.cells.length < maxColumns) {
+        row.cells.push({ type: "tableCell", content: [] });
+      }
+    }
+  });
+
+  // Warn if separator exists but not in correct position
+  if (separatorIndex !== -1 && separatorIndex !== 1) {
+    const sepLine = rowEntries[separatorIndex]!.line;
+    errors.push({
+      message:
+        "Table separator row should be the second row to define headers.",
+      line: sepLine.lineNumber + 1,
+      column: 1,
+      endLine: sepLine.lineNumber + 1,
+      endColumn: sepLine.content.length + 1,
+      severity: "warning",
+    });
+  }
+
+  return {
+    type: "table",
+    hasHeader,
+    rows: parsedRows,
+  };
+};
+
+/**
+ * Parse a single table row into cells.
+ */
+const parseTableRow = (
+  line: Line,
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): TableRow => {
+  const content = line.content.trim();
+
+  // Split by | and remove leading/trailing empty strings from optional leading/trailing pipes
+  let parts = content.split(tableSpec.cellDelimiter);
+
+  // Remove leading empty part if line starts with |
+  if (parts.length > 0 && parts[0] === "") {
+    parts.shift();
+  }
+
+  // Remove trailing empty part if line ends with |
+  if (parts.length > 0 && parts[parts.length - 1] === "") {
+    parts.pop();
+  }
+
+  // Parse each cell
+  const cells: TableCell[] = parts.map((cellText, cellIndex) => {
+    const trimmed = cellText.trim();
+
+    if (trimmed === "") {
+      return { type: "tableCell", content: [] };
+    }
+
+    // Calculate char offset for this cell
+    const cellStart = content.indexOf(
+      cellText,
+      cellIndex === 0 ? 0 : undefined,
+    );
+    const trimStart = cellText.indexOf(trimmed);
+    const charOffset = line.charOffset + cellStart + trimStart;
+
+    const posMap = buildPositionMap([
+      {
+        lineNumber: line.lineNumber,
+        charOffset,
+        content: trimmed,
+      },
+    ]);
+
+    const [inlineContent, inlineErrors] = parseElements(
+      trimmed,
+      posMap,
+      footnoteIds,
+      textId,
+    );
+    errors.push(...inlineErrors);
+
+    return { type: "tableCell", content: inlineContent };
+  });
+
+  return { type: "tableRow", cells };
 };

@@ -112,16 +112,19 @@
         { "include": "#quote" },
         { "include": "#strong" },
         { "include": "#emphasis" },
-        { "include": "#foreign" },
-        { "include": "#aside" },
+        { "include": "#superscript" },
+        { "include": "#subscript" },
         { "include": "#speaker" },
+        { "include": "#stageDirection" },
+        { "include": "#aside" },
+        { "include": "#foreign" },
         { "include": "#person" },
         { "include": "#place" },
+        { "include": "#organisation" },
         { "include": "#insertion" },
         { "include": "#deletion" },
-        { "include": "#highlight" },
-        { "include": "#illegible" },
         { "include": "#uncertain" },
+        { "include": "#illegible" },
         { "include": "#citation" },
         { "include": "#emSpace" },
         { "include": "#nbSpace" },
@@ -170,6 +173,66 @@
       "name": "markup.italic.markit",
       "patterns": [{ "include": "#inline" }]
     },
+    "superscript": {
+      "begin": "(?<!\\\\)(\\^)",
+      "end": "(?<!\\\\)(\\^)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.superscript.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.superscript.end.markit" }
+      },
+      "name": "markup.superscript.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "subscript": {
+      "begin": "(?<!\\\\)(,,)",
+      "end": "(?<!\\\\)(,,)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.subscript.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.subscript.end.markit" }
+      },
+      "name": "markup.subscript.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "speaker": {
+      "begin": "(?<!\\\\)(@)",
+      "end": "(?<!\\\\)(@)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.speaker.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.speaker.end.markit" }
+      },
+      "name": "markup.other.speaker.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "stageDirection": {
+      "begin": "(?<!\\\\)(::)",
+      "end": "(?<!\\\\)(::)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.stagedirection.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.stagedirection.end.markit" }
+      },
+      "name": "markup.other.stagedirection.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "aside": {
+      "begin": "(?<!\\\\)(#)",
+      "end": "(?<!\\\\)(#)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.comment.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.comment.end.markit" }
+      },
+      "name": "comment.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
     "foreign": {
       "begin": "(?<!\\\\)(\\$(?:[a-z]{2,3}:)?)",
       "end": "(?<!\\\\)(\\$)",
@@ -182,36 +245,11 @@
       "name": "markup.italic.foreign.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "aside": {
-      "begin": "(?<!\\\\)(@)",
-      "end": "(?<!\\\\)(@)",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.comment.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.comment.end.markit" }
-      },
-      "name": "comment.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
-    "speaker": {
-      "begin": "(?<!\\\\)(%)",
-      "end": "(?<!\\\\)(%)",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.speaker.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.speaker.end.markit" }
-      },
-      "name": "markup.other.speaker.markit",
-      "patterns": [{ "include": "#inline" }]
-    },
     "person": {
-      "begin": "(!person)(\\[)",
-      "end": "(\\])",
+      "begin": "(?<!\\\\)(\\[p:)",
+      "end": "(?<!\\\\)(\\])",
       "beginCaptures": {
-        "1": { "name": "entity.name.tag.person.markit" },
-        "2": { "name": "punctuation.definition.person.begin.markit" }
+        "1": { "name": "punctuation.definition.person.begin.markit" }
       },
       "endCaptures": {
         "1": { "name": "punctuation.definition.person.end.markit" }
@@ -220,11 +258,10 @@
       "patterns": [{ "include": "#inline" }]
     },
     "place": {
-      "begin": "(!place)(\\[)",
-      "end": "(\\])",
+      "begin": "(?<!\\\\)(\\[l:)",
+      "end": "(?<!\\\\)(\\])",
       "beginCaptures": {
-        "1": { "name": "entity.name.tag.place.markit" },
-        "2": { "name": "punctuation.definition.place.begin.markit" }
+        "1": { "name": "punctuation.definition.place.begin.markit" }
       },
       "endCaptures": {
         "1": { "name": "punctuation.definition.place.end.markit" }
@@ -232,9 +269,21 @@
       "name": "markup.other.place.markit",
       "patterns": [{ "include": "#inline" }]
     },
+    "organisation": {
+      "begin": "(?<!\\\\)(\\[o:)",
+      "end": "(?<!\\\\)(\\])",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.organisation.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.organisation.end.markit" }
+      },
+      "name": "markup.other.organisation.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
     "insertion": {
-      "begin": "(?<!\\\\)(\\+\\+)",
-      "end": "(?<!\\\\)(\\+\\+)",
+      "begin": "(?<!\\\\)(\\[\\+)",
+      "end": "(?<!\\\\)(\\+\\])",
       "beginCaptures": {
         "1": { "name": "punctuation.definition.inserted.begin.markit" }
       },
@@ -245,8 +294,8 @@
       "patterns": [{ "include": "#inline" }]
     },
     "deletion": {
-      "begin": "(?<!\\\\)(--)",
-      "end": "(?<!\\\\)(--)",
+      "begin": "(?<!\\\\)(\\[-)",
+      "end": "(?<!\\\\)(-\\])",
       "beginCaptures": {
         "1": { "name": "punctuation.definition.deleted.begin.markit" }
       },
@@ -256,13 +305,9 @@
       "name": "markup.deleted.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "illegible": {
-      "match": "\\?\\?\\?",
-      "name": "constant.character.illegible.markit"
-    },
     "uncertain": {
-      "begin": "(?<!\\\\)(\\?\\?)",
-      "end": "(?<!\\\\)(\\?\\?)",
+      "begin": "(?<!\\\\)(\\[\\?)",
+      "end": "(?<!\\\\)(\\?\\])",
       "beginCaptures": {
         "1": { "name": "punctuation.definition.uncertain.begin.markit" }
       },
@@ -272,17 +317,9 @@
       "name": "markup.uncertain.markit",
       "patterns": [{ "include": "#inline" }]
     },
-    "highlight": {
-      "begin": "(?<!\\\\)(==)",
-      "end": "(?<!\\\\)(==)",
-      "beginCaptures": {
-        "1": { "name": "punctuation.definition.highlight.begin.markit" }
-      },
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.highlight.end.markit" }
-      },
-      "name": "markup.changed.markit",
-      "patterns": [{ "include": "#inline" }]
+    "illegible": {
+      "match": "\\[\\.\\.\\.\\]",
+      "name": "constant.character.illegible.markit"
     },
     "citation": {
       "begin": "(?<!\\\\)(\\[)",
@@ -305,11 +342,11 @@
       "name": "constant.character.nbsp.markit"
     },
     "lineBreak": {
-      "match": "//",
+      "match": "\\\\$",
       "name": "constant.character.linebreak.markit"
     },
     "pageBreakRef": {
-      "match": "(\\|)([^\\s|]+)(\\|)",
+      "match": "(\\/\\/)([^\\s|]+)(\\/\\/)",
       "captures": {
         "1": { "name": "punctuation.definition.pagebreak.begin.markit" },
         "2": { "name": "entity.name.section.pagebreak.markit" },
@@ -317,7 +354,7 @@
       }
     },
     "pageBreakEmpty": {
-      "match": "\\|\\|",
+      "match": "\\/\\/\\/",
       "name": "constant.character.pagebreak.markit"
     },
     "greekMode": {

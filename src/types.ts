@@ -52,7 +52,7 @@ export type Block = {
 } & Ranges;
 
 // Block-level element types
-export type BlockElement = Heading | Paragraph | Blockquote;
+export type BlockElement = Heading | Paragraph | Blockquote | List | Table;
 
 export type Heading = {
   type: "heading";
@@ -75,6 +75,35 @@ export type Blockquote = {
   content: Paragraph[];
 };
 
+export type List = {
+  type: "list";
+  ordered: "ordered" | "unordered" | "verse";
+  start?: number;
+  items: ListItem[];
+};
+
+export type ListItem = {
+  type: "listItem";
+  content: InlineElement[];
+  nestedList?: List;
+};
+
+export type Table = {
+  type: "table";
+  hasHeader: boolean;
+  rows: TableRow[];
+};
+
+export type TableRow = {
+  type: "tableRow";
+  cells: TableCell[];
+};
+
+export type TableCell = {
+  type: "tableCell";
+  content: InlineElement[];
+};
+
 export const headingSpec = {
   marker: "^",
   minLevel: 1,
@@ -85,25 +114,30 @@ export const blockquoteSpec = {
   marker: ">",
 } as const;
 
+export const listSpec = {
+  unorderedMarker: "-",
+  orderedMarker: ".",
+  verseMarker: "*",
+  indentSize: 2,
+} as const;
+
+export const tableSpec = {
+  cellDelimiter: "|",
+  separatorPattern: /^\s*\|?\s*-+\s*(\|\s*-+\s*)*\|?\s*$/,
+} as const;
+
 // Inline element types
-export type Language = {
-  type: "language";
-  lang?: string;
-  content: InlineElement[];
-};
-
-export type PageBreak = {
-  type: "pageBreak";
-  ref?: string;
-};
-
 export type InlineElement =
   | PlainText
   | Leaf
+  | LineBreak
   | FootnoteReference
   | Wrapper
   | Language
-  | PageBreak;
+  | PageBreak
+  | Highlight;
+
+export type LineBreak = { type: "lineBreak" };
 
 export type PlainText = {
   type: "plainText";
@@ -117,8 +151,7 @@ export type Leaf = {
 export const leafElements = [
   { trigger: "~~", type: "emSpace" },
   { trigger: "~", type: "nbSpace" },
-  { trigger: "//", type: "lineBreak" },
-  { trigger: "???", type: "illegible" },
+  { trigger: "[...]", type: "illegible" },
 ] as const;
 
 export type LeafType = (typeof leafElements)[number]["type"];
@@ -144,14 +177,16 @@ export const wrapperElements = [
   { open: '"', close: '"', type: "quote" },
   { open: "*", close: "*", type: "strong" },
   { open: "_", close: "_", type: "emphasis" },
-  { open: "@", close: "@", type: "aside" },
-  { open: "%", close: "%", type: "speaker" },
-  { open: "++", close: "++", type: "insertion" },
-  { open: "--", close: "--", type: "deletion" },
-  { open: "??", close: "??", type: "uncertain" },
-  { open: "==", close: "==", type: "highlight" },
-  { open: "!person[", close: "]", type: "person" },
-  { open: "!place[", close: "]", type: "place" },
+  { open: "^", close: "^", type: "superscript" },
+  { open: ",,", close: ",,", type: "subscript" },
+  { open: "#", close: "#", type: "aside" },
+  { open: "@", close: "@", type: "speaker" },
+  { open: "[+", close: "+]", type: "insertion" },
+  { open: "[-", close: "-]", type: "deletion" },
+  { open: "[?", close: "?]", type: "uncertain" },
+  { open: "[p:", close: "]", type: "person" },
+  { open: "[l:", close: "]", type: "place" },
+  { open: "[o:", close: "]", type: "org" },
   { open: "[", close: "]", type: "citation" },
 ] as const;
 
@@ -159,3 +194,22 @@ export type WrapperType = (typeof wrapperElements)[number]["type"];
 
 export const isWrapperElement = (element: InlineElement): element is Wrapper =>
   wrapperElements.some((wrapper) => wrapper.type === element.type);
+
+export type Language = {
+  type: "language";
+  lang?: string;
+  content: InlineElement[];
+};
+
+export type PageBreak = {
+  type: "pageBreak";
+  ref?: string;
+};
+
+// There's no "highlight" element in Markit syntax, but the type is included
+// here to make it easier to highlight search results in Markit documents
+// without having to change the types
+export type Highlight = {
+  type: "highlight";
+  content: InlineElement[];
+};

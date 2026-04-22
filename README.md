@@ -39,24 +39,3 @@ const textOutput = renderText(document);
 The `compile` function returns a tuple of the form `[document, errors]`, where `document` is the compiled result and `errors` is an array of any syntax errors encountered during compilation. The `document` is always produced even if there are errors, so you can choose to use it anyway (e.g. for a best-effort preview), but you should always check the `errors` array to see if there were any issues with the input.
 
 The two functions `renderHTML` and `renderText` take a compiled document and return a string - either an HTML representation of the document or plain text.
-
-For working with metadata in TypeScript, you can pass a `TextMetadata` type parameter to the `compile` function, which will allow you to have type safety when accessing metadata in the compiled document. For example:
-
-```typescript
-import { compile } from "@earlytexts/markit";
-
-type TextMetadata = {
-  title: string;
-  author: string;
-  published: number;
-};
-
-const markitInput = `...`; // your Markit document as a string
-const [document, errors] = compile<TextMetadata>(markitInput);
-
-document.title; // TypeScript knows this is a string
-document.author; // TypeScript knows this is a string
-document.published; // TypeScript knows this is a number
-```
-
-Note there is no built-in validation of metadata values - this just tells TypeScript what the metadata _should_ look like, but it's up to you to ensure that the actual metadata in the Markit document matches this structure.
