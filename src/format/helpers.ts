@@ -47,7 +47,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   let blockquoteLines: string[] = [];
   let headingLines: string[] = [];
   let listLines: string[] = [];
-  let listOrdered: boolean = false;
+  let listType: "ordered" | "unordered" | "verse" | null = null;
   let listStart: number | undefined = undefined;
   let tableLines: string[] = [];
 
@@ -91,11 +91,19 @@ const extractBlockElements = (buffer: string[]): string[] => {
       output.push("");
     }
 
+    if (listType === "verse") {
+      output.push(...listLines);
+      listLines = [];
+      listType = null;
+      listStart = undefined;
+      return;
+    }
+
     // Build a map of actual indent to normalized level
     const indents = listLines
       .map((line) => {
         const match = /^(\s*)(?:-|\d+\.)/.exec(line);
-        return match ? match[1]!.length : 0;
+        return match![1]!.length;
       })
       .filter((indent, index, arr) => arr.indexOf(indent) === index)
       .sort((a, b) => a - b);
@@ -119,7 +127,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
         const content = orderedMatch[3]!;
 
         // Get normalized level
-        const level = indentToLevel.get(indent) ?? 0;
+        const level = indentToLevel.get(indent)!;
 
         // Track first number at this level
         if (!firstNumberAtLevel.has(level)) {
@@ -155,7 +163,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
         const content = unorderedMatch[2]!;
 
         // Get normalized level
-        const level = indentToLevel.get(indent) ?? 0;
+        const level = indentToLevel.get(indent)!;
 
         processedLines.push(`${"  ".repeat(level)}- ${content}`);
       }
@@ -163,7 +171,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
     output.push(...processedLines);
     listLines = [];
-    listOrdered = false;
+    listType = null;
     listStart = undefined;
   };
 
@@ -222,12 +230,12 @@ const extractBlockElements = (buffer: string[]): string[] => {
       } else {
         // Format data row with padding
         const paddedCells = row.cells.map((cell, i) => {
-          const width = columnWidths[i] ?? 0;
+          const width = columnWidths[i]!;
           return cell.padEnd(width, " ");
         });
         // Add empty cells for missing columns
         while (paddedCells.length < maxColumns) {
-          const width = columnWidths[paddedCells.length] ?? 0;
+          const width = columnWidths[paddedCells.length]!;
           paddedCells.push("".padEnd(width, " "));
         }
         output.push(`|${paddedCells.map((cell) => ` ${cell} `).join("|")}|`);
@@ -289,12 +297,16 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushHeading();
       flushBlockquote();
       flushTable();
-      // If we were accumulating an ordered list at base indent, flush it first
-      if (listLines.length > 0 && listOrdered && classification.indent === 0) {
+      // If we were accumulating an ordered or verse list at base indent, flush it first
+      if (
+        listLines.length > 0 &&
+        listType !== "unordered" &&
+        classification.indent === 0
+      ) {
         flushList();
       }
       if (listLines.length === 0) {
-        listOrdered = false;
+        listType = "unordered";
       }
       listLines.push(line);
       continue;
@@ -306,15 +318,35 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushHeading();
       flushBlockquote();
       flushTable();
-      // If we were accumulating an unordered list at base indent, flush it first
-      if (listLines.length > 0 && !listOrdered && classification.indent === 0) {
+      // If we were accumulating an unordered or verse list at base indent, flush it first
+      if (
+        listLines.length > 0 &&
+        listType !== "ordered" &&
+        classification.indent === 0
+      ) {
         flushList();
       }
       // Detect start number from first item at base indent
       if (listLines.length === 0) {
-        listOrdered = true;
+        listType = "ordered";
         const { number } = classification;
         listStart = number !== 1 ? number : undefined;
+      }
+      listLines.push(line);
+      continue;
+    }
+
+    // Verse line
+    if (classification.kind === "verseListItem") {
+      flushParagraph();
+      flushHeading();
+      flushBlockquote();
+      flushTable();
+      if (listLines.length > 0 && listType !== "verse") {
+        flushList();
+      }
+      if (listLines.length === 0) {
+        listType = "verse";
       }
       listLines.push(line);
       continue;
@@ -362,14 +394,14 @@ const extractBlockElements = (buffer: string[]): string[] => {
   return output;
 };
 
-// Split content on '//' markers to create line breaks
+// Split content on '\' markers at line break positions to create line breaks
 const splitOnLineBreakMarker = (text: string): string[] => {
   return text
-    .replace(/(\S)\/\//g, "$1 //")
-    .split("//")
+    .replace(/(\S)\\(?= |$)/g, "$1 \\")
+    .split(/\\(?= |$)/)
     .map((part, index, array) => {
       const trimmed = part.trim();
-      return index < array.length - 1 ? `${trimmed} //` : trimmed;
+      return index < array.length - 1 ? `${trimmed} \\` : trimmed;
     })
     .filter((part) => part !== "");
 };

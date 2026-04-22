@@ -140,7 +140,11 @@ const parseBlockLevelElements = (
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
     | { kind: "heading"; entries: HeadingEntry[] }
-    | { kind: "list"; ordered: boolean; items: ListItemEntry[] }
+    | {
+        kind: "list";
+        ordered: "ordered" | "unordered" | "verse";
+        items: ListItemEntry[];
+      }
     | { kind: "table"; rows: TableRowEntry[] };
 
   let state: State = { kind: "none" };
@@ -210,11 +214,11 @@ const parseBlockLevelElements = (
     }
   };
 
-  const flushList = (ordered: boolean, items: ListItemEntry[]): void => {
-    const list = buildList(ordered, items, footnoteIds, errors, textId);
-    if (list) {
-      elements.push(list);
-    }
+  const flushList = (
+    ordered: "ordered" | "unordered" | "verse",
+    items: ListItemEntry[],
+  ): void => {
+    elements.push(buildList(ordered, items, footnoteIds, errors, textId));
   };
 
   const flushTable = (tableRows: TableRowEntry[]): void => {
@@ -229,21 +233,19 @@ const parseBlockLevelElements = (
    * Groups items by indent level and builds nested list structure.
    */
   const buildList = (
-    ordered: boolean,
+    ordered: "ordered" | "unordered" | "verse",
     items: ListItemEntry[],
     footnoteIds: string[],
     errors: MarkitError[],
     textId: string,
-  ): List | null => {
-    if (items.length === 0) return null;
-
+  ): List => {
     // Find the minimum indent level (base level for this list)
     const baseIndent = Math.min(...items.map((item) => item.indent));
 
     // Extract start number from first item at base indent if ordered and not 1
     const firstItemAtBase = items.find((item) => item.indent === baseIndent);
     const start =
-      ordered && firstItemAtBase && firstItemAtBase.number !== 1
+      ordered === "ordered" && firstItemAtBase && firstItemAtBase.number !== 1
         ? firstItemAtBase.number
         : undefined;
 
@@ -269,7 +271,7 @@ const parseBlockLevelElements = (
    * Recursively build list items, handling nesting by indent level.
    */
   const buildListItems = (
-    ordered: boolean,
+    ordered: "ordered" | "unordered" | "verse",
     items: ListItemEntry[],
     baseIndent: number,
     footnoteIds: string[],
@@ -290,11 +292,14 @@ const parseBlockLevelElements = (
 
       // Item at current indent level - parse its content
       const line = item.line;
-      // Strip the list marker prefix (e.g., "- " or "1. ")
-      const markerMatch = ordered
-        ? /^\s*\d+\. /.exec(line.content)
-        : /^\s*- /.exec(line.content);
-      const markerLength = markerMatch ? markerMatch[0].length : 0;
+      // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
+      const markerMatch =
+        ordered === "ordered"
+          ? /^\s*\d+\. /.exec(line.content)
+          : ordered === "verse"
+            ? /^\* /.exec(line.content)
+            : /^\s*- /.exec(line.content);
+      const markerLength = markerMatch![0].length;
       const itemText = line.content.slice(markerLength);
 
       const posMap = buildPositionMap([
@@ -340,21 +345,16 @@ const parseBlockLevelElements = (
         const firstNestedItem = nestedItems.find(
           (item) => item.indent === nestedBaseIndent,
         );
-        const nestedOrdered = firstNestedItem
-          ? firstNestedItem.number > 0
-          : false;
+        const nestedOrdered: "ordered" | "unordered" =
+          firstNestedItem!.number > 0 ? "ordered" : "unordered";
 
-        const nestedList = buildList(
+        listItem.nestedList = buildList(
           nestedOrdered,
           nestedItems,
           footnoteIds,
           errors,
           textId,
-        );
-
-        if (nestedList) {
-          listItem.nestedList = nestedList;
-        }
+        )!;
 
         // Skip past the nested items
         i = nestedEnd;
@@ -475,11 +475,11 @@ const parseBlockLevelElements = (
       // If we're in a list state and this item is at base indent (0),
       // check if type matches. If not, flush and start new list.
       if (state.kind === "list") {
-        if (indent === 0 && state.ordered) {
+        if (indent === 0 && state.ordered !== "unordered") {
           flush();
           state = {
             kind: "list",
-            ordered: false,
+            ordered: "unordered",
             items: [{ indent, number: 0, line }],
           };
         } else {
@@ -489,7 +489,7 @@ const parseBlockLevelElements = (
         flush();
         state = {
           kind: "list",
-          ordered: false,
+          ordered: "unordered",
           items: [{ indent, number: 0, line }],
         };
       }
@@ -515,11 +515,11 @@ const parseBlockLevelElements = (
       // If we're in a list state and this item is at base indent (0),
       // check if type matches. If not, flush and start new list.
       if (state.kind === "list") {
-        if (indent === 0 && !state.ordered) {
+        if (indent === 0 && state.ordered !== "ordered") {
           flush();
           state = {
             kind: "list",
-            ordered: true,
+            ordered: "ordered",
             items: [{ indent, number, line }],
           };
         } else {
@@ -529,8 +529,23 @@ const parseBlockLevelElements = (
         flush();
         state = {
           kind: "list",
-          ordered: true,
+          ordered: "ordered",
           items: [{ indent, number, line }],
+        };
+      }
+      continue;
+    }
+
+    // Verse line
+    if (classification.kind === "verseListItem") {
+      if (state.kind === "list" && state.ordered === "verse") {
+        state.items.push({ indent: 0, number: 0, line });
+      } else {
+        flush();
+        state = {
+          kind: "list",
+          ordered: "verse",
+          items: [{ indent: 0, number: 0, line }],
         };
       }
       continue;
@@ -614,8 +629,6 @@ const buildTable = (
   errors: MarkitError[],
   textId: string,
 ): Table | null => {
-  if (rowEntries.length === 0) return null;
-
   // Find separator row index (if any)
   const separatorIndex = rowEntries.findIndex((entry) => entry.isSeparator);
   const hasHeader = separatorIndex === 1; // Header requires separator at index 1

@@ -124,15 +124,14 @@ export default (text: string): RawBlock[] => {
     } else {
       // Start a new block (either no block yet, or a blank break occurred)
       blankBreak = false;
-      const content = insideContentBlock ? line : trimmed;
       blocks.push({
         startLine: index,
         endLine: index,
         lines: [
           {
             lineNumber: index,
-            charOffset: insideContentBlock ? 0 : line.indexOf(trimmed),
-            content,
+            charOffset: line.indexOf(trimmed),
+            content: trimmed,
           },
         ],
       });

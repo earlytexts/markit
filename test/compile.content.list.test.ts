@@ -14,7 +14,7 @@ describe("List compilation", () => {
       const [result, errors] = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
-        list(false, [
+        list("unordered", [
           li([pt("First item")]),
           li([pt("Second item")]),
           li([pt("Third item")]),
@@ -27,7 +27,7 @@ describe("List compilation", () => {
       const [result, errors] = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
-        list(false, [li([pt("Only item")])]),
+        list("unordered", [li([pt("Only item")])]),
       ]);
     });
 
@@ -55,7 +55,7 @@ describe("List compilation", () => {
       const [result, errors] = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
-        list(true, [
+        list("ordered", [
           li([pt("First item")]),
           li([pt("Second item")]),
           li([pt("Third item")]),
@@ -74,7 +74,7 @@ describe("List compilation", () => {
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         list(
-          true,
+          "ordered",
           [
             li([pt("Fifth item")]),
             li([pt("Sixth item")]),
@@ -117,7 +117,7 @@ describe("List compilation", () => {
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.type).toBe("list");
-      expect(outerList.ordered).toBe(false);
+      expect(outerList.ordered).toBe("unordered");
       expect(outerList.items).toHaveLength(2);
       expect(outerList.items[0]!.content).toEqual([pt("First level")]);
       expect(outerList.items[0]!.nestedList).toBeDefined();
@@ -140,10 +140,10 @@ describe("List compilation", () => {
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.type).toBe("list");
-      expect(outerList.ordered).toBe(true);
+      expect(outerList.ordered).toBe("ordered");
       expect(outerList.items).toHaveLength(2);
       expect(outerList.items[0]!.nestedList).toBeDefined();
-      expect(outerList.items[0]!.nestedList!.ordered).toBe(true);
+      expect(outerList.items[0]!.nestedList!.ordered).toBe("ordered");
       expect(outerList.items[0]!.nestedList!.items).toHaveLength(2);
     });
 
@@ -158,8 +158,8 @@ describe("List compilation", () => {
       const [result, errors] = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
-      expect(outerList.ordered).toBe(true);
-      expect(outerList.items[0]!.nestedList!.ordered).toBe(false);
+      expect(outerList.ordered).toBe("ordered");
+      expect(outerList.items[0]!.nestedList!.ordered).toBe("unordered");
     });
 
     it("compiles mixed nested lists (ordered in unordered)", () => {
@@ -173,8 +173,8 @@ describe("List compilation", () => {
       const [result, errors] = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
-      expect(outerList.ordered).toBe(false);
-      expect(outerList.items[0]!.nestedList!.ordered).toBe(true);
+      expect(outerList.ordered).toBe("unordered");
+      expect(outerList.items[0]!.nestedList!.ordered).toBe("ordered");
     });
 
     it("compiles deeply nested lists", () => {
@@ -285,9 +285,9 @@ describe("List compilation", () => {
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
-      expect((result.blocks[0]!.content[0] as any).ordered).toBe(true);
+      expect((result.blocks[0]!.content[0] as any).ordered).toBe("ordered");
       expect(result.blocks[0]!.content[1]!.type).toBe("list");
-      expect((result.blocks[0]!.content[1] as any).ordered).toBe(false);
+      expect((result.blocks[0]!.content[1] as any).ordered).toBe("unordered");
     });
   });
 
@@ -346,9 +346,9 @@ describe("List compilation", () => {
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
       const unorderedList = result.blocks[0]!.content[0] as any;
-      expect(unorderedList.ordered).toBe(false);
+      expect(unorderedList.ordered).toBe("unordered");
       const orderedList = result.blocks[0]!.content[1] as any;
-      expect(orderedList.ordered).toBe(true);
+      expect(orderedList.ordered).toBe("ordered");
     });
 
     it("handles irregular nesting with skipped indent levels", () => {

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import renderHTML from "../src/renderHTML.js";
-import { markit, markitWithContent } from "./utils/factories.js";
+import {
+  document,
+  markit,
+  markitWithContent,
+  paragraph,
+} from "./utils/factories.js";
+import type { MarkitDocument } from "../src/types.js";
 
 describe("document structure", () => {
   it("renders document as a section with id and data-line", () => {
@@ -139,6 +145,15 @@ describe("block elements", () => {
     );
   });
 
+  it("renders verse as div.lg with p.l lines", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "* First line", "* Second line"),
+    );
+    expect(renderHTML(document)).toContain(
+      '<div class="lg"><p class="l">First line</p><p class="l">Second line</p></div>',
+    );
+  });
+
   it("renders tables without headers", () => {
     const [document] = compile(
       markitWithContent("{#1}", "| A | B |", "| C | D |"),
@@ -158,7 +173,7 @@ describe("block elements", () => {
         "{#1}",
         "| Header 1 | Header 2 |",
         "|----------|----------|",
-        "| Cell 1 | Cell 2 |",
+        "| Cell 1   | Cell 2   |",
       ),
     );
     const html = renderHTML(document);
@@ -231,30 +246,45 @@ describe("inline elements", () => {
   });
 
   it("renders insertion as <ins>", () => {
-    const [document] = compile(markitWithContent("{#1}", "++added++"));
+    const [document] = compile(markitWithContent("{#1}", "[+added+]"));
     expect(renderHTML(document)).toContain("<ins>added</ins>");
   });
 
   it("renders deletion as <del>", () => {
-    const [document] = compile(markitWithContent("{#1}", "--removed--"));
+    const [document] = compile(markitWithContent("{#1}", "[-removed-]"));
     expect(renderHTML(document)).toContain("<del>removed</del>");
   });
 
   it('renders uncertain text as <span class="uncertain">', () => {
-    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    const [document] = compile(markitWithContent("{#1}", "[?uncertain?]"));
     expect(renderHTML(document)).toContain(
       '<span class="uncertain">uncertain</span>',
     );
   });
 
   it("renders highlight as <mark>", () => {
-    const [document] = compile(markitWithContent("{#1}", "==highlighted=="));
-    expect(renderHTML(document)).toContain("<mark>highlighted</mark>");
+    // highlights are not renderable in Markit, but the elements can be added
+    // programmatically (e.g. to highlight search results), and should be
+    // rendered as <mark> in HTML
+    const doc = document("Text", [
+      paragraph("1", [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "highlight",
+              content: [{ type: "plainText", content: "highlighted" }],
+            },
+          ],
+        },
+      ]),
+    ]);
+    expect(renderHTML(doc)).toContain("<mark>highlighted</mark>");
   });
 
   it("renders speaker as <span class='speaker'>", () => {
     const [document] = compile(
-      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+      markitWithContent("{#1}", "@Speaker.@ This is dialogue."),
     );
     expect(renderHTML(document)).toContain(
       '<span class="speaker">Speaker.</span>',
@@ -262,7 +292,7 @@ describe("inline elements", () => {
   });
 
   it('renders aside as <span class="aside">', () => {
-    const [document] = compile(markitWithContent("{#1}", "@margin note@"));
+    const [document] = compile(markitWithContent("{#1}", "#margin note#"));
     expect(renderHTML(document)).toContain(
       '<span class="aside">margin note</span>',
     );
@@ -279,22 +309,37 @@ describe("inline elements", () => {
   });
 
   it('renders person names as <span class="person">', () => {
-    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    const [document] = compile(markitWithContent("{#1}", "[p:Locke]"));
     expect(renderHTML(document)).toContain('<span class="person">Locke</span>');
   });
 
   it('renders place names as <span class="place">', () => {
-    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    const [document] = compile(markitWithContent("{#1}", "[l:London]"));
     expect(renderHTML(document)).toContain('<span class="place">London</span>');
   });
 
+  it('renders org names as <span class="org">', () => {
+    const [document] = compile(markitWithContent("{#1}", "[o:Acme]"));
+    expect(renderHTML(document)).toContain('<span class="org">Acme</span>');
+  });
+
+  it("renders superscript as <sup>", () => {
+    const [document] = compile(markitWithContent("{#1}", "^raised^"));
+    expect(renderHTML(document)).toContain("<sup>raised</sup>");
+  });
+
+  it("renders subscript as <sub>", () => {
+    const [document] = compile(markitWithContent("{#1}", ",,lower,,"));
+    expect(renderHTML(document)).toContain("<sub>lower</sub>");
+  });
+
   it('renders bare page break as <span class="pageBreak">', () => {
-    const [document] = compile(markitWithContent("{#1}", "text || more"));
+    const [document] = compile(markitWithContent("{#1}", "text /// more"));
     expect(renderHTML(document)).toContain('<span class="pageBreak"></span>');
   });
 
   it('renders page break with ref as <span class="pageBreak" data-ref="...">', () => {
-    const [document] = compile(markitWithContent("{#1}", "text |12r| more"));
+    const [document] = compile(markitWithContent("{#1}", "text //12r// more"));
     expect(renderHTML(document)).toContain(
       '<span class="pageBreak" data-ref="12r"></span>',
     );
@@ -321,7 +366,7 @@ describe("inline elements", () => {
 
   it("renders line break as <br />", () => {
     const [document] = compile(
-      markitWithContent("{#1}", "line one //", "line two"),
+      markitWithContent("{#1}", "line one \\", "line two"),
     );
     expect(renderHTML(document)).toContain("<br />");
   });
@@ -337,7 +382,7 @@ describe("inline elements", () => {
   });
 
   it('renders illegible text as <span class="illegible">', () => {
-    const [document] = compile(markitWithContent("{#1}", "???"));
+    const [document] = compile(markitWithContent("{#1}", "[...]"));
     expect(renderHTML(document)).toContain(
       '<span class="illegible">&lt;illegible&gt;</span>',
     );

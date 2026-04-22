@@ -340,6 +340,13 @@ describe("Table compilation", () => {
       expect(result.blocks[0]!.content).toHaveLength(0);
     });
 
+    it("handles a row with no cells alongside rows with cells", () => {
+      const input = markitWithContent("{#1}", "| A | B |", "|");
+      const [result, errors] = compile(input);
+      expect(errors).toHaveLength(0);
+      expect(result.blocks[0]!.content[0]!.type).toBe("table");
+    });
+
     it("warns about misplaced separator row (not second row)", () => {
       const input = markitWithContent(
         "{#1}",

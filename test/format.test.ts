@@ -544,6 +544,39 @@ describe("formatter", () => {
       );
     });
 
+    it("preserves verse lines", () => {
+      const input = markitWithContent("{#1}", "* First line", "* Second line");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("adds blank line before verse block", () => {
+      const input = markitWithContent("{#1}", "Prose.", "* Verse line");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "Prose.", "", "* Verse line"),
+      );
+    });
+
+    it("preserves blank line between verse stanzas", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "* Stanza one",
+        "",
+        "* Stanza two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("adds blank line between list and verse when missing", () => {
+      const input = markitWithContent("{#1}", "- List item", "* Verse line");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "- List item", "", "* Verse line"),
+      );
+    });
+
     it("preserves unordered lists with compact spacing", () => {
       const input = markitWithContent("{#1}", "- First item", "- Second item");
       const result = formatDocument(input);
@@ -557,6 +590,12 @@ describe("formatter", () => {
         "2. Second item",
         "3. Third item",
       );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("handles ordered list where first item is at a nested indent", () => {
+      const input = markitWithContent("{#1}", "  1. Nested first", "1. Parent");
       const result = formatDocument(input);
       expect(result).toBe(input);
     });
@@ -808,23 +847,25 @@ describe("formatter", () => {
       );
     });
 
-    it("inserts a space before '//'", () => {
-      const input = markitWithContent("{#1}", "Line one.//");
+    it("inserts a space before '\\'", () => {
+      const input = markitWithContent("{#1}", "Line one.\\");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1}", "Line one. //"));
+      expect(result).toBe(markitWithContent("{#1}", "Line one. \\"));
     });
 
-    it("inserts a line break after '//'", () => {
-      const input = markitWithContent("{#1}", "Line one. // Line two.");
+    it("inserts a line break after '\\'", () => {
+      const input = markitWithContent("{#1}", "Line one. \\ Line two.");
       const result = formatDocument(input);
-      expect(result).toBe(markitWithContent("{#1}", "Line one. //\nLine two."));
+      expect(result).toBe(
+        markitWithContent("{#1}", "Line one. \\", "Line two."),
+      );
     });
 
     it("handles line breaks inside blockquotes", () => {
-      const input = markitWithContent("{#1}", "> Line one. // Line two.");
+      const input = markitWithContent("{#1}", "> Line one. \\ Line two.");
       const result = formatDocument(input);
       expect(result).toBe(
-        markitWithContent("{#1}", "> Line one. //", "> Line two."),
+        markitWithContent("{#1}", "> Line one. \\", "> Line two."),
       );
     });
 

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
 import renderText from "../src/renderText.js";
-import { markit, markitWithContent } from "./utils/factories.js";
+import {
+  document,
+  markit,
+  markitWithContent,
+  paragraph,
+} from "./utils/factories.js";
 
 describe("document structure", () => {
   it("joins multiple blocks with double newlines", () => {
@@ -85,6 +90,14 @@ describe("block elements", () => {
     expect(text).toContain("5. Fifth\n6. Sixth");
   });
 
+  it("renders verse with asterisk markers", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "* First line", "* Second line"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("* First line\n* Second line");
+  });
+
   it("renders nested lists with 2-space indentation", () => {
     const [document] = compile(
       markitWithContent("{#1}", "- First", "  - Nested", "- Second"),
@@ -163,45 +176,61 @@ describe("inline elements", () => {
   });
 
   it("renders insertion as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "++added++"));
+    const [document] = compile(markitWithContent("{#1}", "[+added+]"));
     const text = renderText(document);
     expect(text).toContain("added");
     expect(text).not.toContain("++");
   });
 
   it("renders deletion as empty string", () => {
-    const [document] = compile(markitWithContent("{#1}", "a --gone-- b"));
+    const [document] = compile(markitWithContent("{#1}", "a [-gone-] b"));
     const text = renderText(document);
     expect(text).not.toContain("gone");
     expect(text).toContain("a  b");
   });
 
   it("renders uncertain text as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "??uncertain??"));
+    const [document] = compile(markitWithContent("{#1}", "[?uncertain?]"));
     const text = renderText(document);
     expect(text).toContain("uncertain");
     expect(text).not.toContain("??");
   });
 
   it("renders highlight as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "==bright=="));
-    const text = renderText(document);
-    expect(text).toContain("bright");
+    // highlights are not renderable in Markit, but the elements can be added
+    // programmatically (e.g. to highlight search results)
+    // no rendering is needed in the case of plain text, but we include this
+    // test for coverage
+    const doc = document("Text", [
+      paragraph("1", [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "highlight",
+              content: [{ type: "plainText", content: "highlighted" }],
+            },
+          ],
+        },
+      ]),
+    ]);
+    const text = renderText(doc);
+    expect(text).toContain("highlighted");
     expect(text).not.toContain("==");
   });
 
   it("renders speaker as inner text", () => {
     const [document] = compile(
-      markitWithContent("{#1}", "%Speaker.% This is dialogue."),
+      markitWithContent("{#1}", "@Speaker.@ This is dialogue."),
     );
     const text = renderText(document);
     expect(text).toContain("Speaker.");
     expect(text).toContain("This is dialogue.");
-    expect(text).not.toContain("%");
+    expect(text).not.toContain("@");
   });
 
   it("renders aside as empty string", () => {
-    const [document] = compile(markitWithContent("{#1}", "text @aside@ end"));
+    const [document] = compile(markitWithContent("{#1}", "text #aside# end"));
     expect(renderText(document)).not.toContain("aside");
   });
 
@@ -226,17 +255,32 @@ describe("inline elements", () => {
   });
 
   it("renders person name as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "!person[Locke]"));
+    const [document] = compile(markitWithContent("{#1}", "[p:Locke]"));
     expect(renderText(document)).toContain("Locke");
   });
 
   it("renders place name as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "!place[London]"));
+    const [document] = compile(markitWithContent("{#1}", "[l:London]"));
     expect(renderText(document)).toContain("London");
   });
 
+  it("renders org name as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "[o:Acme]"));
+    expect(renderText(document)).toContain("Acme");
+  });
+
+  it("renders superscript as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", "^raised^"));
+    expect(renderText(document)).toContain("raised");
+  });
+
+  it("renders subscript as inner text", () => {
+    const [document] = compile(markitWithContent("{#1}", ",,lower,,"));
+    expect(renderText(document)).toContain("lower");
+  });
+
   it("renders page break as empty string", () => {
-    const [document] = compile(markitWithContent("{#1}", "before || after"));
+    const [document] = compile(markitWithContent("{#1}", "before /// after"));
     const text = renderText(document);
     expect(text).not.toContain("||");
     expect(text).toContain("before");
@@ -252,7 +296,7 @@ describe("inline elements", () => {
 
   it("renders line break as newline", () => {
     const [document] = compile(
-      markitWithContent("{#1}", "line one //", "line two"),
+      markitWithContent("{#1}", "line one \\", "line two"),
     );
     expect(renderText(document)).toContain("line one\nline two");
   });
@@ -268,7 +312,7 @@ describe("inline elements", () => {
   });
 
   it("renders illegible text as <illegible>", () => {
-    const [document] = compile(markitWithContent("{#1}", "???"));
+    const [document] = compile(markitWithContent("{#1}", "[...]"));
     expect(renderText(document)).toContain("<illegible>");
   });
 });

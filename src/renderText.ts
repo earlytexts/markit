@@ -59,11 +59,16 @@ const listToText = (
   indentLevel: number,
   startNumber: number,
 ): string => {
+  if (list.ordered === "verse") {
+    return list.items
+      .map((item) => `* ${inlineElementsToText(item.content)}`)
+      .join("\n");
+  }
   const indent = "  ".repeat(indentLevel);
   let currentNumber = startNumber;
   return list.items
     .map((item) => {
-      const marker = list.ordered ? `${currentNumber++}. ` : "- ";
+      const marker = list.ordered === "ordered" ? `${currentNumber++}. ` : "- ";
       const content = inlineElementsToText(item.content);
       const nested = item.nestedList
         ? "\n" +
@@ -85,44 +90,50 @@ const inlineElementToText = (element: InlineElement): string => {
   switch (element.type) {
     case "plainText":
       return element.content;
-    case "lineBreak":
-      return "\n";
     case "nbSpace":
       return " ";
     case "emSpace":
       return "  ";
+    case "lineBreak":
+      return "\n";
     case "illegible":
       return "<illegible>";
     case "footnoteReference":
       return `<${element.id}>`;
+    case "quote":
+      return `"${inlineElementsToText(element.content)}"`;
     case "strong":
       return inlineElementsToText(element.content);
     case "emphasis":
       return inlineElementsToText(element.content);
-    case "quote":
-      return `"${inlineElementsToText(element.content)}"`;
-    case "language":
+    case "superscript":
       return inlineElementsToText(element.content);
-    case "person":
-      return inlineElementsToText(element.content);
-    case "place":
-      return inlineElementsToText(element.content);
-    case "pageBreak":
-      return "";
-    case "speaker":
+    case "subscript":
       return inlineElementsToText(element.content);
     case "aside":
       return "";
+    case "speaker":
+      return inlineElementsToText(element.content);
     case "insertion":
       return inlineElementsToText(element.content);
     case "deletion":
       return "";
     case "uncertain":
       return inlineElementsToText(element.content);
-    case "highlight":
+    case "person":
+      return inlineElementsToText(element.content);
+    case "place":
+      return inlineElementsToText(element.content);
+    case "org":
       return inlineElementsToText(element.content);
     case "citation":
       return `[${inlineElementsToText(element.content)}]`;
+    case "language":
+      return inlineElementsToText(element.content);
+    case "pageBreak":
+      return "";
+    case "highlight":
+      return inlineElementsToText(element.content);
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

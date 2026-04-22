@@ -1,15 +1,20 @@
-import type {
-  Blockquote,
-  InlineElement,
-  Heading,
-  HeadingLine,
-  List,
-  ListItem,
-  Paragraph,
-  PlainText,
-  Table,
-  TableRow,
-  TableCell,
+import {
+  type Blockquote,
+  type InlineElement,
+  type Heading,
+  type HeadingLine,
+  type List,
+  type ListItem,
+  type Paragraph,
+  type PlainText,
+  type Table,
+  type TableRow,
+  type TableCell,
+  type Block,
+  type MarkitDocument,
+  startLine,
+  endLine,
+  type BlockElement,
 } from "../../src/types.js";
 
 export const markit = (...lines: string[]): string => lines.join("\n");
@@ -45,7 +50,7 @@ export const bq = (content: Paragraph[]): Blockquote => ({
 });
 
 export const list = (
-  ordered: boolean,
+  ordered: "ordered" | "unordered" | "verse",
   items: ListItem[],
   start?: number,
 ): List => ({
@@ -80,4 +85,20 @@ export const tc = (content: InlineElement[]): TableCell => ({
 export const pt = (text: string): PlainText => ({
   type: "plainText",
   content: text,
+});
+
+export const paragraph = (id: string, content: BlockElement[]): Block => ({
+  id,
+  type: "paragraph",
+  content,
+  [startLine]: 1,
+  [endLine]: 1,
+});
+
+export const document = (id: string, blocks: Block[]): MarkitDocument => ({
+  id,
+  blocks,
+  children: [],
+  [startLine]: 1,
+  [endLine]: 1,
 });

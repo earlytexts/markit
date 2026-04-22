@@ -11,6 +11,7 @@ export type BlockLineKind =
   | { kind: "invalidHeading"; level: number }
   | { kind: "headingWithoutLevel" }
   | { kind: "blockquote" }
+  | { kind: "verseListItem" }
   | { kind: "unorderedListItem"; indent: number }
   | { kind: "orderedListItem"; indent: number; number: number }
   | { kind: "tableRow" }
@@ -55,6 +56,11 @@ export default (content: string): BlockLineKind => {
     return { kind: "blockquote" };
   }
 
+  // Verse line: starts with verse marker and space (no indentation)
+  if (content.startsWith(`${listSpec.verseMarker} `)) {
+    return { kind: "verseListItem" };
+  }
+
   // Unordered list item: starts with optional spaces, hyphen, and space
   const unorderedMatch = new RegExp(
     `^(\\s*)\\${listSpec.unorderedMarker} `,
@@ -78,7 +84,7 @@ export default (content: string): BlockLineKind => {
   }
 
   // Table row: line must start or end with | (after trimming), or have | with surrounding whitespace
-  // This distinguishes tables from inline pageBreak syntax (|| or |ref|) which appears mid-paragraph
+  // This distinguishes tables from inline pageBreak syntax (/// or //ref//) which appears mid-paragraph
   const trimmed = content.trim();
   if (trimmed.startsWith("|") || trimmed.endsWith("|")) {
     // Looks like a table row with proper formatting
