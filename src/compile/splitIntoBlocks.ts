@@ -56,7 +56,8 @@ export default (text: string): RawBlock[] => {
     }
 
     // Bracket header line: [metadata], [metadata.subkey], etc.
-    if (/^\[.+\]$/.test(trimmed)) {
+    // Only outside content blocks — inside a block, [foo] is inline syntax.
+    if (!insideContentBlock && /^\[.+\]$/.test(trimmed)) {
       insideContentBlock = false;
       blankBreak = false;
       blocks.push({

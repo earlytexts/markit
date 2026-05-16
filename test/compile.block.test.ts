@@ -232,6 +232,19 @@ describe("footnote blocks", () => {
     });
   });
 
+  it("does not treat a citation on its own line as a metadata header", () => {
+    const [document, errors] = compile(
+      markit("# Text", "", "{#n1}", "[Citation]", ""),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.type).toBe("footnote");
+    expect(document.blocks[0]!.content[0]).toMatchObject({
+      type: "paragraph",
+      content: [{ type: "citation" }],
+    });
+  });
+
   it("returns error for block ID of just 'n'", () => {
     const [, errors] = compile(
       markit("# Text", "", "{#n}", "Block content.", ""),
