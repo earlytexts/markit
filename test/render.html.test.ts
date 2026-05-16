@@ -26,7 +26,8 @@ describe("document structure", () => {
   it("renders blocks inside div wrappers with data-line", () => {
     const [document] = compile(markitWithContent("{#1}", "Hello"));
     const html = renderHTML(document);
-    expect(html).toMatch(/<div data-line="\d+">/);
+    expect(html).toContain('<div id="Text.1"');
+    expect(html).toMatch(/data-line="\d+">/);
   });
 
   it("renders nested child documents as nested sections", () => {
