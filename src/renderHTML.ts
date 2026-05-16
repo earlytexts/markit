@@ -35,7 +35,7 @@ const blockToHTML = (block: Block, depth: number): string => {
   const inner = block.content
     .map((el) => blockElementToHTML(el, footnoteId, headingDepth))
     .join("");
-  return `<div data-line="${line}">${inner}</div>`;
+  return `<div data-line="${line}" id="${block.id}">${inner}</div>`;
 };
 
 const blockElementToHTML = (
