@@ -105,6 +105,11 @@
         }
       ]
     },
+    "configurationDefaults": {
+      "[markit]": {
+        "editor.colorDecorators": false
+      }
+    },
     "keybindings": [
       {
         "command": "markit.showPreview",
