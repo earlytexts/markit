@@ -135,6 +135,7 @@ export type InlineElement =
   | Wrapper
   | Language
   | PageBreak
+  | RawElement
   | Highlight;
 
 export type LineBreak = { type: "lineBreak" };
@@ -213,3 +214,34 @@ export type Highlight = {
   type: "highlight";
   content: InlineElement[];
 };
+
+// A generic, "raw" element: an escape hatch for markup that has no native
+// Markit equivalent (e.g. when importing from TEI/TCP XML). It carries an
+// arbitrary tag name plus ordered attributes, and wraps further inline content.
+// Surface syntax mirrors XML but with doubled angle brackets so it never clashes
+// with footnote references (`<nID>`):
+//
+//   <<TAG attr="value">>content<</TAG>>   (with content)
+//   <<TAG attr="value"/>>                 (self-closing / empty)
+//
+// This keeps lossless round-tripping possible without polluting the core
+// language: native elements are used wherever one fits, and this is reserved
+// for the long tail.
+export type RawElement = {
+  type: "element";
+  tag: string;
+  attributes: ElementAttribute[];
+  selfClosing?: boolean;
+  content: InlineElement[];
+};
+
+export type ElementAttribute = {
+  name: string;
+  value: string;
+};
+
+export const elementSpec = {
+  open: "<<",
+  close: ">>",
+  endOpen: "<</",
+} as const;

@@ -168,6 +168,10 @@ const inlineElementToHTML = (element: InlineElement): string => {
         : `<span class="pageBreak"></span>`;
     case "highlight":
       return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
+    case "element":
+      return `<span class="element" data-tag="${element.tag}">${inlineElementsToHTML(
+        element.content,
+      )}</span>`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

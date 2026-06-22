@@ -1,0 +1,127 @@
+import { describe, expect, it } from "vitest";
+import compile from "../src/compile.js";
+import renderText from "../src/renderText.js";
+import renderHTML from "../src/renderHTML.js";
+import { markitWithContent, pt } from "./utils/factories.js";
+
+const inlineOf = (source: string) => {
+  const [document, errors] = compile(markitWithContent("{#1}", source));
+  const block = document.blocks[0]!;
+  const paragraph = block.content[0]!;
+  if (paragraph.type !== "paragraph") {
+    throw new Error("expected a paragraph");
+  }
+  return { content: paragraph.content, errors, document };
+};
+
+describe("generic raw element", () => {
+  it("parses a self-closing element with attributes", () => {
+    const { content, errors } = inlineOf(`Before <<PB REF="3" MS="y"/>> after`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([
+      pt("Before "),
+      {
+        type: "element",
+        tag: "PB",
+        attributes: [
+          { name: "REF", value: "3" },
+          { name: "MS", value: "y" },
+        ],
+        selfClosing: true,
+        content: [],
+      },
+      pt(" after"),
+    ]);
+  });
+
+  it("parses an element with attributes wrapping nested native markup", () => {
+    const { content, errors } = inlineOf(
+      `<<HI REND="bold">>some _italic_<</HI>>`,
+    );
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([
+      {
+        type: "element",
+        tag: "HI",
+        attributes: [{ name: "REND", value: "bold" }],
+        content: [pt("some "), { type: "emphasis", content: [pt("italic")] }],
+      },
+    ]);
+  });
+
+  it("parses an element with no attributes", () => {
+    const { content, errors } = inlineOf(`<<DATE>>1678<</DATE>>`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([
+      {
+        type: "element",
+        tag: "DATE",
+        attributes: [],
+        content: [pt("1678")],
+      },
+    ]);
+  });
+
+  it("nests elements of the same tag", () => {
+    const { content, errors } = inlineOf(`<<A>>p<<A>>q<</A>>r<</A>>`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([
+      {
+        type: "element",
+        tag: "A",
+        attributes: [],
+        content: [
+          pt("p"),
+          { type: "element", tag: "A", attributes: [], content: [pt("q")] },
+          pt("r"),
+        ],
+      },
+    ]);
+  });
+
+  it("reports an unclosed element but still captures its content", () => {
+    const { content, errors } = inlineOf(`<<HI>>text`);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe("Unclosed element: <<HI");
+    expect(content).toEqual([
+      { type: "element", tag: "HI", attributes: [], content: [pt("text")] },
+    ]);
+  });
+
+  it("treats `<<` with no closing `>>` as plain text", () => {
+    const { content, errors } = inlineOf(`a << b`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([pt("a << b")]);
+  });
+
+  it("treats a stray close tag as plain text", () => {
+    const { content, errors } = inlineOf(`<</HI>>`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([pt("<</HI>>")]);
+  });
+
+  it("treats an empty `<<>>` as plain text", () => {
+    const { content, errors } = inlineOf(`<<>>`);
+    expect(errors).toHaveLength(0);
+    expect(content).toEqual([pt("<<>>")]);
+  });
+
+  it("renders element content to plain text, ignoring the tag", () => {
+    const { document } = inlineOf(`x<<HI REND="bold">>word<</HI>>y`);
+    expect(renderText(document)).toContain("xwordy");
+  });
+
+  it("renders an element to an HTML span carrying the tag", () => {
+    const { document } = inlineOf(`<<SEG REND="decorInit">>I<</SEG>>`);
+    expect(renderHTML(document)).toContain(
+      '<span class="element" data-tag="SEG">I</span>',
+    );
+  });
+
+  it("renders a self-closing element to an empty HTML span", () => {
+    const { document } = inlineOf(`<<PB REF="1"/>>`);
+    expect(renderHTML(document)).toContain(
+      '<span class="element" data-tag="PB"></span>',
+    );
+  });
+});

@@ -15,6 +15,7 @@ Syntax: [SPECIFICATION.md](../SPECIFICATION.md)
 - [src/format/](../src/format/): Handlers for each formatter state
 - [src/renderHTML.ts](../src/renderHTML.ts): Converts compiler output to HTML
 - [src/renderText.ts](../src/renderText.ts): Converts compiler output to plain text
+- [src/tei/](../src/tei/): Lossless conversion to/from TCP/TEI XML (`fromTEIXML`/`toTEIXML`); self-contained `xml.ts` reader/writer, a schema adapter, and the two walkers
 - [vscode-markit/](../vscode-markit/): VS Code LSP extension — thin wrapper, delegates to core, has no tests
 
 ## Source Code Organization

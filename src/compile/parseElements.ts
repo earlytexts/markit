@@ -1,5 +1,11 @@
-import type { InlineElement, Language, MarkitError } from "../types.js";
+import type {
+  ElementAttribute,
+  InlineElement,
+  Language,
+  MarkitError,
+} from "../types.js";
 import {
+  elementSpec,
   footnoteReferenceSpec,
   isWrapperElement,
   leafElements,
@@ -166,6 +172,74 @@ const parseElements = (
       continue;
     }
 
+    // 4b. Generic raw element: <<TAG attr="v">>content<</TAG>> or <<TAG/>>
+    // (checked before footnote references, which use a single `<`)
+    if (input.startsWith(elementSpec.open, pos)) {
+      const tagEnd = input.indexOf(
+        elementSpec.close,
+        pos + elementSpec.open.length,
+      );
+      if (tagEnd !== -1) {
+        const startTag = parseRawStartTag(
+          input.slice(pos + elementSpec.open.length, tagEnd),
+        );
+        if (startTag) {
+          const { tag, attributes, selfClosing } = startTag;
+          const afterTag = tagEnd + elementSpec.close.length;
+
+          if (selfClosing) {
+            flushPlainText();
+            result.push({
+              type: "element",
+              tag,
+              attributes,
+              selfClosing: true,
+              content: [],
+            });
+            pos = afterTag;
+            continue;
+          }
+
+          const endMarker = `${elementSpec.endOpen}${tag}${elementSpec.close}`;
+          const [elementContent, newPos] = parseElements(
+            input,
+            afterTag,
+            endMarker,
+            positionMap,
+            footnoteIds,
+            errors,
+            suppressEscape,
+            textId,
+          );
+
+          if (
+            newPos === afterTag ||
+            !input.startsWith(endMarker, newPos - endMarker.length)
+          ) {
+            const position = positionMap[pos]!;
+            errors.push(
+              makeError({
+                message: `Unclosed element: ${elementSpec.open}${tag}`,
+                line: position.line,
+                column: position.column,
+                length: elementSpec.open.length + tag.length,
+              }),
+            );
+          }
+
+          flushPlainText();
+          result.push({
+            type: "element",
+            tag,
+            attributes,
+            content: elementContent,
+          });
+          pos = newPos;
+          continue;
+        }
+      }
+    }
+
     // 5. Footnote reference
     if (input[pos] === "<") {
       const closeAnglePos = input.indexOf(">", pos + 1);
@@ -288,6 +362,46 @@ const parseElements = (
 };
 
 /**
+ * Parse the inside of a generic raw-element start tag (the text between `<<` and
+ * `>>`) into a tag name, ordered attributes, and a self-closing flag. Returns
+ * null when the text is not a well-formed start tag (e.g. a stray close tag),
+ * so the caller can fall back to treating `<<` as plain text.
+ *
+ * Attribute values are taken verbatim between double quotes; a value therefore
+ * cannot itself contain a double quote (XML callers encode it as `&quot;`).
+ */
+const parseRawStartTag = (
+  inner: string,
+): {
+  tag: string;
+  attributes: ElementAttribute[];
+  selfClosing: boolean;
+} | null => {
+  let rest = inner.trim();
+  if (rest.length === 0) return null;
+
+  let selfClosing = false;
+  if (rest.endsWith("/")) {
+    selfClosing = true;
+    rest = rest.slice(0, -1).trim();
+  }
+
+  const tagMatch = /^([^\s/>]+)/.exec(rest);
+  if (!tagMatch) return null;
+  const tag = tagMatch[1]!;
+
+  const attributes: ElementAttribute[] = [];
+  const attrPattern = /([^\s=/]+)\s*=\s*"([^"]*)"/g;
+  attrPattern.lastIndex = tag.length;
+  let match: RegExpExecArray | null;
+  while ((match = attrPattern.exec(rest)) !== null) {
+    attributes.push({ name: match[1]!, value: match[2]! });
+  }
+
+  return { tag, attributes, selfClosing };
+};
+
+/**
  * Trim leading and trailing whitespace from the element list, trim whitespace
  * adjacent to lineBreak elements, and recursively clean wrapper element content.
  */
@@ -297,8 +411,12 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Recursively clean wrapper and language element content
-    if (isWrapperElement(element) || element.type === "language") {
+    // Recursively clean wrapper, language, and generic-element content
+    if (
+      isWrapperElement(element) ||
+      element.type === "language" ||
+      element.type === "element"
+    ) {
       result.push({ ...element, content: cleanupElements(element.content) });
     } else {
       result.push(element);

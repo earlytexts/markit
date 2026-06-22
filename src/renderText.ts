@@ -134,6 +134,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return "";
     case "highlight":
       return inlineElementsToText(element.content);
+    case "element":
+      return inlineElementsToText(element.content);
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

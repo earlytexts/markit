@@ -159,32 +159,33 @@ This is a new paragraph, because of the blank line.
 
 Block-level elements can contain a mixture of plan text and inline elements. Inline elements are marked with special syntax, for example `*strong*` for strong text, `_emphasis_` for emphasis, `"quote"` for inline quotations, etc. The full list of inline element types and their syntax is as follows:
 
-| Syntax      | Type                | Notes                                                |
-| ----------- | ------------------- | ---------------------------------------------------- |
-| `"text"`    | `quote`             | Inline quotation                                     |
-| `*text*`    | `strong`            | Small-caps                                           |
-| `_text_`    | `emphasis`          | Italics                                              |
-| `^text^`    | `superscript`       | Superscript                                          |
-| `,,text,,`  | `subscript`         | Subscript                                            |
-| `@text@`    | `speaker`           | Speaker name in dialogue                             |
-| `::text::`  | `stageDirection`    | Stage direction in dialogue                          |
-| `#text#`    | `aside`             | Margin comment                                       |
-| `<nID>`     | `footnoteReference` | Must match a `footnote` block in same text           |
-| `~`         | `nbSpace`           | Non-breaking space                                   |
-| `~~`        | `emSpace`           | Em space / tab                                       |
-| `\\`        | `lineBreak`         | Line break                                           |
-| `///`       | `pageBreak`         | No page reference                                    |
-| `//ref//`   | `pageBreak`         | `ref` is any non-whitespace string                   |
-| `[+text+]`  | `insertion`         | Editorial insertion                                  |
-| `[-text-]`  | `deletion`          | Editorial deletion                                   |
-| `[?text?]`  | `uncertain`         | Illegible or uncertain text                          |
-| `[...]`     | `illegible`         | Completely illegible text                            |
-| `$text$`    | `language`          | Generic foreign text; no `lang` in output            |
-| `$xx:text$` | `language`          | `lang` set to ISO 639 code (`la`, `fr`, `grc`, etc.) |
-| `[text]`    | `citation`          | Cited work                                           |
-| `[p:text]`  | `person`            | Person name                                          |
-| `[l:text]`  | `place`             | Place name                                           |
-| `[o:text]`  | `org`               | Organization name                                    |
+| Syntax              | Type                | Notes                                                |
+| ------------------- | ------------------- | ---------------------------------------------------- |
+| `"text"`            | `quote`             | Inline quotation                                     |
+| `*text*`            | `strong`            | Small-caps                                           |
+| `_text_`            | `emphasis`          | Italics                                              |
+| `^text^`            | `superscript`       | Superscript                                          |
+| `,,text,,`          | `subscript`         | Subscript                                            |
+| `@text@`            | `speaker`           | Speaker name in dialogue                             |
+| `::text::`          | `stageDirection`    | Stage direction in dialogue                          |
+| `#text#`            | `aside`             | Margin comment                                       |
+| `<nID>`             | `footnoteReference` | Must match a `footnote` block in same text           |
+| `~`                 | `nbSpace`           | Non-breaking space                                   |
+| `~~`                | `emSpace`           | Em space / tab                                       |
+| `\\`                | `lineBreak`         | Line break                                           |
+| `///`               | `pageBreak`         | No page reference                                    |
+| `//ref//`           | `pageBreak`         | `ref` is any non-whitespace string                   |
+| `[+text+]`          | `insertion`         | Editorial insertion                                  |
+| `[-text-]`          | `deletion`          | Editorial deletion                                   |
+| `[?text?]`          | `uncertain`         | Illegible or uncertain text                          |
+| `[...]`             | `illegible`         | Completely illegible text                            |
+| `$text$`            | `language`          | Generic foreign text; no `lang` in output            |
+| `$xx:text$`         | `language`          | `lang` set to ISO 639 code (`la`, `fr`, `grc`, etc.) |
+| `[text]`            | `citation`          | Cited work                                           |
+| `[p:text]`          | `person`            | Person name                                          |
+| `[l:text]`          | `place`             | Place name                                           |
+| `[o:text]`          | `org`               | Organization name                                    |
+| `<<tag…>>…<</tag>>` | `element`           | Generic/raw element (escape hatch); see §3.4         |
 
 ### 3.2. Whitespace
 
@@ -195,6 +196,19 @@ You can use the `~` (non-breaking space), `~~` (em space / tab), and `\\` (line 
 ### 3.3. Escape Sequences
 
 Prefix any special character with `\` to use it literally (e.g. `\*`, `\\`, `\{`). A trailing `\` with nothing after it is treated as a literal backslash.
+
+### 3.4. Generic Elements
+
+Markit's inline vocabulary is deliberately small. For markup that has no native equivalent — chiefly when importing from richer formats such as TEI/TCP XML — a generic _element_ provides a lossless escape hatch. Its syntax mirrors XML, but with doubled angle brackets so it never collides with footnote references (`<nID>`):
+
+```
+<<TAG attr="value">>content<</TAG>>
+<<TAG attr="value"/>>
+```
+
+The first form wraps further inline content (which may itself contain native elements or nested generic elements); the second is self-closing/empty. The tag name and ordered attributes are preserved verbatim, so a foreign element survives a round trip unchanged. Attribute values are read literally between double quotes and therefore cannot contain a `"` (encode it as `&quot;`). A `<<` that does not open a well-formed start tag is treated as literal text.
+
+This element carries no inherent display semantics; renderers fall back to emitting its content. It is intended for machine-generated documents (e.g. the output of `fromTEIXML`) and the long tail of preserved markup, not for everyday authoring.
 
 ## 4. Transliteration Modes
 
