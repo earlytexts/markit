@@ -1,4 +1,5 @@
 import classifyBlockLine from "../lib/classifyBlockLine.js";
+import splitOnLineBreakMarker from "../lib/splitLineBreaks.js";
 import type { State } from "./types.js";
 
 // Emit the given line
@@ -45,6 +46,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
   const output: string[] = [];
   let paragraphLines: string[] = [];
   let blockquoteLines: string[] = [];
+  let stageLines: string[] = [];
   let headingLines: string[] = [];
   let listLines: string[] = [];
   let listType: "ordered" | "unordered" | "verse" | null = null;
@@ -69,6 +71,19 @@ const extractBlockElements = (buffer: string[]): string[] => {
       output.push(line === "" ? ">" : `> ${line}`);
     }
     blockquoteLines = [];
+  };
+
+  const flushStageDirection = (): void => {
+    if (stageLines.length === 0) return;
+    const inner = extractBlockElements(stageLines);
+    // Add blank line before the stage direction if needed
+    if (output.length > 0 && output.at(-1) !== "") {
+      output.push("");
+    }
+    for (const line of inner) {
+      output.push(line === "" ? ":" : `: ${line}`);
+    }
+    stageLines = [];
   };
 
   const flushHeading = (): void => {
@@ -119,8 +134,9 @@ const extractBlockElements = (buffer: string[]): string[] => {
     const firstNumberAtLevel: Map<number, number> = new Map(); // Track first number at each level
 
     for (const line of listLines) {
-      // Detect ordered list item
-      const orderedMatch = /^(\s*)(\d+)\. (.+)$/.exec(line);
+      // Detect ordered list item (content may be empty: an item that holds
+      // only a nested list renders as a bare `N. ` marker).
+      const orderedMatch = /^(\s*)(\d+)\. (.*)$/.exec(line);
       if (orderedMatch) {
         const indent = orderedMatch[1]!.length;
         const originalNumber = parseInt(orderedMatch[2]!, 10);
@@ -157,8 +173,9 @@ const extractBlockElements = (buffer: string[]): string[] => {
         numberStack[level] = numberStack[level]! + 1;
         numberStack.splice(level + 1);
       } else {
-        // Unordered list item
-        const unorderedMatch = /^(\s*)- (.+)$/.exec(line)!;
+        // Unordered list item (content may be empty: an item that holds only a
+        // nested list renders as a bare `- ` marker).
+        const unorderedMatch = /^(\s*)- (.*)$/.exec(line)!;
         const indent = unorderedMatch[1]!.length;
         const content = unorderedMatch[2]!;
 
@@ -255,6 +272,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (classification.kind === "blank") {
       flushParagraph();
       flushBlockquote();
+      flushStageDirection();
       flushHeading();
       flushList();
       flushTable();
@@ -269,6 +287,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (classification.kind === "heading") {
       flushParagraph();
       flushBlockquote();
+      flushStageDirection();
       flushList();
       flushTable();
       headingLines.push(trimmed);
@@ -279,6 +298,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     if (classification.kind === "blockquote") {
       flushParagraph();
       flushHeading();
+      flushStageDirection();
       flushList();
       flushTable();
       const inner = trimmed.slice(1).trim();
@@ -291,11 +311,29 @@ const extractBlockElements = (buffer: string[]): string[] => {
       continue;
     }
 
+    // Stage direction line
+    if (classification.kind === "stageDirection") {
+      flushParagraph();
+      flushHeading();
+      flushBlockquote();
+      flushList();
+      flushTable();
+      const inner = trimmed.slice(1).trim();
+      if (inner) {
+        stageLines.push(inner);
+      } else {
+        // Bare ":" acts as a paragraph separator within stage directions
+        stageLines.push("");
+      }
+      continue;
+    }
+
     // Unordered list item
     if (classification.kind === "unorderedListItem") {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushStageDirection();
       flushTable();
       // If we were accumulating an ordered or verse list at base indent, flush it first
       if (
@@ -317,6 +355,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushStageDirection();
       flushTable();
       // If we were accumulating an unordered or verse list at base indent, flush it first
       if (
@@ -341,6 +380,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushStageDirection();
       flushTable();
       if (listLines.length > 0 && listType !== "verse") {
         flushList();
@@ -360,6 +400,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushParagraph();
       flushHeading();
       flushBlockquote();
+      flushStageDirection();
       flushList();
       tableLines.push(line);
       continue;
@@ -368,6 +409,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
     // Regular content line (paragraph) — also handles invalid heading variants
     // Invalid headings and headings without level are treated as regular content
     flushBlockquote();
+    flushStageDirection();
     flushHeading();
     flushList();
     flushTable();
@@ -384,24 +426,14 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
   flushParagraph();
   flushBlockquote();
+  flushStageDirection();
   flushHeading();
   flushList();
   flushTable();
 
-  // Strip any trailing blank or bare blockquote separator lines
-  while (output.at(-1) === "" || output.at(-1) === ">") output.pop();
+  // Strip any trailing blank or bare blockquote/stage-direction separator lines
+  while (output.at(-1) === "" || output.at(-1) === ">" || output.at(-1) === ":")
+    output.pop();
 
   return output;
-};
-
-// Split content on '\' markers at line break positions to create line breaks
-const splitOnLineBreakMarker = (text: string): string[] => {
-  return text
-    .replace(/(\S)\\(?= |$)/g, "$1 \\")
-    .split(/\\(?= |$)/)
-    .map((part, index, array) => {
-      const trimmed = part.trim();
-      return index < array.length - 1 ? `${trimmed} \\` : trimmed;
-    })
-    .filter((part) => part !== "");
 };

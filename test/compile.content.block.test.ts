@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
-import { markitWithContent, p, h, hl, bq, pt } from "./utils/factories.js";
+import { markitWithContent, p, h, hl, bq, sd, pt } from "./utils/factories.js";
 
 describe("paragraphs", () => {
   it("parses text into paragraphs by default", () => {
@@ -257,5 +257,68 @@ describe("block quotations", () => {
     expect(document.blocks[0]!.content).toEqual([
       bq([p([pt("First paragraph.")]), p([pt("Second paragraph.")])]),
     ]);
+  });
+});
+
+describe("stage directions", () => {
+  it("parses a stage direction", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", ": Enter Hamlet, reading."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      sd([p([pt("Enter Hamlet, reading.")])]),
+    ]);
+  });
+
+  it("parses a stage direction with text before and after", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "Text before.", ": He pauses.", "Text after."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("Text before.")]),
+      sd([p([pt("He pauses.")])]),
+      p([pt("Text after.")]),
+    ]);
+  });
+
+  it("collapses multi-line stage directions into one paragraph", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", ": He enters slowly,", ": looking about him."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      sd([p([pt("He enters slowly, looking about him.")])]),
+    ]);
+  });
+
+  it("parses a stage direction with multiple paragraphs", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", ": First action.", ":", ": Second action."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      sd([p([pt("First action.")]), p([pt("Second action.")])]),
+    ]);
+  });
+
+  it("returns error for a heading inside a stage direction and emits nothing", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#title}", ": ^1 Heading inside stage direction"),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Headings are not allowed inside stage directions.",
+      severity: "error",
+    });
+    // The heading is removed and the stage direction has no paragraphs, so it
+    // produces no block element.
+    expect(document.blocks[0]!.content).toEqual([]);
   });
 });

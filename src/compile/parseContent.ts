@@ -18,6 +18,7 @@ import {
   endLine,
   footnoteReferenceSpec,
   listSpec,
+  stageDirectionSpec,
   startLine,
   tableSpec,
 } from "../types.js";
@@ -139,6 +140,7 @@ const parseBlockLevelElements = (
     | { kind: "none" }
     | { kind: "paragraph"; lines: Line[] }
     | { kind: "blockquote"; lines: Line[] }
+    | { kind: "stageDirection"; lines: Line[] }
     | { kind: "heading"; entries: HeadingEntry[] }
     | {
         kind: "list";
@@ -211,6 +213,38 @@ const parseBlockLevelElements = (
     // a blockquote only contains a heading (which is not allowed and therefore removed)
     if (paragraphs.length > 0) {
       elements.push({ type: "blockquote", content: paragraphs });
+    }
+  };
+
+  const flushStageDirection = (sdLines: Line[]): void => {
+    // Strip the `:` prefix (and an optional single space) from each line.
+    const innerLines: Line[] = sdLines.map((line) => {
+      const stripped = line.content
+        .slice(stageDirectionSpec.marker.length)
+        .replace(/^ /, "");
+      return {
+        lineNumber: line.lineNumber,
+        charOffset: line.charOffset + (line.content.length - stripped.length),
+        content: stripped,
+      };
+    });
+
+    // Inner lines are parsed as paragraphs only (no headings or nesting).
+    const innerElements = parseBlockLevelElements(
+      innerLines,
+      footnoteIds,
+      errors,
+      false,
+      "Headings are not allowed inside stage directions.",
+      textId,
+    );
+
+    const paragraphs = innerElements.filter(
+      (el): el is Paragraph => el.type === "paragraph",
+    );
+
+    if (paragraphs.length > 0) {
+      elements.push({ type: "stageDirection", content: paragraphs });
     }
   };
 
@@ -373,6 +407,8 @@ const parseBlockLevelElements = (
       flushParagraph(state.lines);
     } else if (state.kind === "blockquote") {
       flushBlockquote(state.lines);
+    } else if (state.kind === "stageDirection") {
+      flushStageDirection(state.lines);
     } else if (state.kind === "heading") {
       flushHeading(state.entries);
     } else if (state.kind === "list") {
@@ -450,6 +486,17 @@ const parseBlockLevelElements = (
       if (state.kind !== "blockquote") {
         flush();
         state = { kind: "blockquote", lines: [line] };
+      } else {
+        state.lines.push(line);
+      }
+      continue;
+    }
+
+    // Stage direction line
+    if (classification.kind === "stageDirection") {
+      if (state.kind !== "stageDirection") {
+        flush();
+        state = { kind: "stageDirection", lines: [line] };
       } else {
         state.lines.push(line);
       }

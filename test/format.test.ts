@@ -406,6 +406,35 @@ describe("formatter", () => {
       expect(result).toBe(input);
     });
 
+    it("preserves stage direction lines with : prefix", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "A paragraph.",
+        "",
+        ": Enter the players.",
+        ":",
+        ": They bow.",
+        "",
+        "More text.",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("collapses and re-prefixes wrapped stage direction lines", () => {
+      const input = markitWithContent("{#1}", ": He enters", ": slowly.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent("{#1}", ": He enters slowly."));
+    });
+
+    it("inserts a blank line before a stage direction that follows a paragraph", () => {
+      const input = markitWithContent("{#1}", "A paragraph.", ": He bows.");
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "A paragraph.", "", ": He bows."),
+      );
+    });
+
     it("collapses paragraphs into a single line", () => {
       const input = markitWithContent(
         "{#1}",
@@ -711,6 +740,36 @@ describe("formatter", () => {
       expect(result).toBe(
         markitWithContent("{#1}", "1. Ordered", "", "- Unordered"),
       );
+    });
+
+    // An unordered item holding only a nested list is a bare `- ` marker whose
+    // trailing space is significant. The formatter must preserve it (not strip
+    // the space and misread the `-` as a table separator).
+    it("preserves an empty unordered item that holds only a sublist", () => {
+      const input = markitWithContent("{#1}", "- ", "  - Sub A", "  - Sub B");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves an empty ordered item that holds only a sublist", () => {
+      const input = markitWithContent("{#1}", "1. ", "  1. Sub A");
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("normalizes indentation around an empty item and is idempotent", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "- First",
+        "    - Deep A",
+        "- ",
+        "    - Deep B",
+      );
+      const once = formatDocument(input);
+      expect(once).toBe(
+        markitWithContent("{#1}", "- First", "  - Deep A", "- ", "  - Deep B"),
+      );
+      expect(formatDocument(once)).toBe(once);
     });
   });
 

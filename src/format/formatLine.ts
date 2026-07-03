@@ -62,7 +62,16 @@ export default (state: State, line: string): State => {
   if (isMetadataArrayEnd) return handleMetadataArrayEnd(state, normalized);
   if (isMetadataArrayItem) return handleMetadataArrayItem(state, normalized);
   if (isMetadataKeyValue) return formatMetadata(state, normalized);
-  return handleContentLine(state, normalized);
+  // An empty list/verse item — a marker holding only a nested list — carries a
+  // significant trailing space (`- `, `N. `, `* `) that the trimming above
+  // strips, leaving a bare marker the classifier would misread (a lone `-`
+  // becomes a table separator). Re-attach the marker's space so it stays a
+  // list item through the rest of the pipeline.
+  const emptyItem = /^(\s*)(-|\d+\.|\*)$/.exec(normalized);
+  return handleContentLine(
+    state,
+    emptyItem ? `${emptyItem[1]}${emptyItem[2]} ` : normalized,
+  );
 };
 
 // Emit a [metadata] or [metadata.subkey] header line, transitioning to inMetadata context

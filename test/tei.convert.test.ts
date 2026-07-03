@@ -1,285 +1,894 @@
 import { describe, expect, it } from "vitest";
+import compile from "../src/compile.js";
+import format from "../src/format.js";
 import fromTEIXML from "../src/tei/fromTei.js";
 import toTEIXML from "../src/tei/toTei.js";
-import { parseXml, serializeNodes } from "../src/tei/xml.js";
 
-// Information-level equality: canonical entities/quotes, whitespace ignored.
-const norm = (xml: string): string =>
-  serializeNodes(parseXml(xml))
-    .replace(/\s+/g, " ")
-    .replace(/\s*(<[^>]+>)\s*/g, "$1")
-    .trim();
+// Wrap body markup in a minimal, valid TEI P5 document (TEI namespace, header,
+// single text/body). Most fromTEIXML tests feed `tei(<div>…</div>)`.
+const tei = (body: string, header = HEADER): string =>
+  `<TEI xmlns="http://www.tei-c.org/ns/1.0">${header}<text><body>${body}</body></text></TEI>`;
 
-const roundTrips = (xml: string): void => {
-  expect(norm(toTEIXML(fromTEIXML(xml)))).toBe(norm(xml));
+const HEADER = `<teiHeader><fileDesc><titleStmt><title>T</title></titleStmt><publicationStmt><idno type="DLPS">A1</idno></publicationStmt><sourceDesc><p>s</p></sourceDesc></fileDesc></teiHeader>`;
+
+// Convert, and assert the produced Markit compiles without diagnostics.
+const clean = (xml: string, opts?: { modernize?: boolean }): string => {
+  const mit = fromTEIXML(xml, opts);
+  const [, errors] = compile(mit);
+  expect(errors).toEqual([]);
+  return mit;
 };
 
-const SAMPLE = `<?xml version="1.0"?>
-<!DOCTYPE ETS SYSTEM "x.dtd">
-<ETS>
-<HEADER><FILEDESC><TITLESTMT><TITLE>T &amp; co</TITLE></TITLESTMT></FILEDESC></HEADER>
-<EEBO>
-<IDG S="marc" ID="A123"><STC>x</STC></IDG>
-<TEXT LANG="eng">
-<FRONT>
-<DIV1 TYPE="title page"><PB REF="1"/><HEAD>The <HI>Title</HI></HEAD><P>By <HI>Author</HI>.</P></DIV1>
-</FRONT>
-<BODY>
-<DIV1 TYPE="play">
-<DIV2 TYPE="scene">
-<HEAD>Scene 1</HEAD>
-<SP><SPEAKER>A</SPEAKER><L>line <HI>one</HI></L><L>line two</L></SP>
-<P>text <GAP DESC="illegible" DISP="*"/> and a note<NOTE PLACE="marg">side</NOTE>.</P>
-<P>nested <HI>a <HI>b</HI> c</HI> and <SUP>2</SUP> and <Q>quote</Q> and <HI REND="bold">B</HI>.</P>
-</DIV2>
-</DIV1>
-</BODY>
-</TEXT>
-</EEBO>
-</ETS>`;
-
-describe("fromTEIXML / toTEIXML", () => {
-  it("round-trips a representative document losslessly", () => {
-    roundTrips(SAMPLE);
+describe("fromTEIXML — structure", () => {
+  it("derives the root id from the DLPS idno and nests text/body/div", () => {
+    const mit = clean(tei(`<div type="chapter" n="1"><p>hi</p></div>`));
+    expect(mit).toContain("# A1");
+    expect(mit).toContain("## text");
+    expect(mit).toContain("### body");
+    expect(mit).toContain("#### chapter_1");
+    expect(mit).toContain('type = "chapter"');
+    expect(mit).toContain('n = "1"');
   });
 
-  it("produces readable Markit for the clean cases", () => {
-    const mit = fromTEIXML(SAMPLE);
-    expect(mit).toContain("# A123"); // root id from IDG@ID
-    expect(mit).toContain('tei = "ETS"');
-    expect(mit).toContain("teiProlog = ");
-    expect(mit).toContain('teiHeader = "<HEADER>');
-    expect(mit).toContain('teiIdg = "<IDG');
-    expect(mit).toContain("The _Title_"); // bare <HI> -> emphasis
-    expect(mit).toContain('"quote"'); // bare <Q> -> quote
-    expect(mit).toContain("^2^"); // <SUP> -> superscript
-    expect(mit).toContain("<<SPEAKER>>A<</SPEAKER>>"); // no native form -> generic
-    expect(mit).toContain('<<GAP DESC="illegible" DISP="*"/>>'); // attrs preserved
-    expect(mit).toContain('<<HI REND="bold">>B<</HI>>'); // attr-bearing HI -> generic
+  it("falls back to id `document` when no header/idno is present", () => {
+    expect(
+      fromTEIXML(`<TEI xmlns="x"><text><body><p>x</p></body></text></TEI>`),
+    ).toContain("# document");
+    expect(fromTEIXML("")).toBe("# document\n");
+    expect(fromTEIXML("<!-- only a comment -->")).toBe("# document\n");
+  });
+
+  it("derives div ids from type, n, both, or neither and uniquifies them", () => {
+    const mit = clean(
+      tei(
+        `<div type="a"><p>1</p></div><div n="2"><p>2</p></div>` +
+          `<div><p>3</p></div><div type="a"><p>4</p></div>`,
+      ),
+    );
+    expect(mit).toContain("#### a\n");
+    expect(mit).toContain("#### div_2\n");
+    expect(mit).toContain("#### div\n");
+    expect(mit).toContain("#### a_2\n");
+  });
+
+  it("carries xml:lang onto the text as `lang` metadata and back", () => {
+    const mit = clean(
+      `<TEI xmlns="x"><text xml:lang="lat"><body><p>x</p></body></text></TEI>`,
+    );
+    expect(mit).toContain('lang = "lat"');
+    expect(toTEIXML(mit)).toContain('<text xml:lang="lat">');
+  });
+
+  it("treats <group> as structural", () => {
+    const mit = clean(tei(`<group><text><body><p>x</p></body></text></group>`));
+    expect(mit).toContain("group");
+  });
+});
+
+describe("fromTEIXML — blocks", () => {
+  it("maps the first <head> to a title and later heads to subtitles", () => {
+    const mit = clean(
+      tei(`<div><head>One</head><p>x</p><head>Two</head></div>`),
+    );
+    expect(mit).toContain("{#title}");
+    expect(mit).toContain("{#subtitle}");
+  });
+
+  it("demotes a <head> that follows other content to a subtitle", () => {
+    const mit = clean(
+      tei(`<div><argument><p>a</p></argument><head>H</head></div>`),
+    );
+    expect(mit).not.toContain("{#title}");
+    expect(mit).toContain("{#subtitle}");
+  });
+
+  it("renders ordered, unordered and nested lists", () => {
+    const mit = clean(
+      tei(
+        `<list><item>one<list><item>sub</item></list></item><item>two</item></list>` +
+          `<list type="ordered"><item>first</item><item>second</item></list>`,
+      ),
+    );
+    expect(mit).toContain("- one");
+    expect(mit).toContain("  - sub");
+    expect(mit).toContain("- two");
+    expect(mit).toContain("1. first");
+    expect(mit).toContain("2. second");
+  });
+
+  it("renders a list <head> as a leading item", () => {
+    const mit = clean(tei(`<list><head>Title</head><item>x</item></list>`));
+    expect(mit).toContain("- Title");
+    expect(mit).toContain("- x");
+  });
+
+  it("renders tables with and without a header row", () => {
+    const withHeader = clean(
+      tei(
+        `<table><row role="label"><cell>A</cell><cell>B</cell></row><row><cell>1</cell><cell>2</cell></row></table>`,
+      ),
+    );
+    expect(withHeader).toContain("| A | B |");
+    expect(withHeader).toContain("|---|---|");
+    const noHeader = clean(
+      tei(`<table><row><cell>1</cell><cell>2</cell></row></table>`),
+    );
+    expect(noHeader).toContain("| 1 | 2 |");
+    expect(noHeader).not.toContain("---");
+  });
+
+  it("escapes a literal pipe inside a table cell", () => {
+    const mit = clean(tei(`<table><row><cell>a|b</cell></row></table>`));
+    expect(mit).toContain("a\\|b");
+  });
+
+  it("renders verse, stanzas and a standalone line", () => {
+    const mit = clean(
+      tei(`<lg><l>one</l><l>two</l><lg><l>three</l></lg></lg><l>loose</l>`),
+    );
+    expect(mit).toContain("* one");
+    expect(mit).toContain("* two");
+    expect(mit).toContain("* three");
+    expect(mit).toContain("* loose");
+  });
+
+  it("maps <quote> and <cit> to blockquotes", () => {
+    const mit = clean(tei(`<quote><p>a</p><p>b</p></quote><cit>c</cit>`));
+    expect(mit).toContain("> a");
+    expect(mit).toContain("> b");
+    expect(mit).toContain("> c");
+  });
+
+  it("maps a speech to a speaker line plus verse", () => {
+    const mit = clean(tei(`<sp><speaker>Ham.</speaker><l>To be</l></sp>`));
+    expect(mit).toContain("@Ham.@");
+    expect(mit).toContain("* To be");
+  });
+
+  it("maps a block-level <stage> to stage-direction lines", () => {
+    const mit = clean(tei(`<div><stage>Enter Hamlet.</stage><p>x</p></div>`));
+    expect(mit).toContain(": Enter Hamlet.");
+  });
+
+  it("maps a block <stage> with multiple paragraphs", () => {
+    const mit = clean(
+      tei(`<div><stage><p>First.</p><p>Second.</p></stage></div>`),
+    );
+    expect(mit).toContain(": First.");
+    expect(mit).toContain(": Second.");
+  });
+
+  it("tags semantic block wrappers with an `element` key", () => {
+    const mit = clean(tei(`<trailer>The End</trailer>`));
+    expect(mit).toContain('element="trailer"');
+    expect(mit).toContain("The End");
+  });
+
+  it("keeps an empty figure as an element-tagged block", () => {
+    const mit = clean(tei(`<figure></figure>`));
+    expect(mit).toContain('element="figure"');
+  });
+
+  it("renders a bare text run inside a structural element as a paragraph", () => {
+    const mit = clean(tei(`<div>loose text<p>p</p></div>`));
+    expect(mit).toContain("loose text");
+  });
+
+  it("ignores an all-whitespace bare text run", () => {
+    const mit = clean(tei(`<div>   <p>p</p></div>`));
+    expect(mit).toContain("p");
+  });
+});
+
+describe("fromTEIXML — footnotes", () => {
+  it("turns a bottom note into a reference plus an appended footnote block", () => {
+    const mit = clean(
+      tei(`<div><p>text<note place="bottom">the note</note>.</p></div>`),
+    );
+    expect(mit).toContain("<n1>");
+    expect(mit).toContain("{#n1}");
+    expect(mit).toContain("the note");
+  });
+
+  it("renders a block-level note in place", () => {
+    const mit = clean(
+      tei(`<div><note place="foot"><p>standalone</p></note></div>`),
+    );
+    expect(mit).toContain("standalone");
+  });
+});
+
+describe("fromTEIXML — inline", () => {
+  const inline = (frag: string): string => clean(tei(`<p>${frag}</p>`));
+
+  it("maps highlight rends to their Markit wrappers", () => {
+    expect(inline(`<hi>i</hi>`)).toContain("_i_");
+    expect(inline(`<hi rend="italic">i</hi>`)).toContain("_i_");
+    expect(inline(`<hi rend="sup">s</hi>`)).toContain("^s^");
+    expect(inline(`<hi rend="sub">s</hi>`)).toContain(",,s,,");
+    expect(inline(`<hi rend="smallcaps">c</hi>`)).toContain("*c*");
+  });
+
+  it("preserves an unknown rend as a generic element", () => {
+    expect(inline(`<hi rend="underline">u</hi>`)).toContain(
+      '<<hi rend="underline">>u<</hi>>',
+    );
+  });
+
+  it("maps quotes, names, editorial marks and citations", () => {
+    expect(inline(`<q>q</q>`)).toContain('"q"');
+    expect(inline(`<persName>p</persName>`)).toContain("[p:p]");
+    expect(inline(`<name type="place">l</name>`)).toContain("[l:l]");
+    expect(inline(`<orgName>o</orgName>`)).toContain("[o:o]");
+    expect(inline(`<add>a</add>`)).toContain("[+a+]");
+    expect(inline(`<del>d</del>`)).toContain("[-d-]");
+    expect(inline(`<unclear>u</unclear>`)).toContain("[?u?]");
+    expect(inline(`<bibl>b</bibl>`)).toContain("[b]");
+  });
+
+  it("maps foreign runs with and without a language code", () => {
+    expect(inline(`<foreign xml:lang="la">ave</foreign>`)).toContain(
+      "$la:ave$",
+    );
+    expect(inline(`<foreign>x</foreign>`)).toContain("$x$");
+  });
+
+  it("maps margin notes to asides", () => {
+    expect(inline(`<note place="margin">side</note>`)).toContain("#side#");
+  });
+
+  it("maps an inline <stage> to a stage-direction wrapper", () => {
+    expect(inline(`He pauses <stage>aside</stage> here`)).toContain(
+      "::aside::",
+    );
+  });
+
+  it("escapes a literal double colon in text", () => {
+    expect(inline(`ratio a::b`)).toContain("a\\::b");
+  });
+
+  it("maps gaps, line breaks and page breaks", () => {
+    expect(inline(`a<gap/>b`)).toContain("[...]");
+    expect(inline(`a<lb/>b`)).toContain("\\");
+    expect(inline(`<pb n="i"/>x`)).toContain("//i//");
+    expect(inline(`<pb facs="f 1"/>x`)).toContain("//f_1//");
+    expect(inline(`<pb/>x`)).toContain("///");
+  });
+
+  it("resolves glyphs to Unicode and closes up end-of-line hyphens", () => {
+    expect(inline(`a<g ref="char:cmbAbbrStroke">̄</g>b`)).toContain("āb");
+    expect(inline(`pro<g ref="char:EOLhyphen"/>\nceeded`)).toContain(
+      "proceeded",
+    );
+    expect(inline(`un<g ref="char:EOLunhyphen"/>\nclear`)).toContain("unclear");
+  });
+
+  it("prefers the expansion of an abbreviation choice and marks supplied letters", () => {
+    expect(
+      inline(`<choice><abbr>Mr</abbr><expan>Mr<ex>iste</ex>r</expan></choice>`),
+    ).toContain("[+iste+]");
+    expect(inline(`<choice><abbr>Esq</abbr></choice>`)).toContain("Esq");
+    expect(inline(`<choice>plain</choice>`)).toContain("plain");
+    expect(
+      inline(`<expan>v<am><g ref="char:abr"/></am><ex>er</ex>tue</expan>`),
+    ).toContain("v[+er+]tue");
+    expect(inline(`<abbr>co</abbr>`)).toContain("co");
+    expect(inline(`<seg rend="decorInit">I</seg>say`)).toContain("Isay");
   });
 
   it("falls back to a generic element when a native type would nest in itself", () => {
-    const mit = fromTEIXML(SAMPLE);
-    // <HI>a <HI>b</HI> c</HI> : outer stays italic, inner becomes generic.
-    expect(mit).toContain("_a <<HI>>b<</HI>> c_");
+    expect(inline(`<hi>a <hi>b</hi> c</hi>`)).toContain("_a <<hi>>b<</hi>> c_");
   });
 
-  it("preserves the entire header and prolog verbatim", () => {
-    const back = toTEIXML(fromTEIXML(SAMPLE));
-    expect(back).toContain("<TITLE>T &amp; co</TITLE>");
-    expect(back).toContain('<!DOCTYPE ETS SYSTEM "x.dtd">');
-    expect(back).toContain('<IDG S="marc" ID="A123"><STC>x</STC></IDG>');
+  it("preserves an unmapped element as a generic element, self-closing or paired", () => {
+    expect(inline(`x<milestone unit="page"/>y`)).toContain(
+      '<<milestone unit="page"/>>',
+    );
+    expect(inline(`<foo bar="1">z</foo>`)).toContain(
+      '<<foo bar="1">>z<</foo>>',
+    );
+  });
+
+  it("escapes Markit-significant characters and leading block markers", () => {
+    expect(inline(`a *b* _c_ {d} "e"`)).toContain(
+      '\\*b\\* \\_c\\_ \\{d} \\"e\\"',
+    );
+    expect(clean(tei(`<p>- dash</p>`))).toContain("\\- dash");
+  });
+
+  it("drops comments and processing instructions in content", () => {
+    expect(inline(`a<!--c-->b`)).toContain("ab");
+    expect(inline(`a<?pi z?>b`)).toContain("ab");
   });
 });
 
-describe("structural edge cases", () => {
-  it("derives the root id from an IDNO when there is no IDG", () => {
-    const mit = fromTEIXML(
-      `<ETS><HEADER><IDNO TYPE="DLPS">B999</IDNO></HEADER><TEXT><BODY><P>x</P></BODY></TEXT></ETS>`,
-    );
-    expect(mit.startsWith("# B999")).toBe(true);
+describe("fromTEIXML — formatter-canonical output", () => {
+  // The corpus requires every .mit file to be formatter-canonical, so the
+  // converter must be a formatter fixed point: format(fromTEIXML(x)) === it.
+  const canonical = (xml: string): string => {
+    const mit = clean(xml);
+    expect(format(mit)).toBe(mit);
+    return mit;
+  };
+
+  it("places hard line breaks at end-of-line in a paragraph", () => {
+    const mit = canonical(tei(`<p>wise:<lb/>every knave<lb/>is wise.</p>`));
+    expect(mit).toContain("wise: \\\nevery knave \\\nis wise.");
   });
 
-  it("falls back to a default id when none can be derived", () => {
-    expect(
-      fromTEIXML(`<ETS><TEXT><BODY><P>x</P></BODY></TEXT></ETS>`),
-    ).toContain("# document");
+  it("places hard line breaks at end-of-line inside a blockquote", () => {
+    const mit = canonical(tei(`<quote>one.<lb/>two.</quote>`));
+    expect(mit).toContain("> one. \\\n> two.");
   });
 
-  it("uniquifies sibling ids and round-trips them", () => {
-    const xml = `<ETS><TEXT><FRONT><DIV1 TYPE="a"><P>1</P></DIV1><DIV1 TYPE="b"><P>2</P></DIV1></FRONT></TEXT></ETS>`;
-    const mit = fromTEIXML(xml);
-    expect(mit).toContain("### div1\n");
-    expect(mit).toContain("### div1_2\n");
-    roundTrips(xml);
+  it("places hard line breaks at end-of-line inside a stage direction", () => {
+    const mit = canonical(tei(`<div><stage>one.<lb/>two.</stage></div>`));
+    expect(mit).toContain(": one. \\\n: two.");
   });
 
-  it("records and replays interleaved block/sub-text order", () => {
-    // A block AFTER a structural child cannot use the natural blocks-first order.
-    const xml = `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>x</P></DIV1><TRAILER>end</TRAILER></BODY></TEXT></ETS>`;
-    expect(fromTEIXML(xml)).toContain("teiKids");
-    roundTrips(xml);
+  it("guards a line-break continuation that looks like a block construct", () => {
+    const mit = canonical(tei(`<p>text<lb/>- dashy<lb/>| pipey</p>`));
+    expect(mit).toContain("text \\\n\\- dashy \\\n\\| pipey");
   });
 
-  it("preserves a bare text run inside a structural element", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a">loose text<P>p</P></DIV1></BODY></TEXT></ETS>`,
-    );
+  it("guards a marker-like continuation inside a blockquote", () => {
+    const mit = canonical(tei(`<quote>text<lb/>1. numbered</quote>`));
+    expect(mit).toContain("> text \\\n> \\1. numbered");
   });
 
-  it("handles a document with no root element", () => {
-    const mit = fromTEIXML(`<!-- only a comment -->`);
-    expect(mit).toContain("# document");
-    expect(toTEIXML(mit)).toContain("<!-- only a comment -->");
-    expect(fromTEIXML(``)).toBe("# document\n");
-  });
-});
-
-describe("inline and content edge cases", () => {
-  it("preserves block-level and inline comments", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><PB REF="1"/><!-- PDF PAGE 2 --><P>a<!--inline-->b</P></DIV1></BODY></TEXT></ETS>`,
-    );
-  });
-
-  it("preserves a self-closed block element distinctly", () => {
-    const back = toTEIXML(
-      fromTEIXML(
-        `<ETS><TEXT><BODY><DIV1 TYPE="a"><PB REF="1"/><P>x</P></DIV1></BODY></TEXT></ETS>`,
+  it("keeps an empty list item that holds only a nested list", () => {
+    const mit = canonical(
+      tei(
+        `<list><item>A<list><item>a1</item></list></item>` +
+          `<item><list><item>b1</item><item>b2</item></list></item></list>`,
       ),
     );
-    expect(back).toContain('<PB REF="1"/>');
-    expect(back).not.toContain('<PB REF="1"></PB>');
+    expect(mit).toContain("- \n  - b1\n  - b2");
   });
 
-  it("does not mistake literal pipes for a table", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><HEAD>I. 1. | II. 2. | III. 3. |</HEAD></DIV1></BODY></TEXT></ETS>`,
+  it("keeps an empty ordered list item that holds only a nested list", () => {
+    const mit = canonical(
+      tei(
+        `<list type="ordered"><item><list type="ordered">` +
+          `<item>a</item></list></item></list>`,
+      ),
     );
+    expect(mit).toContain("1. \n  1. a");
   });
 
-  it("escapes leading block markers in content", () => {
-    for (const text of [
-      "- dash",
-      "> angle",
-      "3. number",
-      "| pipe",
-      "^ caret",
-      "*star",
-    ]) {
-      roundTrips(
-        `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>${text}</P></DIV1></BODY></TEXT></ETS>`,
-      );
-    }
+  it("hoists a leading space out of emphasis so words stay separated", () => {
+    const mit = canonical(tei(`<p>By<hi> J. C. Professor.</hi></p>`));
+    expect(mit).toContain("By _J. C. Professor._");
   });
 
-  it("escapes inline Markit-significant characters in text", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>a *b* _c_ {d} [e] ~f~ @g@ #h# $i$ "j" ^k^ \\m</P></DIV1></BODY></TEXT></ETS>`,
+  it("hoists a trailing space out of emphasis", () => {
+    const mit = canonical(tei(`<p><hi>J. C. </hi>Professor</p>`));
+    expect(mit).toContain("_J. C._ Professor");
+  });
+
+  it("hoists boundary space out of a foreign run", () => {
+    const mit = canonical(
+      tei(`<p>see<foreign xml:lang="la"> ave</foreign></p>`),
     );
+    expect(mit).toContain("see $la:ave$");
   });
 
-  it("preserves a line break and an empty paired element", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>a<LB/>b</P><P>x<FIGURE></FIGURE>y</P></DIV1></BODY></TEXT></ETS>`,
+  it("collapses a whitespace-only inline element to bare whitespace", () => {
+    const mit = canonical(tei(`<p>a<hi> </hi>b</p>`));
+    expect(mit).toContain("a b");
+    expect(mit).not.toContain("_");
+  });
+
+  it("drops an empty paragraph inside a blockquote", () => {
+    const mit = canonical(tei(`<quote><p></p><p>kept</p></quote>`));
+    expect(mit).toContain("> kept");
+  });
+});
+
+describe("fromTEIXML — page breaks between blocks", () => {
+  it("prepends a stray page break to the following block", () => {
+    const mit = clean(tei(`<div><pb n="2"/><p>text</p></div>`));
+    expect(mit).toContain("//2// text");
+  });
+
+  it("places a page break inside a following heading's content", () => {
+    const mit = clean(tei(`<div><pb n="3"/><head>Title</head></div>`));
+    expect(mit).toMatch(/\^\d \/\/3\/\/ Title/);
+  });
+
+  it("emits a trailing page break as its own paragraph", () => {
+    const mit = clean(tei(`<div><p>x</p><pb n="9"/></div>`));
+    expect(mit).toContain("//9//");
+  });
+});
+
+describe("fromTEIXML — modernisation option", () => {
+  it("preserves long-s by default and modernises it on request", () => {
+    expect(clean(tei(`<p>Deciſions</p>`))).toContain("Deciſions");
+    expect(clean(tei(`<p>Deciſions</p>`), { modernize: true })).toContain(
+      "Decisions",
     );
   });
 });
 
-describe("toTEIXML of hand-authored Markit", () => {
-  const mit = [
-    "# doc",
-    "",
-    "{#1}",
-    '*strong* _em_ #aside# @sp@ [+ins+] [-del-] [?unc?] [p:per] [l:pla] [o:org] [cit] $la:fr$ $plain$ [...] /// //p5// a~b a~~b "q" ^sup^ ,,sub,, <n1>',
-    "",
-    "{#n1}",
-    "the note",
-  ].join("\n");
+describe("fromTEIXML — header to metadata", () => {
+  const headed = (header: string): string =>
+    fromTEIXML(tei(`<p>x</p>`, header));
 
-  const xml = toTEIXML(mit);
+  it("converts the standard bibliographic fields", () => {
+    const mit = headed(
+      `<teiHeader><fileDesc>` +
+        `<titleStmt><title>Main</title><title>Alt</title><author>A. One</author><editor>E. Two</editor></titleStmt>` +
+        `<extent>5 pages</extent>` +
+        `<publicationStmt><publisher>Pub</publisher><pubPlace>Here</pubPlace><date when="2020">2020.</date>` +
+        `<idno type="DLPS">A1</idno><idno type="STC">s1</idno><idno type="STC">s2</idno><idno type="EEBO-CITATION">e</idno></publicationStmt>` +
+        `<notesStmt><note>n1</note><note>n2</note></notesStmt>` +
+        `<sourceDesc><biblFull><publicationStmt><publisher>Old</publisher></publicationStmt><extent>orig</extent></biblFull></sourceDesc>` +
+        `</fileDesc><profileDesc><langUsage><language ident="eng">English</language></langUsage></profileDesc></teiHeader>`,
+    );
+    expect(mit).toContain('title = ["Main", "Alt"]');
+    expect(mit).toContain('author = "A. One"');
+    expect(mit).toContain('editor = "E. Two"');
+    expect(mit).toContain('extent = "5 pages"');
+    expect(mit).toContain('language = "eng"');
+    expect(mit).toContain('notes = ["n1", "n2"]');
+    expect(mit).toContain("[metadata.publication]");
+    expect(mit).toContain('date = "2020"');
+    expect(mit).toContain("[metadata.idno]");
+    expect(mit).toContain('STC = ["s1", "s2"]');
+    expect(mit).toContain("EEBO_CITATION = "); // hyphen normalised
+    expect(mit).toContain("[metadata.source]");
+    expect(mit).toContain('publisher = "Old"');
+  });
 
-  it("maps every Markit inline element to a TEI element", () => {
+  it("uses singular/plural keys and date text when @when is absent", () => {
+    const mit = headed(
+      `<teiHeader><fileDesc><titleStmt><author>X</author><author>Y</author></titleStmt>` +
+        `<publicationStmt><date>1700</date></publicationStmt><sourceDesc><p>s</p></sourceDesc></fileDesc></teiHeader>`,
+    );
+    expect(mit).toContain('authors = ["X", "Y"]');
+    expect(mit).toContain('date = "1700"');
+  });
+
+  it("emits no metadata for an empty header", () => {
+    const mit = fromTEIXML(
+      `<TEI xmlns="x"><teiHeader></teiHeader><text><body><p>x</p></body></text></TEI>`,
+    );
+    expect(mit).toContain("# document");
+    expect(mit).not.toContain("[metadata]");
+  });
+});
+
+describe("toTEIXML — Markit to canonical P5", () => {
+  it("rebuilds the TEI root, namespace and header", () => {
+    const mit = [
+      "# A1",
+      "",
+      "[metadata]",
+      'title = "Main"',
+      'authors = ["X", "Y"]',
+      'language = "eng"',
+      "",
+      "[metadata.publication]",
+      'publisher = "Pub"',
+      'date = "2020"',
+      "",
+      "[metadata.idno]",
+      'DLPS = "A1"',
+      'STC = ["s1", "s2"]',
+      "",
+      "[metadata.source]",
+      'publisher = "Old"',
+      'extent = "orig"',
+      "",
+      "{#1}",
+      "Body.",
+    ].join("\n");
+    const xml = toTEIXML(mit);
+    expect(xml.startsWith('<TEI xmlns="http://www.tei-c.org/ns/1.0">')).toBe(
+      true,
+    );
+    expect(xml).toContain("<title>Main</title>");
+    expect(xml).toContain("<author>X</author><author>Y</author>");
+    expect(xml).toContain('<idno type="DLPS">A1</idno>');
+    expect(xml).toContain(
+      '<idno type="STC">s1</idno><idno type="STC">s2</idno>',
+    );
+    expect(xml).toContain('<language ident="eng">eng</language>');
+    expect(xml).toContain("<biblFull>");
+    expect(xml).toContain("<extent>orig</extent>");
+    expect(xml).toContain("<p>Body.</p>");
+  });
+
+  it("emits a minimal valid header when metadata is absent", () => {
+    const xml = toTEIXML("# d\n\n{#1}\nx");
+    expect(xml).toContain("<teiHeader>");
+    expect(xml).toContain("<title></title>");
+    expect(xml).toContain("Source description not available.");
+  });
+
+  it("maps every Markit inline element back to TEI", () => {
+    const mit = [
+      "# d",
+      "",
+      "{#1}",
+      '*strong* _em_ #aside# @sp@ ::stg:: [+ins+] [-del-] [?unc?] [p:per] [l:pla] [o:org] [cit] $la:fr$ $plain$ [...] /// //p5// a~b a~~b "q" ^sup^ ,,sub,, x\\ y <n1>',
+      "",
+      "{#n1}",
+      "the note",
+    ].join("\n");
+    const xml = toTEIXML(mit);
     for (const fragment of [
-      '<HI REND="bold">strong</HI>',
-      "<HI>em</HI>",
-      '<NOTE PLACE="marg">aside</NOTE>',
-      "<SPEAKER>sp</SPEAKER>",
-      "<ADD>ins</ADD>",
-      "<DEL>del</DEL>",
-      "<UNCLEAR>unc</UNCLEAR>",
-      '<NAME TYPE="person">per</NAME>',
-      '<NAME TYPE="place">pla</NAME>',
-      '<NAME TYPE="org">org</NAME>',
-      "<BIBL>cit</BIBL>",
-      '<FOREIGN LANG="la">fr</FOREIGN>',
-      "<FOREIGN>plain</FOREIGN>",
-      "<GAP/>",
-      "<PB/>",
-      '<PB REF="p5"/>',
-      "<SUP>sup</SUP>",
-      "<SUB>sub</SUB>",
-      "<Q>q</Q>",
+      '<hi rend="smallcaps">strong</hi>',
+      '<hi rend="italic">em</hi>',
+      '<note place="margin">aside</note>',
+      "<speaker>sp</speaker>",
+      "<stage>stg</stage>",
+      "<add>ins</add>",
+      "<del>del</del>",
+      "<unclear>unc</unclear>",
+      "<persName>per</persName>",
+      "<placeName>pla</placeName>",
+      "<orgName>org</orgName>",
+      "<bibl>cit</bibl>",
+      '<foreign xml:lang="la">fr</foreign>',
+      "<foreign>plain</foreign>",
+      "<gap/>",
+      "<pb/>",
+      '<pb n="p5"/>',
+      '<hi rend="superscript">sup</hi>',
+      '<hi rend="subscript">sub</hi>',
+      "<q>q</q>",
       "&#160;",
-      "<REF>doc.n1</REF>",
+      "<lb/>",
+      '<note place="bottom">the note</note>',
     ]) {
       expect(xml).toContain(fragment);
     }
   });
 
-  it("uses fallback element names when provenance is absent", () => {
-    expect(xml.startsWith("<TEXT>")).toBe(true); // root has no tei -> TEXT
-    expect(xml).toContain("<P>"); // block has no tei -> P
+  it("falls back to <ref> for an unresolved footnote reference", () => {
+    expect(toTEIXML("# d\n\n{#1}\nsee <n9>")).toContain("<ref>d.n9</ref>");
   });
 
-  it("renders heading, blockquote, list and table block elements", () => {
-    const doc = [
+  it("renders headings, structural elements and an element override", () => {
+    const mit = [
       "# d",
       "",
       "{#title}",
-      "^1 Title",
+      "^1 Big",
+      "^2 Small",
       "",
-      '{#b1, tei="Q"}',
+      '{#1, element="argument"}',
+      "Summary one.",
+      "",
+      "Summary two.",
+      "",
+      '{#2, tei="x"}',
       "> quoted",
       "",
-      '{#b2, tei="LIST"}',
-      "- one",
-      "  - sub",
-      "- two",
+      "{#3}",
+      "- a",
+      "  - b",
       "",
-      '{#b3, tei="TABLE"}',
-      "| a | b |",
+      "{#4}",
+      "| h |",
+      "|---|",
+      "| c |",
+      "",
+      "{#5}",
+      "* verse line",
     ].join("\n");
-    const out = toTEIXML(doc);
-    expect(out).toContain("Title");
-    expect(out).toContain("<Q>quoted</Q>");
-    expect(out).toContain("<LIST>onesubtwo</LIST>");
-    expect(out).toContain("<TABLE>ab</TABLE>");
+    const xml = toTEIXML(mit);
+    expect(xml).toContain("<head>Big<lb/>Small</head>");
+    expect(xml).toContain(
+      "<argument><p>Summary one.</p><p>Summary two.</p></argument>",
+    );
+    expect(xml).toContain("<quote><p>quoted</p></quote>");
+    expect(xml).toContain(
+      "<list><item>a<list><item>b</item></list></item></list>",
+    );
+    expect(xml).toContain(
+      '<table><row role="label"><cell>h</cell></row><row><cell>c</cell></row></table>',
+    );
+    expect(xml).toContain("<lg><l>verse line</l></lg>");
   });
 
-  it("renders an empty comment sentinel and tolerates a too-long teiKids", () => {
-    expect(toTEIXML(`# d\n\n{#b1, tei="P"}\na<<teiComment/>>b`)).toContain(
-      "<!---->",
+  it("renders a block stage direction as <stage>", () => {
+    const single = toTEIXML("# d\n\n{#1}\n: He enters.");
+    expect(single).toContain("<stage>He enters.</stage>");
+    const multi = toTEIXML("# d\n\n{#1}\n: First.\n:\n: Second.");
+    expect(multi).toContain("<stage>First. Second.</stage>");
+  });
+
+  it("renders an ordered list and a single-paragraph element override", () => {
+    expect(toTEIXML("# d\n\n{#1}\n3. a\n4. b")).toContain(
+      '<list type="ordered">',
     );
-    const doc = [
-      "# r",
+    expect(toTEIXML('# d\n\n{#1, element="trailer"}\nThe End')).toContain(
+      "<trailer>The End</trailer>",
+    );
+    expect(toTEIXML('# d\n\n{#1, element="figure"}')).toContain("<figure/>");
+  });
+
+  it("reconstructs structural elements from ids and metadata", () => {
+    const mit = [
+      "# d",
+      "",
+      "## front",
+      "",
+      "{#1}",
+      "f",
+      "",
+      "## body",
+      "",
+      "### chap",
       "",
       "[metadata]",
-      'tei = "R"',
-      'teiKids = "bbtt"',
+      'type = "chapter"',
+      'n = "1"',
       "",
-      '{#b1, tei="P"}',
-      "x",
+      "{#1}",
+      "b",
     ].join("\n");
-    expect(toTEIXML(doc)).toBe("<R><P>x</P></R>");
+    const xml = toTEIXML(mit);
+    expect(xml).toContain("<front><p>f</p></front>");
+    expect(xml).toContain('<div type="chapter" n="1"><p>b</p></div>');
+  });
+
+  it("emits a generic element verbatim, self-closing or paired", () => {
+    expect(toTEIXML('# d\n\n{#1}\na<<seg n="1"/>>b')).toContain('<seg n="1"/>');
+    expect(toTEIXML("# d\n\n{#1}\n<<seg>>x<</seg>>")).toContain("<seg>x</seg>");
   });
 });
 
-describe("converter coverage corners", () => {
-  it("maps <SUB> to subscript and round-trips it", () => {
-    roundTrips(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>H<SUB>2</SUB>O</P></DIV1></BODY></TEXT></ETS>`,
+describe("fromTEIXML — coverage corners", () => {
+  const inline = (frag: string): string => clean(tei(`<p>${frag}</p>`));
+
+  it("drops a glyph with no ref and resolves glyph content past comments", () => {
+    expect(inline(`a<g/>b`)).toContain("ab");
+    expect(inline(`x<g ref="char:punc">•<!--c--></g>y`)).toContain("x•y");
+  });
+
+  it("guards a paragraph that ends with a pipe", () => {
+    expect(inline(`row a|`)).toContain("a\\|");
+  });
+
+  it("skips an empty block element", () => {
+    const mit = clean(tei(`<div><p></p><p>kept</p></div>`));
+    expect(mit).toContain("kept");
+    expect(mit).not.toMatch(/\{#1}\n\n/);
+  });
+
+  it("treats a note with no place attribute as a footnote", () => {
+    expect(inline(`text<note>aside</note>`)).toContain("<n1>");
+  });
+
+  it("renders a placeless block note in place and a margin block note as a paragraph", () => {
+    expect(clean(tei(`<div><note><p>foot</p></note></div>`))).toContain("foot");
+    // A margin note at block level has no inline aside context, so it renders
+    // as a plain paragraph (exercising the isFootnote=false branch).
+    const margin = clean(tei(`<div><note place="margin">m</note></div>`));
+    expect(margin).toContain("\nm");
+    expect(margin).not.toContain("<n");
+  });
+
+  it("handles a page break before an empty figure", () => {
+    const mit = clean(tei(`<div><pb n="1"/><figure></figure></div>`));
+    expect(mit).toContain("//1//");
+    expect(mit).toContain('element="figure"');
+  });
+
+  it("groups verse past an intervening comment in a speech", () => {
+    expect(clean(tei(`<sp><!--c--><l>x</l></sp>`))).toContain("* x");
+  });
+
+  it("skips whitespace and comment nodes inside verse, lists and tables", () => {
+    expect(clean(tei(`<lg> <l>a</l> <!--c--> <l>b</l> </lg>`))).toContain(
+      "* a",
+    );
+    expect(clean(tei(`<list> <item>i</item> </list>`))).toContain("- i");
+    expect(clean(tei(`<table> <row><cell>c</cell></row> </table>`))).toContain(
+      "| c |",
     );
   });
 
-  it("drops processing instructions found inside content", () => {
-    const mit = fromTEIXML(
-      `<ETS><TEXT><BODY><DIV1 TYPE="a"><P>a<?pi z?>b</P></DIV1></BODY></TEXT></ETS>`,
-    );
-    expect(mit).toContain("ab");
+  it("skips non-verse elements in a stanza and starts on a nested stanza", () => {
+    expect(clean(tei(`<lg><l>a</l><pb n="1"/></lg>`))).toContain("* a");
+    expect(clean(tei(`<lg><lg><l>x</l></lg></lg>`))).toContain("* x");
   });
 
-  it("derives the root id from a mixed-content IDNO when IDG lacks an ID", () => {
-    const mit = fromTEIXML(
-      `<ETS><EEBO><IDG S="m"><STC>x</STC></IDG><HEADER><IDNO TYPE="DLPS">A1<X/>2</IDNO></HEADER><TEXT><BODY><P>z</P></BODY></TEXT></EEBO></ETS>`,
-    );
-    expect(mit.startsWith("# A12")).toBe(true);
+  it("skips a non-item, non-head element in a list", () => {
+    expect(
+      clean(tei(`<list><item>i</item><label>skip</label></list>`)),
+    ).toContain("- i");
   });
 
-  it("falls back to the default id when the DLPS idno is empty", () => {
-    const mit = fromTEIXML(
-      `<ETS><HEADER><IDNO TYPE="DLPS"></IDNO></HEADER><TEXT><BODY><P>z</P></BODY></TEXT></ETS>`,
+  it("collects repeated DLPS idnos into an array and uses the first for the id", () => {
+    const mit = clean(
+      `<TEI xmlns="x"><teiHeader><fileDesc><titleStmt><title>T</title></titleStmt>` +
+        `<publicationStmt><idno type="DLPS">A1</idno><idno type="DLPS">A2</idno></publicationStmt>` +
+        `<sourceDesc><p>s</p></sourceDesc></fileDesc></teiHeader><text><body><p>x</p></body></text></TEI>`,
     );
-    expect(mit.startsWith("# document")).toBe(true);
+    expect(mit).toContain("# A1");
+    expect(mit).toContain('DLPS = ["A1", "A2"]');
+  });
+});
+
+describe("fromTEIXML — header corners", () => {
+  const headed = (fd: string): string =>
+    fromTEIXML(
+      `<TEI xmlns="x"><teiHeader><fileDesc>${fd}</fileDesc></teiHeader><text><body><p>x</p></body></text></TEI>`,
+    );
+
+  it("ignores comment nodes inside header text and an empty date", () => {
+    const mit = headed(
+      `<titleStmt><title>A<!--c-->B</title></titleStmt><publicationStmt><date></date></publicationStmt><sourceDesc><p>s</p></sourceDesc>`,
+    );
+    expect(mit).toContain('title = "AB"');
+    expect(mit).not.toContain("date");
+  });
+
+  it("records two editors as an array", () => {
+    expect(
+      headed(
+        `<titleStmt><editor>One</editor><editor>Two</editor></titleStmt><sourceDesc><p>s</p></sourceDesc>`,
+      ),
+    ).toContain('editors = ["One", "Two"]');
+  });
+
+  it("defaults a typeless idno key and drops an empty idno", () => {
+    const mit = headed(
+      `<titleStmt><title>T</title></titleStmt><publicationStmt><idno>bare</idno><idno type="X"></idno></publicationStmt><sourceDesc><p>s</p></sourceDesc>`,
+    );
+    expect(mit).toContain('id = "bare"');
+    expect(mit).not.toContain("X =");
+  });
+
+  it("reads source extent even when biblFull has no publicationStmt", () => {
+    expect(
+      headed(
+        `<titleStmt><title>T</title></titleStmt><sourceDesc><biblFull><extent>orig</extent></biblFull></sourceDesc>`,
+      ),
+    ).toContain('extent = "orig"');
+  });
+
+  it("recurses into nested elements when reading a header field", () => {
+    expect(
+      headed(
+        `<titleStmt><title>Main <hi>Work</hi></title></titleStmt><sourceDesc><p>s</p></sourceDesc>`,
+      ),
+    ).toContain('title = "Main Work"');
+  });
+
+  it("ignores an empty notesStmt", () => {
+    const mit = headed(
+      `<titleStmt><title>T</title></titleStmt><notesStmt></notesStmt><sourceDesc><p>s</p></sourceDesc>`,
+    );
+    expect(mit).not.toContain("notes");
+  });
+
+  it("reads a language element that has no ident attribute", () => {
+    const mit = fromTEIXML(
+      `<TEI xmlns="x"><teiHeader><fileDesc><titleStmt><title>T</title></titleStmt><sourceDesc><p>s</p></sourceDesc></fileDesc>` +
+        `<profileDesc><langUsage><language>fra</language></langUsage></profileDesc></teiHeader>` +
+        `<text><body><p>x</p></body></text></TEI>`,
+    );
+    expect(mit).toContain('language = "fra"');
+  });
+
+  it("ignores an empty language element", () => {
+    const mit = fromTEIXML(
+      `<TEI xmlns="x"><teiHeader><fileDesc><titleStmt><title>T</title></titleStmt><sourceDesc><p>s</p></sourceDesc></fileDesc>` +
+        `<profileDesc><langUsage><language></language></langUsage></profileDesc></teiHeader>` +
+        `<text><body><p>x</p></body></text></TEI>`,
+    );
+    expect(mit).not.toContain("language =");
+  });
+
+  it("records a source with publication but no extent, and an empty biblFull", () => {
+    expect(
+      headed(
+        `<titleStmt><title>T</title></titleStmt><sourceDesc><biblFull><publicationStmt><publisher>P</publisher></publicationStmt></biblFull></sourceDesc>`,
+      ),
+    ).toContain('publisher = "P"');
+    expect(
+      headed(
+        `<titleStmt><title>T</title></titleStmt><sourceDesc><biblFull></biblFull></sourceDesc>`,
+      ),
+    ).toContain('title = "T"');
+  });
+});
+
+describe("toTEIXML — coverage corners", () => {
+  it("rebuilds editors, extent, notes and source extent", () => {
+    const mit = [
+      "# d",
+      "",
+      "[metadata]",
+      'editors = ["E1", "E2"]',
+      'extent = "5p"',
+      'notes = ["n1"]',
+      "",
+      "[metadata.source]",
+      'extent = "orig"',
+      "",
+      "{#1}",
+      "x",
+    ].join("\n");
+    const xml = toTEIXML(mit);
+    expect(xml).toContain("<editor>E1</editor><editor>E2</editor>");
+    expect(xml).toContain("<extent>5p</extent>");
+    expect(xml).toContain("<notesStmt><note>n1</note></notesStmt>");
+    expect(xml).toContain("<biblFull>");
+    expect(xml).toContain("<extent>orig</extent>");
+  });
+
+  it("infers div from type-only, n-only, a custom id, and a numeric n", () => {
+    const div = (meta: string): string =>
+      toTEIXML(
+        ["# d", "", "## s", "", "[metadata]", meta, "", "{#1}", "x"].join("\n"),
+      );
+    expect(div('type = "a"')).toContain('<div type="a">');
+    expect(div('n = "2"')).toContain('<div n="2">');
+    expect(div("n = 3")).toContain('<div n="3">');
+    expect(toTEIXML("# d\n\n## appendix\n\n{#1}\nx")).toContain(
+      "<div><p>x</p></div>",
+    );
+  });
+
+  it("renders a paragraph-only title block and a multi-paragraph footnote", () => {
+    expect(toTEIXML("# d\n\n{#title}\nplain title")).toContain(
+      "<head>plain title</head>",
+    );
+    const note = [
+      "# d",
+      "",
+      "{#1}",
+      "see <n1>",
+      "",
+      "{#n1}",
+      "para one",
+      "",
+      "para two",
+    ].join("\n");
+    expect(toTEIXML(note)).toContain(
+      '<note place="bottom"><p>para one</p><p>para two</p></note>',
+    );
+  });
+
+  it("renders a title block whose content is a list", () => {
+    expect(toTEIXML("# d\n\n{#title}\n- one\n- two")).toContain(
+      "<head><list><item>one</item><item>two</item></list></head>",
+    );
+  });
+
+  it("emits a source section that has no extent", () => {
+    const mit = [
+      "# d",
+      "",
+      "[metadata.source]",
+      'publisher = "Old"',
+      "",
+      "{#1}",
+      "x",
+    ].join("\n");
+    const xml = toTEIXML(mit);
+    expect(xml).toContain(
+      "<biblFull><publicationStmt><publisher>Old</publisher>",
+    );
+    expect(xml).not.toContain("<extent>");
+  });
+});
+
+describe("round trips", () => {
+  it("survives a fromTEIXML → toTEIXML → fromTEIXML cycle without diagnostics", () => {
+    const xml = tei(
+      `<div type="ch" n="1"><head>H</head><p>A <hi>word</hi> and a note<note place="bottom">see <hi>here</hi></note>.</p>` +
+        `<lg><l>verse</l></lg><list><item>i</item></list></div>`,
+    );
+    const mit = clean(xml);
+    const round = clean(toTEIXML(mit));
+    expect(round).toBe(mit);
   });
 });

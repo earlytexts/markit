@@ -4,6 +4,7 @@ import {
   childElements,
   decodeEntities,
   isElement,
+  localName,
   parseXml,
   serializeNodes,
   startTagInner,
@@ -111,6 +112,11 @@ describe("xml reader", () => {
       `<HI REND="b">x</HI>`,
     );
     expect(serializeNodes(parseXml(`<PB N="1" />`))).toBe(`<PB N="1"/>`);
+  });
+
+  it("strips a namespace prefix from an element name", () => {
+    expect(localName("tei:div")).toBe("div");
+    expect(localName("div")).toBe("div");
   });
 
   it("tolerates malformed / truncated input without throwing", () => {

@@ -235,6 +235,45 @@ describe("asides", () => {
   });
 });
 
+describe("inline stage directions", () => {
+  it("parses an inline stage direction", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "@Ham.@ To be ::aside:: or not to be."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "speaker", content: [pt("Ham.")] },
+        pt(" To be "),
+        { type: "stageDirection", content: [pt("aside")] },
+        pt(" or not to be."),
+      ]),
+    ]);
+  });
+
+  it("leaves a single colon as literal text", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "the ratio 3:4 is fixed"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("the ratio 3:4 is fixed")]),
+    ]);
+  });
+
+  it("reports an unclosed inline stage direction", () => {
+    const [, errors] = compile(markitWithContent("{#1}", "open ::unclosed"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: ::",
+      severity: "error",
+    });
+  });
+});
+
 describe("whitespace and line breaks", () => {
   it("parses line breaks", () => {
     const [document, errors] = compile(

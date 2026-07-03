@@ -1,4 +1,10 @@
-import { blockquoteSpec, headingSpec, listSpec, tableSpec } from "../types.js";
+import {
+  blockquoteSpec,
+  headingSpec,
+  listSpec,
+  stageDirectionSpec,
+  tableSpec,
+} from "../types.js";
 
 /**
  * Classification result for a line of block-level content.
@@ -11,6 +17,7 @@ export type BlockLineKind =
   | { kind: "invalidHeading"; level: number }
   | { kind: "headingWithoutLevel" }
   | { kind: "blockquote" }
+  | { kind: "stageDirection" }
   | { kind: "verseListItem" }
   | { kind: "unorderedListItem"; indent: number }
   | { kind: "orderedListItem"; indent: number; number: number }
@@ -54,6 +61,11 @@ export default (content: string): BlockLineKind => {
   // Blockquote: starts with blockquote marker
   if (content.startsWith(blockquoteSpec.marker)) {
     return { kind: "blockquote" };
+  }
+
+  // Stage direction: starts with the stage-direction marker
+  if (content.startsWith(stageDirectionSpec.marker)) {
+    return { kind: "stageDirection" };
   }
 
   // Verse line: starts with verse marker and space (no indentation)

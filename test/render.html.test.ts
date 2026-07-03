@@ -90,6 +90,22 @@ describe("block elements", () => {
     );
   });
 
+  it("renders block stage directions", () => {
+    const [document] = compile(markitWithContent("{#1}", ": Exeunt."));
+    expect(renderHTML(document)).toContain(
+      '<div class="stage-direction"><p>Exeunt.</p></div>',
+    );
+  });
+
+  it("renders inline stage directions", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "He speaks ::aside:: to her."),
+    );
+    expect(renderHTML(document)).toContain(
+      '<span class="stage-direction">aside</span>',
+    );
+  });
+
   it("renders unordered lists", () => {
     const [document] = compile(
       markitWithContent("{#1}", "- First", "- Second"),

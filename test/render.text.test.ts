@@ -66,6 +66,20 @@ describe("block elements", () => {
     expect(renderText(document)).toContain("    A quote.");
   });
 
+  it("renders a block stage direction's text", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "intro.", "", ": He bows.", "", "outro."),
+    );
+    expect(renderText(document)).toContain("He bows.");
+  });
+
+  it("renders an inline stage direction's text", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "He speaks ::softly:: now."),
+    );
+    expect(renderText(document)).toContain("He speaks softly now.");
+  });
+
   it("renders unordered list with hyphen markers", () => {
     const [document] = compile(
       markitWithContent("{#1}", "- First", "- Second"),

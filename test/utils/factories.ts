@@ -7,6 +7,7 @@ import {
   type ListItem,
   type Paragraph,
   type PlainText,
+  type StageDirection,
   type Table,
   type TableRow,
   type TableCell,
@@ -46,6 +47,11 @@ export const hl = (level: number, content: InlineElement[]): HeadingLine => ({
 
 export const bq = (content: Paragraph[]): Blockquote => ({
   type: "blockquote",
+  content,
+});
+
+export const sd = (content: Paragraph[]): StageDirection => ({
+  type: "stageDirection",
   content,
 });
 

@@ -63,6 +63,10 @@ const blockElementToHTML = (
       return `<blockquote>${element.content
         .map((el) => blockElementToHTML(el, null, depth))
         .join("")}</blockquote>`;
+    case "stageDirection":
+      return `<div class="stage-direction">${element.content
+        .map((el) => blockElementToHTML(el, null, depth))
+        .join("")}</div>`;
     case "list": {
       if (element.ordered === "verse") {
         const lines = element.items
@@ -144,6 +148,8 @@ const inlineElementToHTML = (element: InlineElement): string => {
       return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
     case "speaker":
       return `<span class="speaker">${inlineElementsToHTML(element.content)}</span>`;
+    case "stageDirection":
+      return `<span class="stage-direction">${inlineElementsToHTML(element.content)}</span>`;
     case "insertion":
       return `<ins>${inlineElementsToHTML(element.content)}</ins>`;
     case "deletion":

@@ -52,7 +52,13 @@ export type Block = {
 } & Ranges;
 
 // Block-level element types
-export type BlockElement = Heading | Paragraph | Blockquote | List | Table;
+export type BlockElement =
+  | Heading
+  | Paragraph
+  | Blockquote
+  | StageDirection
+  | List
+  | Table;
 
 export type Heading = {
   type: "heading";
@@ -72,6 +78,14 @@ export type Paragraph = {
 
 export type Blockquote = {
   type: "blockquote";
+  content: Paragraph[];
+};
+
+// A block-level stage direction (lines starting with `:`). Like a blockquote, it
+// collapses consecutive lines into paragraphs, with a bare `:` line separating
+// paragraphs.
+export type StageDirection = {
+  type: "stageDirection";
   content: Paragraph[];
 };
 
@@ -112,6 +126,10 @@ export const headingSpec = {
 
 export const blockquoteSpec = {
   marker: ">",
+} as const;
+
+export const stageDirectionSpec = {
+  marker: ":",
 } as const;
 
 export const listSpec = {
@@ -182,6 +200,7 @@ export const wrapperElements = [
   { open: ",,", close: ",,", type: "subscript" },
   { open: "#", close: "#", type: "aside" },
   { open: "@", close: "@", type: "speaker" },
+  { open: "::", close: "::", type: "stageDirection" },
   { open: "[+", close: "+]", type: "insertion" },
   { open: "[-", close: "-]", type: "deletion" },
   { open: "[?", close: "?]", type: "uncertain" },

@@ -37,6 +37,10 @@ const blockElementToText = (
       return element.content
         .map((el) => `    ${blockElementToText(el, null)}`)
         .join("\n\n");
+    case "stageDirection":
+      return element.content
+        .map((el) => blockElementToText(el, null))
+        .join("\n\n");
     case "list":
       return listToText(element, 0, element.start ?? 1);
     case "table":
@@ -113,6 +117,8 @@ const inlineElementToText = (element: InlineElement): string => {
     case "aside":
       return "";
     case "speaker":
+      return inlineElementsToText(element.content);
+    case "stageDirection":
       return inlineElementsToText(element.content);
     case "insertion":
       return inlineElementsToText(element.content);
