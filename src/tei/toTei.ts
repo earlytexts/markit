@@ -2,174 +2,276 @@ import compile from "../compile.js";
 import type {
   Block,
   BlockElement,
+  Heading,
   InlineElement,
+  List,
   MarkitDocument,
   Metadata,
+  Table,
 } from "../types.js";
-import { decodeEntities, escapeText } from "./xml.js";
-import { KEYS, markitToTeiInline } from "./schema.js";
+import { escapeAttribute, escapeText } from "./xml.js";
+import { metadataToHeader, type MetaObject } from "./header.js";
+import { TEI_NS, WRAPPER_TEI } from "./schema.js";
 
-// Convert Markit (`.mit`) source produced by `fromTEIXML` (or written by hand)
-// back into TCP/TEI XML. Structural texts become their original elements (read
-// from the `tei` provenance metadata), blocks become their original block
-// elements, native inline elements map back to their TEI tags, and generic
-// `<<TAG>>` elements are emitted verbatim. The result reproduces the original
-// document up to insignificant whitespace and the added IDs.
+// Convert Markit (`.mit`) source into canonical TEI P5 XML — the inverse of
+// fromTei.ts. The root text becomes the `<TEI>` element (its metadata rebuilds a
+// `<teiHeader>`); structural sub-texts become `<text>`/`<front>`/`<body>`/
+// `<back>`/`<div>`; native Markit inline elements map back to their canonical TEI
+// tags; footnote references re-inline as `<note>`; and generic `<<tag>>` elements
+// are emitted verbatim. The output is standard P5, not a reproduction of any
+// particular source document's chrome.
 export const toTEIXML = (mit: string): string => {
   const [document] = compile(mit);
-  const prolog = metaString(document.metadata, KEYS.prolog) ?? "";
-  return prolog + textToXml(document, "TEXT");
+  const header = metadataToHeader(document.metadata as MetaObject | undefined);
+  return `<TEI xmlns="${TEI_NS}">${header}${contentXml(document)}</TEI>`;
 };
 
-const textToXml = (document: MarkitDocument, fallbackName: string): string => {
-  const tei = metaString(document.metadata, KEYS.tei);
-  const name = tei ? tagName(tei) : fallbackName;
-  const open = tei ?? fallbackName;
+// --- Structural texts ----------------------------------------------------
 
-  // Raw-metadata children (HEADER, IDG) are stored verbatim and come first.
-  const rawMeta = [KEYS.rawPrefix + "Header", KEYS.rawPrefix + "Idg"]
-    .map((k) => metaString(document.metadata, k))
-    .filter((v): v is string => v !== undefined)
+// A text's blocks (footnotes excluded — they re-inline at their references)
+// followed by its structural sub-texts.
+const contentXml = (document: MarkitDocument): string => {
+  const footnotes = new Map<string, Block>();
+  for (const block of document.blocks) {
+    if (block.type === "footnote") footnotes.set(block.id, block);
+  }
+  const blocks = document.blocks
+    .filter((b) => b.type !== "footnote")
+    .map((b) => blockXml(b, footnotes))
     .join("");
+  const children = document.children.map(textXml).join("");
+  return blocks + children;
+};
 
-  // Re-interleave blocks and sub-texts using the recorded order, if any.
-  const order =
-    metaString(document.metadata, KEYS.order) ??
-    "b".repeat(document.blocks.length) + "t".repeat(document.children.length);
+const textXml = (document: MarkitDocument): string => {
+  const { name, attrs } = texElement(document);
+  return `<${name}${attrs}>${contentXml(document)}</${name}>`;
+};
 
-  let blockI = 0;
-  let childI = 0;
-  let content = "";
-  for (const kind of order) {
-    if (kind === "b") {
-      const block = document.blocks[blockI++];
-      if (block) content += blockToXml(block);
-    } else {
-      const child = document.children[childI++];
-      if (child) content += textToXml(child, "DIV");
-    }
+// Infer the TEI element for a sub-text. A `type`/`n` metadata pair marks a
+// `<div>`; otherwise the text's own id names the element (front/body/back/
+// group/text); anything else defaults to `<div>`. An `xml:lang` is added from
+// `lang` metadata.
+const texElement = (
+  document: MarkitDocument,
+): { name: string; attrs: string } => {
+  const lastId = document.id.split(".").pop()!;
+  const type = metaStr(document.metadata, "type");
+  const n = metaStr(document.metadata, "n");
+  const lang = metaStr(document.metadata, "lang");
+
+  let name: string;
+  let attrs = "";
+  if (type !== undefined || n !== undefined) {
+    name = "div";
+    if (type !== undefined) attrs += ` type="${escapeAttribute(type)}"`;
+    if (n !== undefined) attrs += ` n="${escapeAttribute(n)}"`;
+  } else if (["front", "body", "back", "group", "text"].includes(lastId)) {
+    name = lastId;
+  } else {
+    name = "div";
+  }
+  if (lang !== undefined) attrs += ` xml:lang="${escapeAttribute(lang)}"`;
+  return { name, attrs };
+};
+
+// --- Blocks --------------------------------------------------------------
+
+const blockXml = (block: Block, footnotes: Map<string, Block>): string => {
+  if (block.type === "title" || block.type === "subtitle") {
+    return `<head>${block.content.map((e) => blockElementBody(e, footnotes)).join("")}</head>`;
   }
 
-  return `<${open}>${rawMeta}${content}</${name}>`;
+  const element = metaStr(block.metadata, "element");
+  if (element !== undefined) {
+    if (block.content.length === 0) return `<${element}/>`;
+    const body = block.content
+      .map((e) =>
+        e.type === "paragraph" && block.content.length === 1
+          ? inlineXml(e.content, footnotes)
+          : blockElementXml(e, footnotes),
+      )
+      .join("");
+    return `<${element}>${body}</${element}>`;
+  }
+
+  // No wrapper: a lone paragraph becomes <p>; structural elements map natively.
+  return block.content
+    .map((e) =>
+      e.type === "paragraph"
+        ? `<p>${inlineXml(e.content, footnotes)}</p>`
+        : blockElementXml(e, footnotes),
+    )
+    .join("");
 };
 
-const blockToXml = (block: Block): string => {
-  const comment = metaString(block.metadata, KEYS.comment);
-  if (comment !== undefined) return comment;
-  const inner = block.content.map(blockElementToXml).join("");
-  if (metaBool(block.metadata, KEYS.bareText)) return inner;
-  const tei = metaString(block.metadata, KEYS.tei);
-  if (!tei) return `<P>${inner}</P>`;
-  if (metaBool(block.metadata, KEYS.void) && inner === "") return `<${tei}/>`;
-  return `<${tei}>${inner}</${tagName(tei)}>`;
-};
-
-const blockElementToXml = (element: BlockElement): string => {
+// A non-paragraph block element rendered to its native TEI form.
+const blockElementXml = (
+  element: BlockElement,
+  footnotes: Map<string, Block>,
+): string => {
   switch (element.type) {
     case "paragraph":
-      return inlineToXml(element.content);
+      return `<p>${inlineXml(element.content, footnotes)}</p>`;
+    /* v8 ignore next 2 -- headings occur only in title/subtitle blocks, handled by blockElementBody */
     case "heading":
-      return element.content.map((l) => inlineToXml(l.content)).join("");
+      return `<head>${headingInline(element, footnotes)}</head>`;
     case "blockquote":
-      return element.content.map(blockElementToXml).join("");
+      return `<quote>${element.content
+        .map((p) => `<p>${inlineXml(p.content, footnotes)}</p>`)
+        .join("")}</quote>`;
+    case "stageDirection":
+      // TEI <stage> takes phrase-level content, so its paragraphs are joined
+      // into a single run rather than wrapped in <p>.
+      return `<stage>${element.content
+        .map((p) => inlineXml(p.content, footnotes))
+        .join(" ")}</stage>`;
     case "list":
-      return element.items
-        .map(
-          (item) =>
-            inlineToXml(item.content) +
-            (item.nestedList ? blockElementToXml(item.nestedList) : ""),
-        )
-        .join("");
+      return listXml(element, footnotes);
     case "table":
-      return element.rows
-        .map((row) => row.cells.map((c) => inlineToXml(c.content)).join(""))
-        .join("");
+      return tableXml(element, footnotes);
   }
 };
 
-const inlineToXml = (elements: InlineElement[]): string =>
-  elements.map(inlineElementToXml).join("");
+// Like blockElementXml but without the <p> wrapper for a bare paragraph — used
+// inside <head> and inside element-wrapped blocks.
+const blockElementBody = (
+  element: BlockElement,
+  footnotes: Map<string, Block>,
+): string =>
+  element.type === "heading"
+    ? headingInline(element, footnotes)
+    : element.type === "paragraph"
+      ? inlineXml(element.content, footnotes)
+      : blockElementXml(element, footnotes);
 
-const inlineElementToXml = (element: InlineElement): string => {
+const headingInline = (
+  heading: Heading,
+  footnotes: Map<string, Block>,
+): string =>
+  heading.content
+    .map((line) => inlineXml(line.content, footnotes))
+    .join("<lb/>");
+
+const listXml = (list: List, footnotes: Map<string, Block>): string => {
+  if (list.ordered === "verse") {
+    return `<lg>${list.items
+      .map((item) => `<l>${inlineXml(item.content, footnotes)}</l>`)
+      .join("")}</lg>`;
+  }
+  const type = list.ordered === "ordered" ? ` type="ordered"` : "";
+  return `<list${type}>${list.items
+    .map(
+      (item) =>
+        `<item>${inlineXml(item.content, footnotes)}${
+          item.nestedList ? listXml(item.nestedList, footnotes) : ""
+        }</item>`,
+    )
+    .join("")}</list>`;
+};
+
+const tableXml = (table: Table, footnotes: Map<string, Block>): string =>
+  `<table>${table.rows
+    .map((row, i) => {
+      const role = table.hasHeader && i === 0 ? ` role="label"` : "";
+      const cells = row.cells
+        .map((cell) => `<cell>${inlineXml(cell.content, footnotes)}</cell>`)
+        .join("");
+      return `<row${role}>${cells}</row>`;
+    })
+    .join("")}</table>`;
+
+// --- Inline --------------------------------------------------------------
+
+const inlineXml = (
+  elements: InlineElement[],
+  footnotes: Map<string, Block>,
+): string => elements.map((e) => inlineElementXml(e, footnotes)).join("");
+
+const inlineElementXml = (
+  element: InlineElement,
+  footnotes: Map<string, Block>,
+): string => {
   switch (element.type) {
     case "plainText":
       return escapeText(element.content);
-    case "element": {
-      if (element.tag === KEYS.nop) return "";
-      if (element.tag === KEYS.comment) {
-        const v = element.attributes.find((a) => a.name === "v")?.value ?? "";
-        return `<!--${decodeEntities(v)}-->`;
-      }
-      const attrs = element.attributes
-        .map((a) => ` ${a.name}="${a.value}"`)
-        .join("");
-      if (element.selfClosing) return `<${element.tag}${attrs}/>`;
-      return `<${element.tag}${attrs}>${inlineToXml(element.content)}</${element.tag}>`;
-    }
-    case "lineBreak":
-      return "<LB/>";
-    case "emphasis":
     case "quote":
-    case "superscript":
-    case "subscript": {
-      const tag = markitToTeiInline(element.type)!;
-      return `<${tag}>${inlineToXml(element.content)}</${tag}>`;
-    }
     case "strong":
-      return `<HI REND="bold">${inlineToXml(element.content)}</HI>`;
+    case "emphasis":
+    case "superscript":
+    case "subscript":
     case "aside":
-      return `<NOTE PLACE="marg">${inlineToXml(element.content)}</NOTE>`;
     case "speaker":
-      return `<SPEAKER>${inlineToXml(element.content)}</SPEAKER>`;
     case "insertion":
-      return `<ADD>${inlineToXml(element.content)}</ADD>`;
     case "deletion":
-      return `<DEL>${inlineToXml(element.content)}</DEL>`;
     case "uncertain":
-      return `<UNCLEAR>${inlineToXml(element.content)}</UNCLEAR>`;
     case "person":
-      return `<NAME TYPE="person">${inlineToXml(element.content)}</NAME>`;
     case "place":
-      return `<NAME TYPE="place">${inlineToXml(element.content)}</NAME>`;
     case "org":
-      return `<NAME TYPE="org">${inlineToXml(element.content)}</NAME>`;
-    case "citation":
-      return `<BIBL>${inlineToXml(element.content)}</BIBL>`;
+    case "stageDirection":
+    case "citation": {
+      const { name, attrs } = WRAPPER_TEI[element.type]!;
+      const open = (attrs ?? []).map(([k, v]) => ` ${k}="${v}"`).join("");
+      return `<${name}${open}>${inlineXml(element.content, footnotes)}</${name}>`;
+    }
     case "language":
       return element.lang !== undefined
-        ? `<FOREIGN LANG="${element.lang}">${inlineToXml(element.content)}</FOREIGN>`
-        : `<FOREIGN>${inlineToXml(element.content)}</FOREIGN>`;
+        ? `<foreign xml:lang="${escapeAttribute(element.lang)}">${inlineXml(element.content, footnotes)}</foreign>`
+        : `<foreign>${inlineXml(element.content, footnotes)}</foreign>`;
     case "illegible":
-      return "<GAP/>";
-    case "pageBreak":
-      return element.ref !== undefined ? `<PB REF="${element.ref}"/>` : "<PB/>";
+      return "<gap/>";
     case "nbSpace":
       return "&#160;";
     case "emSpace":
       return "&#160;&#160;";
-    case "footnoteReference":
-      return `<REF>${element.id}</REF>`;
+    case "lineBreak":
+      return "<lb/>";
+    case "pageBreak":
+      return element.ref !== undefined
+        ? `<pb n="${escapeAttribute(element.ref)}"/>`
+        : "<pb/>";
+    case "footnoteReference": {
+      const note = footnotes.get(element.id);
+      return note
+        ? `<note place="bottom">${noteBody(note, footnotes)}</note>`
+        : `<ref>${escapeText(element.id)}</ref>`;
+    }
+    case "element": {
+      const attrs = element.attributes
+        .map((a) => ` ${a.name}="${a.value}"`)
+        .join("");
+      return element.selfClosing
+        ? `<${element.tag}${attrs}/>`
+        : `<${element.tag}${attrs}>${inlineXml(element.content, footnotes)}</${element.tag}>`;
+    }
     /* v8 ignore next 2 -- `highlight` is a search artefact, never produced by compile */
     case "highlight":
-      return inlineToXml(element.content);
+      return inlineXml(element.content, footnotes);
   }
 };
 
-// --- helpers -------------------------------------------------------------
+// A footnote block's content, rendered for inclusion inside its <note>.
+const noteBody = (note: Block, footnotes: Map<string, Block>): string =>
+  note.content
+    .map((e) =>
+      e.type === "paragraph" && note.content.length === 1
+        ? inlineXml(e.content, footnotes)
+        : blockElementXml(e, footnotes),
+    )
+    .join("");
 
-// The provenance string always begins with the element name (attributes, if any,
-// follow a space), so the first space-delimited token is the tag name.
-const tagName = (tei: string): string => tei.split(" ")[0]!;
+// --- Metadata helpers ----------------------------------------------------
 
-const metaString = (
+const metaStr = (
   metadata: Metadata | undefined,
   key: string,
 ): string | undefined => {
   const value = metadata?.[key];
-  return typeof value === "string" ? value : undefined;
+  return typeof value === "string"
+    ? value
+    : typeof value === "number"
+      ? String(value)
+      : undefined;
 };
-
-const metaBool = (metadata: Metadata | undefined, key: string): boolean =>
-  metadata?.[key] === true;
 
 export default toTEIXML;

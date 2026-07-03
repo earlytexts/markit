@@ -28,6 +28,14 @@ export type XmlDoctype = { kind: "doctype"; content: string };
 export const isElement = (node: XmlNode): node is XmlElement =>
   node.kind === "element";
 
+// The local name of an element, with any namespace prefix stripped. TCP P5 uses
+// the default TEI namespace (so elements are already bare, e.g. `div`), but some
+// documents prefix them (`tei:div`); this normalises both to `div`.
+export const localName = (name: string): string => {
+  const colon = name.indexOf(":");
+  return colon === -1 ? name : name.slice(colon + 1);
+};
+
 // --- Parsing -------------------------------------------------------------
 
 type Cursor = { s: string; i: number };
