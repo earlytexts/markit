@@ -139,6 +139,37 @@ describe("fromTEIXML — blocks", () => {
     expect(mit).toContain("> c");
   });
 
+  it("maps a list, verse, and nested quote inside a <quote> to block content", () => {
+    const listMit = clean(
+      tei(
+        `<quote><p>Intro:</p><list><item>one</item><item>two</item></list></quote>`,
+      ),
+    );
+    expect(listMit).toContain("> Intro:");
+    expect(listMit).toContain("> - one");
+    expect(listMit).toContain("> - two");
+
+    const verseMit = clean(tei(`<quote><lg><l>a</l><l>b</l></lg></quote>`));
+    expect(verseMit).toContain("> * a");
+    expect(verseMit).toContain("> * b");
+
+    const nestedMit = clean(
+      tei(`<quote><p>outer</p><quote><p>inner</p></quote></quote>`),
+    );
+    expect(nestedMit).toContain("> outer");
+    expect(nestedMit).toContain("> > inner");
+  });
+
+  it("maps a list inside a block <stage> to stage-direction block content", () => {
+    const mit = clean(
+      tei(
+        `<div><stage><list><item>one</item><item>two</item></list></stage></div>`,
+      ),
+    );
+    expect(mit).toContain(": - one");
+    expect(mit).toContain(": - two");
+  });
+
   it("maps a speech to a speaker line plus verse", () => {
     const mit = clean(tei(`<sp><speaker>Ham.</speaker><l>To be</l></sp>`));
     expect(mit).toContain("@Ham.@");
@@ -599,6 +630,26 @@ describe("toTEIXML — Markit to canonical P5", () => {
     expect(single).toContain("<stage>He enters.</stage>");
     const multi = toTEIXML("# d\n\n{#1}\n: First.\n:\n: Second.");
     expect(multi).toContain("<stage>First. Second.</stage>");
+  });
+
+  it("renders nested block content inside a blockquote and stage direction", () => {
+    const quote = toTEIXML("# d\n\n{#1}\n> Intro:\n> - one\n> - two\n> After.");
+    expect(quote).toContain(
+      "<quote><p>Intro:</p><list><item>one</item><item>two</item></list><p>After.</p></quote>",
+    );
+
+    const verse = toTEIXML("# d\n\n{#1}\n> * a\n> * b");
+    expect(verse).toContain("<quote><lg><l>a</l><l>b</l></lg></quote>");
+
+    const nested = toTEIXML("# d\n\n{#1}\n> outer\n>> inner");
+    expect(nested).toContain(
+      "<quote><p>outer</p><quote><p>inner</p></quote></quote>",
+    );
+
+    const stage = toTEIXML("# d\n\n{#1}\n: does:\n: - one");
+    expect(stage).toContain(
+      "<stage>does: <list><item>one</item></list></stage>",
+    );
   });
 
   it("renders an ordered list and a single-paragraph element override", () => {

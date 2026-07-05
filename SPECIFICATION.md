@@ -92,6 +92,8 @@ Lines starting with `:` indicate stage directions. Consecutive lines collapse in
 : Second paragraph inside the stage direction.
 ```
 
+A stage direction may contain any block-level element except a heading. Strip one `:` (and an optional single space) from each line, and the remainder is parsed as ordinary block content — so a stage direction can hold lists, verse, tables, and nested block quotations or stage directions, not just paragraphs (see §2.3 for an example).
+
 ### 2.3. Block Quotations
 
 Lines starting with `>` indicate block quotations. Consecutive lines collapse into a single paragraph inside the block quotation; for multiple paragraphs, leave a blank line starting with `>`.
@@ -100,6 +102,18 @@ Lines starting with `>` indicate block quotations. Consecutive lines collapse in
 > This is a block quote.
 >
 > Second paragraph inside the quote.
+```
+
+A block quotation may contain any block-level element except a heading. Each line has one `>` (and an optional single space) stripped, and the remainder is parsed as ordinary block content. So a quotation can hold lists, verse, tables, and nested quotations or stage directions. Nesting a quotation uses a doubled marker (`>>`), and a heading inside a quotation is a syntax error.
+
+```
+> As the argument runs:
+>
+> - first the premise,
+> - then the inference.
+>
+> * And a snatch of quoted verse
+> * closes the passage.
 ```
 
 ### 2.4. Lists

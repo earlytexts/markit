@@ -117,14 +117,21 @@ const blockElementXml = (
     case "heading":
       return `<head>${headingInline(element, footnotes)}</head>`;
     case "blockquote":
+      // <quote> uses TEI's macro.specialPara, so any nested block element
+      // (paragraphs, lists, verse, tables, nested quotes/stages) is valid.
       return `<quote>${element.content
-        .map((p) => `<p>${inlineXml(p.content, footnotes)}</p>`)
+        .map((e) => blockElementXml(e, footnotes))
         .join("")}</quote>`;
     case "stageDirection":
-      // TEI <stage> takes phrase-level content, so its paragraphs are joined
-      // into a single run rather than wrapped in <p>.
+      // <stage> also takes macro.specialPara. Bare paragraphs are joined into a
+      // single phrase-level run (no <p> wrapper); any other block element is
+      // rendered in its native TEI form.
       return `<stage>${element.content
-        .map((p) => inlineXml(p.content, footnotes))
+        .map((e) =>
+          e.type === "paragraph"
+            ? inlineXml(e.content, footnotes)
+            : blockElementXml(e, footnotes),
+        )
         .join(" ")}</stage>`;
     case "list":
       return listXml(element, footnotes);

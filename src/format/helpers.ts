@@ -301,7 +301,9 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushStageDirection();
       flushList();
       flushTable();
-      const inner = trimmed.slice(1).trim();
+      // Strip the marker and a single separator space only; keep any further
+      // indentation, which encodes nested-list depth for the recursive pass.
+      const inner = trimmed.slice(1).replace(/^ /, "");
       if (inner) {
         blockquoteLines.push(inner);
       } else {
@@ -318,7 +320,9 @@ const extractBlockElements = (buffer: string[]): string[] => {
       flushBlockquote();
       flushList();
       flushTable();
-      const inner = trimmed.slice(1).trim();
+      // Strip the marker and a single separator space only; keep any further
+      // indentation, which encodes nested-list depth for the recursive pass.
+      const inner = trimmed.slice(1).replace(/^ /, "");
       if (inner) {
         stageLines.push(inner);
       } else {

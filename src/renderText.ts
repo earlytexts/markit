@@ -35,7 +35,12 @@ const blockElementToText = (
         .join("\n");
     case "blockquote":
       return element.content
-        .map((el) => `    ${blockElementToText(el, null)}`)
+        .map((el) =>
+          blockElementToText(el, null)
+            .split("\n")
+            .map((line) => (line === "" ? line : `    ${line}`))
+            .join("\n"),
+        )
         .join("\n\n");
     case "stageDirection":
       return element.content

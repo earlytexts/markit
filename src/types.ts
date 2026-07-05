@@ -76,17 +76,29 @@ export type Paragraph = {
   content: InlineElement[];
 };
 
+// The block-level elements permitted inside a block quotation or stage
+// direction: any block content except headings (which are only meaningful in
+// title/subtitle blocks). This lets a quotation or stage direction contain
+// lists, verse, tables, and nested quotations/stage directions, not just
+// paragraphs.
+export type NestableBlockElement =
+  | Paragraph
+  | Blockquote
+  | StageDirection
+  | List
+  | Table;
+
 export type Blockquote = {
   type: "blockquote";
-  content: Paragraph[];
+  content: NestableBlockElement[];
 };
 
 // A block-level stage direction (lines starting with `:`). Like a blockquote, it
-// collapses consecutive lines into paragraphs, with a bare `:` line separating
-// paragraphs.
+// may contain any nestable block content; consecutive plain lines collapse into
+// paragraphs, with a bare `:` line separating paragraphs.
 export type StageDirection = {
   type: "stageDirection";
-  content: Paragraph[];
+  content: NestableBlockElement[];
 };
 
 export type List = {

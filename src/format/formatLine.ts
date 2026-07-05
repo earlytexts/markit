@@ -20,8 +20,15 @@ export default (state: State, line: string): State => {
     return formatBlockTag(state, line);
   }
 
-  // Trim trailing whitespace and collapse internal whitespace to single spaces
-  const normalized = line.trimEnd().replace(/(?<=\S)\s+/g, " ");
+  // Trim trailing whitespace and collapse internal whitespace to single spaces.
+  // Metadata lines keep their own handling; content lines route through a
+  // marker-aware normaliser so the indentation after a leading `>`/`:` prefix
+  // (which encodes nested-list depth) survives.
+  const inMetadata =
+    state.context === "inMetadata" || state.context === "inMetadataArray";
+  const normalized = inMetadata
+    ? line.trimEnd().replace(/(?<=\S)\s+/g, " ")
+    : normalizeContentLine(line);
 
   // Divide...
   const isBlank = normalized.trim() === "";
@@ -72,6 +79,43 @@ export default (state: State, line: string): State => {
     state,
     emptyItem ? `${emptyItem[1]}${emptyItem[2]} ` : normalized,
   );
+};
+
+// Normalise a content line, collapsing internal whitespace to single spaces.
+// A leading run of blockquote/stage markers (`>`/`:`, each followed by one
+// separator space) is peeled off first so that any indentation on the content
+// that follows the final marker — which encodes nested-list depth — is kept,
+// while the interior whitespace of that content is still collapsed. The
+// recursive block extractor re-normalises the nesting levels from there.
+const normalizeContentLine = (line: string): string => {
+  const trimmed = line.trimEnd();
+
+  // Non-marked lines: collapse interior whitespace; leading indentation (which
+  // is not preceded by a non-space) is preserved by the lookbehind as before.
+  if (!/^[>:]/.test(trimmed)) {
+    return trimmed.replace(/(?<=\S)\s+/g, " ");
+  }
+
+  // Peel stacked markers (`> > `, `> : `, …), normalising the whitespace
+  // between them to a single space.
+  let prefix = "";
+  let rest = trimmed;
+  let stacked: RegExpExecArray | null;
+  while ((stacked = /^([>:])\s+(?=[>:])/.exec(rest))) {
+    prefix += `${stacked[1]} `;
+    rest = rest.slice(stacked[0].length);
+  }
+
+  // Final marker: keep a single separator space, preserve the indentation of
+  // the content after it, and collapse that content's interior whitespace.
+  const marker = rest[0]!;
+  const afterMarker = rest.slice(1);
+  const hasSeparator = afterMarker.startsWith(" ");
+  const content = (hasSeparator ? afterMarker.slice(1) : afterMarker).replace(
+    /(?<=\S)\s+/g,
+    " ",
+  );
+  return `${prefix}${marker}${hasSeparator ? " " : ""}${content}`;
 };
 
 // Emit a [metadata] or [metadata.subkey] header line, transitioning to inMetadata context

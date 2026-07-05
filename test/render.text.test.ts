@@ -66,6 +66,34 @@ describe("block elements", () => {
     expect(renderText(document)).toContain("    A quote.");
   });
 
+  it("renders a list inside a blockquote", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "intro.", "", "> Items:", "> - one", "> - two"),
+    );
+    const text = renderText(document);
+    expect(text).toContain("    Items:");
+    expect(text).toContain("    - one");
+    expect(text).toContain("    - two");
+  });
+
+  it("indents every line of a nested blockquote without padding blank lines", () => {
+    const [document] = compile(
+      markitWithContent(
+        "{#1}",
+        "intro.",
+        "",
+        "> outer",
+        ">",
+        ">> First.",
+        ">>",
+        ">> Second.",
+      ),
+    );
+    expect(renderText(document)).toContain(
+      "    outer\n\n        First.\n\n        Second.",
+    );
+  });
+
   it("renders a block stage direction's text", () => {
     const [document] = compile(
       markitWithContent("{#1}", "intro.", "", ": He bows.", "", "outro."),

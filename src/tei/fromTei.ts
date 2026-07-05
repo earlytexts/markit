@@ -232,31 +232,36 @@ const renderBlockElement = (element: XmlElement, w: Walker): BlockOut => {
   return { lines: inner, meta, keep: meta !== "", guard: true };
 };
 
-// Render block-level children as the inner content of a single block. Inline
-// runs become paragraphs, consecutive verse lines (`<l>`) become one verse list,
-// and recognised block elements render in place; groups are blank-line
-// separated. `asParagraph` forces the whole run to a single paragraph.
-const mixedContent = (
-  nodes: XmlNode[],
-  w: Walker,
-  asParagraph: boolean,
-): string[] => {
-  if (asParagraph || !nodes.some(isBlockNode)) {
-    return paragraphLines(renderInline(nodes, w, new Set()));
+// A run of source lines forming one block-level group, plus whether those lines
+// are prose that must be guarded against being misread as block syntax (`guard`)
+// or are themselves intentional block syntax (verse, lists, tables, nested
+// quotes/stages) that must be emitted verbatim.
+type BlockGroup = { lines: string[]; guard: boolean };
+
+// Split block-level children into ordered groups. Inline runs become paragraph
+// groups, consecutive verse lines (`<l>`) become one verse group, and recognised
+// block elements render in place as their own group.
+const blockContentGroups = (nodes: XmlNode[], w: Walker): BlockGroup[] => {
+  if (!nodes.some(isBlockNode)) {
+    const lines = paragraphLines(renderInline(nodes, w, new Set()));
+    return lines.length > 0 ? [{ lines, guard: true }] : [];
   }
 
-  const groups: string[][] = [];
+  const groups: BlockGroup[] = [];
   let inlineRun: XmlNode[] = [];
   let verseRun: XmlElement[] = [];
   const flushInline = (): void => {
     if (inlineRun.length === 0) return;
     const lines = paragraphLines(renderInline(inlineRun, w, new Set()));
-    if (lines.length > 0) groups.push(lines);
+    if (lines.length > 0) groups.push({ lines, guard: true });
     inlineRun = [];
   };
   const flushVerse = (): void => {
     if (verseRun.length === 0) return;
-    groups.push(verseRun.flatMap((l) => verseLines(l, w)));
+    groups.push({
+      lines: verseRun.flatMap((l) => verseLines(l, w)),
+      guard: false,
+    });
     verseRun = [];
   };
 
@@ -267,7 +272,8 @@ const mixedContent = (
     } else if (isBlockNode(node)) {
       flushInline();
       flushVerse();
-      groups.push(renderBlockElement(node as XmlElement, w).lines);
+      const out = renderBlockElement(node as XmlElement, w);
+      groups.push({ lines: out.lines, guard: out.guard });
     } else {
       flushVerse();
       inlineRun.push(node);
@@ -275,7 +281,24 @@ const mixedContent = (
   }
   flushInline();
   flushVerse();
-  return groups.flatMap((lines, i) => (i === 0 ? lines : ["", ...lines]));
+  return groups;
+};
+
+// Render block-level children as the inner content of a single block. Inline
+// runs become paragraphs, consecutive verse lines (`<l>`) become one verse list,
+// and recognised block elements render in place; groups are blank-line
+// separated. `asParagraph` forces the whole run to a single paragraph.
+const mixedContent = (
+  nodes: XmlNode[],
+  w: Walker,
+  asParagraph: boolean,
+): string[] => {
+  if (asParagraph) {
+    return paragraphLines(renderInline(nodes, w, new Set()));
+  }
+  return blockContentGroups(nodes, w).flatMap((group, i) =>
+    i === 0 ? group.lines : ["", ...group.lines],
+  );
 };
 
 const isBlockNode = (node: XmlNode): boolean =>
@@ -371,38 +394,34 @@ const tableLines = (element: XmlElement, w: Walker): string[] => {
 };
 
 const blockquoteLines = (element: XmlElement, w: Walker): string[] =>
-  prefixedParagraphs(element, w, ">");
+  prefixedBlockContent(element, w, ">");
 
 // A block-level <stage> becomes `:`-prefixed stage-direction lines, with a bare
-// `:` separating paragraphs (mirrors blockquoteLines).
+// `:` separating groups (mirrors blockquoteLines).
 const stageLines = (element: XmlElement, w: Walker): string[] =>
-  prefixedParagraphs(element, w, ":");
+  prefixedBlockContent(element, w, ":");
 
-// Render an element's paragraphs, each line prefixed with `marker` and a bare
-// `marker` separating paragraphs. Line breaks land at end-of-line (like the
-// formatter), since the formatter re-parses blockquote/stage inner content as
-// paragraphs and would otherwise split them.
-const prefixedParagraphs = (
+// Render an element's block-level content, each line prefixed with `marker` and
+// a bare `marker` separating groups. Prose groups are guarded (a line that looks
+// like a block construct is escaped, since the compiler re-parses the stripped
+// inner content as full block content); intentional block syntax (lists, verse,
+// tables, nested quotes/stages) is emitted verbatim. Line breaks land at
+// end-of-line, matching the formatter.
+const prefixedBlockContent = (
   element: XmlElement,
   w: Walker,
   marker: string,
-): string[] => {
-  const blockKids = element.children.filter(isBlockNode) as XmlElement[];
-  const sources =
-    blockKids.length === 0
-      ? [renderInline(element.children, w, new Set())]
-      : blockKids.map((c) => renderInline(c.children, w, new Set()));
-  // Drop empty paragraphs (the formatter strips bare marker lines), so a bare
-  // `marker` only ever separates two non-empty paragraphs.
-  const bodies = sources.map(paragraphLines).filter((body) => body.length > 0);
-  return bodies.flatMap((body, i) => {
-    // Guard each line: the formatter re-parses the stripped inner content as
-    // paragraphs, so a line whose content looks like a block construct must be
-    // escaped (as it would be at the top level).
-    const lines = body.map((l) => `${marker} ${contentLine(l)}`);
-    return i === 0 ? lines : [marker, ...lines];
-  });
-};
+): string[] =>
+  blockContentGroups(element.children, w)
+    // Drop empty groups (e.g. an empty <p>) so a bare `marker` only ever
+    // separates two non-empty groups.
+    .filter((group) => group.lines.length > 0)
+    .flatMap((group, i) => {
+      const lines = group.lines.map(
+        (l) => `${marker} ${group.guard ? contentLine(l) : l}`,
+      );
+      return i === 0 ? lines : [marker, ...lines];
+    });
 
 // --- Inline rendering ----------------------------------------------------
 

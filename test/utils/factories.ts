@@ -5,6 +5,7 @@ import {
   type HeadingLine,
   type List,
   type ListItem,
+  type NestableBlockElement,
   type Paragraph,
   type PlainText,
   type StageDirection,
@@ -45,12 +46,12 @@ export const hl = (level: number, content: InlineElement[]): HeadingLine => ({
   content,
 });
 
-export const bq = (content: Paragraph[]): Blockquote => ({
+export const bq = (content: NestableBlockElement[]): Blockquote => ({
   type: "blockquote",
   content,
 });
 
-export const sd = (content: Paragraph[]): StageDirection => ({
+export const sd = (content: NestableBlockElement[]): StageDirection => ({
   type: "stageDirection",
   content,
 });

@@ -8,6 +8,7 @@ import type {
   ListItem,
   MarkitDocument,
   MarkitError,
+  NestableBlockElement,
   Paragraph,
   Table,
   TableCell,
@@ -193,7 +194,10 @@ const parseBlockLevelElements = (
       };
     });
 
-    // Recursively parse inner lines as paragraphs only (no headings, no nested blockquotes)
+    // Recursively parse inner lines as block-level content. Headings are
+    // disallowed (they only belong in title/subtitle blocks); everything else —
+    // paragraphs, lists, verse, tables, and nested quotations/stage directions —
+    // is kept.
     const innerElements = parseBlockLevelElements(
       innerLines,
       footnoteIds,
@@ -203,16 +207,16 @@ const parseBlockLevelElements = (
       textId,
     );
 
-    // Only keep paragraphs inside blockquotes (headings/blockquotes inside are handled
-    // by the allowHeadings=false guard; any stray other elements are dropped)
-    const paragraphs = innerElements.filter(
-      (el): el is Paragraph => el.type === "paragraph",
+    // The allowHeadings=false guard means no heading ever reaches this list; the
+    // filter narrows the type from BlockElement to NestableBlockElement.
+    const content = innerElements.filter(
+      (el): el is NestableBlockElement => el.type !== "heading",
     );
 
-    // A blockquote with no content can't happen with valid input, but could happen if
-    // a blockquote only contains a heading (which is not allowed and therefore removed)
-    if (paragraphs.length > 0) {
-      elements.push({ type: "blockquote", content: paragraphs });
+    // A blockquote can end up empty if it only contained a heading (removed
+    // above), in which case it produces no block element.
+    if (content.length > 0) {
+      elements.push({ type: "blockquote", content });
     }
   };
 
@@ -229,7 +233,8 @@ const parseBlockLevelElements = (
       };
     });
 
-    // Inner lines are parsed as paragraphs only (no headings or nesting).
+    // Inner lines are parsed as block-level content. As with blockquotes,
+    // headings are disallowed but any other block element is kept.
     const innerElements = parseBlockLevelElements(
       innerLines,
       footnoteIds,
@@ -239,12 +244,12 @@ const parseBlockLevelElements = (
       textId,
     );
 
-    const paragraphs = innerElements.filter(
-      (el): el is Paragraph => el.type === "paragraph",
+    const content = innerElements.filter(
+      (el): el is NestableBlockElement => el.type !== "heading",
     );
 
-    if (paragraphs.length > 0) {
-      elements.push({ type: "stageDirection", content: paragraphs });
+    if (content.length > 0) {
+      elements.push({ type: "stageDirection", content });
     }
   };
 

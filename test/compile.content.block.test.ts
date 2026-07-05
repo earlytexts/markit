@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import compile from "../src/compile.js";
-import { markitWithContent, p, h, hl, bq, sd, pt } from "./utils/factories.js";
+import {
+  markitWithContent,
+  p,
+  h,
+  hl,
+  bq,
+  sd,
+  pt,
+  list,
+  li,
+  table,
+  tr,
+  tc,
+} from "./utils/factories.js";
 
 describe("paragraphs", () => {
   it("parses text into paragraphs by default", () => {
@@ -258,6 +271,97 @@ describe("block quotations", () => {
       bq([p([pt("First paragraph.")]), p([pt("Second paragraph.")])]),
     ]);
   });
+
+  it("parses an unordered list inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> Intro:", "> - one", "> - two", "> After."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([
+        p([pt("Intro:")]),
+        list("unordered", [li([pt("one")]), li([pt("two")])]),
+        p([pt("After.")]),
+      ]),
+    ]);
+  });
+
+  it("parses an ordered list starting at a given number inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> 3. three", "> 4. four"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([list("ordered", [li([pt("three")]), li([pt("four")])], 3)]),
+    ]);
+  });
+
+  it("parses verse inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> * line a", "> * line b"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([list("verse", [li([pt("line a")]), li([pt("line b")])])]),
+    ]);
+  });
+
+  it("preserves nested-list indentation inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> - a", ">   - b"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([
+        list("unordered", [li([pt("a")], list("unordered", [li([pt("b")])]))]),
+      ]),
+    ]);
+  });
+
+  it("parses a table inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> | A | B |", "> | 1 | 2 |"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([
+        table(
+          [
+            tr([tc([pt("A")]), tc([pt("B")])]),
+            tr([tc([pt("1")]), tc([pt("2")])]),
+          ],
+          false,
+        ),
+      ]),
+    ]);
+  });
+
+  it("parses a nested block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> outer", ">> inner"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([p([pt("outer")]), bq([p([pt("inner")])])]),
+    ]);
+  });
+
+  it("parses a stage direction inside a block quotation", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "> He speaks:", "> : aside"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      bq([p([pt("He speaks:")]), sd([p([pt("aside")])])]),
+    ]);
+  });
 });
 
 describe("stage directions", () => {
@@ -320,5 +424,30 @@ describe("stage directions", () => {
     // The heading is removed and the stage direction has no paragraphs, so it
     // produces no block element.
     expect(document.blocks[0]!.content).toEqual([]);
+  });
+
+  it("parses a list inside a stage direction", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", ": He does:", ": - one", ": - two"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      sd([
+        p([pt("He does:")]),
+        list("unordered", [li([pt("one")]), li([pt("two")])]),
+      ]),
+    ]);
+  });
+
+  it("parses verse inside a stage direction", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", ": * line a", ": * line b"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      sd([list("verse", [li([pt("line a")]), li([pt("line b")])])]),
+    ]);
   });
 });

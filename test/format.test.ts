@@ -406,6 +406,82 @@ describe("formatter", () => {
       expect(result).toBe(input);
     });
 
+    it("preserves a list and verse inside a blockquote", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> Intro:",
+        ">",
+        "> - one",
+        "> - two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+
+      const verse = markitWithContent("{#1}", "> * line a", "> * line b");
+      expect(formatDocument(verse)).toBe(verse);
+    });
+
+    it("preserves a nested list inside a blockquote", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> - one",
+        ">   - one a",
+        ">   - one b",
+        "> - two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves a nested list inside a stage direction", () => {
+      const input = markitWithContent(
+        ": - one",
+        ":   - one a",
+        ":   - one b",
+        ": - two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("normalizes nested list indentation inside a blockquote to 2 spaces", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> - one",
+        ">     - deeply nested",
+        "> - two",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(
+        markitWithContent("{#1}", "> - one", ">   - deeply nested", "> - two"),
+      );
+    });
+
+    it("preserves a doubly nested list inside a blockquote", () => {
+      const input = markitWithContent(
+        "{#1}",
+        "> - one",
+        ">   - one a",
+        ">     - one a i",
+      );
+      const result = formatDocument(input);
+      expect(result).toBe(input);
+    });
+
+    it("preserves stacked blockquote/stage markers", () => {
+      const nestedQuote = markitWithContent("{#1}", "> > A nested quote.");
+      expect(formatDocument(nestedQuote)).toBe(nestedQuote);
+
+      const stageInQuote = markitWithContent("{#1}", "> : A stage aside.");
+      expect(formatDocument(stageInQuote)).toBe(stageInQuote);
+    });
+
+    it("normalizes extra whitespace between stacked markers to one space", () => {
+      const input = markitWithContent("{#1}", ">   > A nested quote.");
+      const result = formatDocument(input);
+      expect(result).toBe(markitWithContent("{#1}", "> > A nested quote."));
+    });
+
     it("preserves stage direction lines with : prefix", () => {
       const input = markitWithContent(
         "{#1}",

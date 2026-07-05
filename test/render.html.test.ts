@@ -90,6 +90,24 @@ describe("block elements", () => {
     );
   });
 
+  it("renders a list inside a blockquote", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "> Intro:", "> - one", "> - two"),
+    );
+    expect(renderHTML(document)).toContain(
+      "<blockquote><p>Intro:</p><ul><li>one</li><li>two</li></ul></blockquote>",
+    );
+  });
+
+  it("renders verse inside a blockquote", () => {
+    const [document] = compile(
+      markitWithContent("{#1}", "> * line a", "> * line b"),
+    );
+    expect(renderHTML(document)).toContain(
+      '<blockquote><div class="lg"><p class="l">line a</p><p class="l">line b</p></div></blockquote>',
+    );
+  });
+
   it("renders block stage directions", () => {
     const [document] = compile(markitWithContent("{#1}", ": Exeunt."));
     expect(renderHTML(document)).toContain(
