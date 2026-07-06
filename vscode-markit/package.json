@@ -1,14 +1,23 @@
 {
-  "name": "vscode-markit",
+  "name": "markit",
   "publisher": "earlytexts",
-  "displayName": "Markit (Early Texts)",
-  "version": "3.4.1",
-  "repository": {
-    "url": "https://github.com/earlytexts/markit"
-  },
-  "icon": "./markit-logo.png",
+  "displayName": "Markit (Early Text Centre)",
+  "version": "3.4.2",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
+  "repository": "https://github.com/earlytexts/markit",
+  "icon": "./markit-logo.png",
+  "main": "./dist/client.js",
+  "files": [
+    "dist",
+    "media",
+    "syntaxes/markit.tmLanguage.json",
+    "snippets/markit.json",
+    "language-configuration.json",
+    "markit-logo.png",
+    "LICENSE.md",
+    "README.md"
+  ],
   "scripts": {
     "build": "cd ../ && npm run build && cd vscode-markit && node esbuild.mjs",
     "build:watch": "node esbuild.mjs --watch",
@@ -16,10 +25,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package --no-dependencies --out build/vscode-markit.vsix"
+    "package": "vsce package --no-dependencies --out build/markit.vsix"
   },
   "dependencies": {
-    "markit": "file:..",
+    "@earlytexts/markit": "file:..",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
@@ -38,17 +47,6 @@
   },
   "categories": [
     "Programming Languages"
-  ],
-  "main": "./dist/client.js",
-  "files": [
-    "dist",
-    "media",
-    "syntaxes/markit.tmLanguage.json",
-    "snippets/markit.json",
-    "language-configuration.json",
-    "markit-logo.png",
-    "LICENSE.md",
-    "README.md"
   ],
   "contributes": {
     "languages": [

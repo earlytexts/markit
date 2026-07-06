@@ -1,4 +1,4 @@
-import { compile, renderHTML } from "markit";
+import { compile, renderHTML } from "@earlytexts/markit";
 import {
   ExtensionContext,
   TextEditor,

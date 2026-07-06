@@ -1,4 +1,4 @@
-import { compile } from "markit";
+import { compile } from "@earlytexts/markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 

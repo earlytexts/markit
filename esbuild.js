@@ -1,5 +1,5 @@
 import * as esbuild from "esbuild";
-import { readFileSync } from "fs";
+import { readFileSync } from "node:fs";
 
 // Read package.json to get dependencies
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));

@@ -79,7 +79,7 @@ jobs:
             "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json;api-version=3.0-preview.1" \
-            -d '{"filters":[{"criteria":[{"filterType":7,"value":"earlytexts.vscode-markit"}]}],"flags":512}' \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"earlytexts.markit"}]}],"flags":512}' \
             | jq -r '.results[0].extensions[0].versions[0].version // "0.0.0"')
           echo "Current: $CURRENT, Published: $PUBLISHED"
           if [ "$CURRENT" != "$PUBLISHED" ]; then

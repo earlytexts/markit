@@ -1,4 +1,4 @@
-import { format } from "markit";
+import { format } from "@earlytexts/markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { TextEdit } from "vscode-languageserver/node";
 

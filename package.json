@@ -1,17 +1,21 @@
 {
   "name": "@earlytexts/markit",
-  "publisher": "earlytexts",
-  "displayName": "Markit",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "description": "Markit is a lightweight textual markup language similar to Markdown, but designed for use in textual preservation projects, as a more human-readable alternative to TEI XML. It compiles to JSON for representing document structure and metadata, while the text content itself can further be compiled to either plain text or HTML.",
   "license": "MIT",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "repository": "https://github.com/earlytexts/markit",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
   ],
+  "workspaces": [
+    "vscode-markit"
+  ],
   "scripts": {
+    "bump": "npm version --workspaces --include-workspace-root --no-git-tag-version",
     "build": "node esbuild.js && tsc -p tsconfig.build.json",
     "build:vscode": "cd vscode-markit && npm run build",
     "build:all": "npm run build && npm run build:vscode",
@@ -24,7 +28,6 @@
     "format:check": "prettier --check .",
     "prepublishOnly": "npm run build && npm test"
   },
-  "type": "module",
   "devDependencies": {
     "@types/node": "^25.5.1",
     "@vitest/coverage-v8": "^4.0.18",

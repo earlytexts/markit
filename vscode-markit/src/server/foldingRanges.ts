@@ -4,7 +4,7 @@ import {
   startLine,
   type MarkitDocument,
   type Ranges,
-} from "markit";
+} from "@earlytexts/markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 

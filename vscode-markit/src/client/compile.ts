@@ -1,6 +1,6 @@
-import * as fs from "fs";
-import { compile, type MarkitDocument } from "markit";
-import * as path from "path";
+import { compile, type MarkitDocument } from "@earlytexts/markit";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { window } from "vscode";
 
 export default async (

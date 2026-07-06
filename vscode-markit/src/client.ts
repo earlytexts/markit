@@ -1,5 +1,5 @@
-import { renderHTML, renderText } from "markit";
-import * as path from "path";
+import { renderHTML, renderText } from "@earlytexts/markit";
+import * as path from "node:path";
 import { ExtensionContext, commands } from "vscode";
 import {
   LanguageClient,
