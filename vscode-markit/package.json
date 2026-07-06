@@ -5,7 +5,10 @@
   "version": "3.4.2",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
-  "repository": "https://github.com/earlytexts/markit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/earlytexts/markit"
+  },
   "icon": "./markit-logo.png",
   "main": "./dist/client.js",
   "files": [
