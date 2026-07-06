@@ -20,12 +20,7 @@ export const endLine = Symbol("endLine");
 
 // Metadata types
 export type MetadataValue =
-  | number
-  | boolean
-  | string
-  | number[]
-  | boolean[]
-  | string[];
+  number | boolean | string | number[] | boolean[] | string[];
 
 export type Metadata = Record<
   string,
@@ -53,12 +48,7 @@ export type Block = {
 
 // Block-level element types
 export type BlockElement =
-  | Heading
-  | Paragraph
-  | Blockquote
-  | StageDirection
-  | List
-  | Table;
+  Heading | Paragraph | Blockquote | StageDirection | List | Table;
 
 export type Heading = {
   type: "heading";
@@ -82,11 +72,7 @@ export type Paragraph = {
 // lists, verse, tables, and nested quotations/stage directions, not just
 // paragraphs.
 export type NestableBlockElement =
-  | Paragraph
-  | Blockquote
-  | StageDirection
-  | List
-  | Table;
+  Paragraph | Blockquote | StageDirection | List | Table;
 
 export type Blockquote = {
   type: "blockquote";
