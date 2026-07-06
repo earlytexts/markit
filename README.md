@@ -7,7 +7,7 @@ Markit comes with a VS Code extension which supports syntax highlighting, block 
 ## How to Use
 
 1. Install Microsoft's [VS Code](https://code.visualstudio.com/) editor.
-2. Install the [Markit](https://marketplace.visualstudio.com/items?itemName=earlytexts.markit) extension.
+2. Install the [Markit](https://marketplace.visualstudio.com/items?itemName=earlytexts.markit-language) extension.
 3. Write your Markit document in a `.mit` file, following the syntax specified in the [specification](./SPECIFICATION.md).
 4. Preview the rendered HTML output using the live preview feature (`Cmd+Shift+V` or `Ctrl+Shift+V`).
 5. Compile your Markit document to JSON, HTML, or plain text using the provided commands (`Cmd+Shift+P` or `Ctrl+Shift+P` to open the command palette, then search for "Markit: Compile to JSON/HTML/Text").

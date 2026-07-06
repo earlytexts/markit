@@ -1,5 +1,5 @@
 {
-  "name": "markit",
+  "name": "markit-language",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Text Centre)",
   "version": "3.4.2",
@@ -25,7 +25,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "vscode:prepublish": "npm run build",
-    "package": "vsce package --no-dependencies --out build/markit.vsix"
+    "package": "vsce package --no-dependencies --out build/markit-language.vsix"
   },
   "dependencies": {
     "@earlytexts/markit": "file:..",
