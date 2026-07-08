@@ -1,4 +1,4 @@
-import compile from "../compile.js";
+import compile from "../compile.ts";
 import type {
   Block,
   BlockElement,
@@ -8,10 +8,10 @@ import type {
   MarkitDocument,
   Metadata,
   Table,
-} from "../types.js";
-import { escapeAttribute, escapeText } from "./xml.js";
-import { metadataToHeader, type MetaObject } from "./header.js";
-import { TEI_NS, WRAPPER_TEI } from "./schema.js";
+} from "../types.ts";
+import { escapeAttribute, escapeText } from "./xml.ts";
+import { metadataToHeader, type MetaObject } from "./header.ts";
+import { TEI_NS, WRAPPER_TEI } from "./schema.ts";
 
 // Convert Markit (`.mit`) source into canonical TEI P5 XML — the inverse of
 // fromTei.ts. The root text becomes the `<TEI>` element (its metadata rebuilds a
@@ -79,7 +79,9 @@ const texElement = (
 
 const blockXml = (block: Block, footnotes: Map<string, Block>): string => {
   if (block.type === "title" || block.type === "subtitle") {
-    return `<head>${block.content.map((e) => blockElementBody(e, footnotes)).join("")}</head>`;
+    return `<head>${
+      block.content.map((e) => blockElementBody(e, footnotes)).join("")
+    }</head>`;
   }
 
   const element = metaStr(block.metadata, "element");
@@ -89,7 +91,7 @@ const blockXml = (block: Block, footnotes: Map<string, Block>): string => {
       .map((e) =>
         e.type === "paragraph" && block.content.length === 1
           ? inlineXml(e.content, footnotes)
-          : blockElementXml(e, footnotes),
+          : blockElementXml(e, footnotes)
       )
       .join("");
     return `<${element}>${body}</${element}>`;
@@ -100,7 +102,7 @@ const blockXml = (block: Block, footnotes: Map<string, Block>): string => {
     .map((e) =>
       e.type === "paragraph"
         ? `<p>${inlineXml(e.content, footnotes)}</p>`
-        : blockElementXml(e, footnotes),
+        : blockElementXml(e, footnotes)
     )
     .join("");
 };
@@ -119,20 +121,24 @@ const blockElementXml = (
     case "blockquote":
       // <quote> uses TEI's macro.specialPara, so any nested block element
       // (paragraphs, lists, verse, tables, nested quotes/stages) is valid.
-      return `<quote>${element.content
-        .map((e) => blockElementXml(e, footnotes))
-        .join("")}</quote>`;
+      return `<quote>${
+        element.content
+          .map((e) => blockElementXml(e, footnotes))
+          .join("")
+      }</quote>`;
     case "stageDirection":
       // <stage> also takes macro.specialPara. Bare paragraphs are joined into a
       // single phrase-level run (no <p> wrapper); any other block element is
       // rendered in its native TEI form.
-      return `<stage>${element.content
-        .map((e) =>
-          e.type === "paragraph"
-            ? inlineXml(e.content, footnotes)
-            : blockElementXml(e, footnotes),
-        )
-        .join(" ")}</stage>`;
+      return `<stage>${
+        element.content
+          .map((e) =>
+            e.type === "paragraph"
+              ? inlineXml(e.content, footnotes)
+              : blockElementXml(e, footnotes)
+          )
+          .join(" ")
+      }</stage>`;
     case "list":
       return listXml(element, footnotes);
     case "table":
@@ -149,8 +155,8 @@ const blockElementBody = (
   element.type === "heading"
     ? headingInline(element, footnotes)
     : element.type === "paragraph"
-      ? inlineXml(element.content, footnotes)
-      : blockElementXml(element, footnotes);
+    ? inlineXml(element.content, footnotes)
+    : blockElementXml(element, footnotes);
 
 const headingInline = (
   heading: Heading,
@@ -162,31 +168,37 @@ const headingInline = (
 
 const listXml = (list: List, footnotes: Map<string, Block>): string => {
   if (list.ordered === "verse") {
-    return `<lg>${list.items
-      .map((item) => `<l>${inlineXml(item.content, footnotes)}</l>`)
-      .join("")}</lg>`;
+    return `<lg>${
+      list.items
+        .map((item) => `<l>${inlineXml(item.content, footnotes)}</l>`)
+        .join("")
+    }</lg>`;
   }
   const type = list.ordered === "ordered" ? ` type="ordered"` : "";
-  return `<list${type}>${list.items
-    .map(
-      (item) =>
-        `<item>${inlineXml(item.content, footnotes)}${
-          item.nestedList ? listXml(item.nestedList, footnotes) : ""
-        }</item>`,
-    )
-    .join("")}</list>`;
+  return `<list${type}>${
+    list.items
+      .map(
+        (item) =>
+          `<item>${inlineXml(item.content, footnotes)}${
+            item.nestedList ? listXml(item.nestedList, footnotes) : ""
+          }</item>`,
+      )
+      .join("")
+  }</list>`;
 };
 
 const tableXml = (table: Table, footnotes: Map<string, Block>): string =>
-  `<table>${table.rows
-    .map((row, i) => {
-      const role = table.hasHeader && i === 0 ? ` role="label"` : "";
-      const cells = row.cells
-        .map((cell) => `<cell>${inlineXml(cell.content, footnotes)}</cell>`)
-        .join("");
-      return `<row${role}>${cells}</row>`;
-    })
-    .join("")}</table>`;
+  `<table>${
+    table.rows
+      .map((row, i) => {
+        const role = table.hasHeader && i === 0 ? ` role="label"` : "";
+        const cells = row.cells
+          .map((cell) => `<cell>${inlineXml(cell.content, footnotes)}</cell>`)
+          .join("");
+        return `<row${role}>${cells}</row>`;
+      })
+      .join("")
+  }</table>`;
 
 // --- Inline --------------------------------------------------------------
 
@@ -219,11 +231,15 @@ const inlineElementXml = (
     case "citation": {
       const { name, attrs } = WRAPPER_TEI[element.type]!;
       const open = (attrs ?? []).map(([k, v]) => ` ${k}="${v}"`).join("");
-      return `<${name}${open}>${inlineXml(element.content, footnotes)}</${name}>`;
+      return `<${name}${open}>${
+        inlineXml(element.content, footnotes)
+      }</${name}>`;
     }
     case "language":
       return element.lang !== undefined
-        ? `<foreign xml:lang="${escapeAttribute(element.lang)}">${inlineXml(element.content, footnotes)}</foreign>`
+        ? `<foreign xml:lang="${escapeAttribute(element.lang)}">${
+          inlineXml(element.content, footnotes)
+        }</foreign>`
         : `<foreign>${inlineXml(element.content, footnotes)}</foreign>`;
     case "illegible":
       return "<gap/>";
@@ -249,7 +265,9 @@ const inlineElementXml = (
         .join("");
       return element.selfClosing
         ? `<${element.tag}${attrs}/>`
-        : `<${element.tag}${attrs}>${inlineXml(element.content, footnotes)}</${element.tag}>`;
+        : `<${element.tag}${attrs}>${
+          inlineXml(element.content, footnotes)
+        }</${element.tag}>`;
     }
     /* v8 ignore next 2 -- `highlight` is a search artefact, never produced by compile */
     case "highlight":
@@ -263,7 +281,7 @@ const noteBody = (note: Block, footnotes: Map<string, Block>): string =>
     .map((e) =>
       e.type === "paragraph" && note.content.length === 1
         ? inlineXml(e.content, footnotes)
-        : blockElementXml(e, footnotes),
+        : blockElementXml(e, footnotes)
     )
     .join("");
 
@@ -277,8 +295,8 @@ const metaStr = (
   return typeof value === "string"
     ? value
     : typeof value === "number"
-      ? String(value)
-      : undefined;
+    ? String(value)
+    : undefined;
 };
 
 export default toTEIXML;

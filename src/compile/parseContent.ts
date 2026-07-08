@@ -13,7 +13,7 @@ import type {
   Table,
   TableCell,
   TableRow,
-} from "../types.js";
+} from "../types.ts";
 import {
   blockquoteSpec,
   endLine,
@@ -22,15 +22,15 @@ import {
   stageDirectionSpec,
   startLine,
   tableSpec,
-} from "../types.js";
-import classifyBlockLine from "../lib/classifyBlockLine.js";
-import buildPositionMap from "./buildPositionMap.js";
-import parseElements from "./parseElements.js";
-import type { Line } from "./splitIntoBlocks.js";
+} from "../types.ts";
+import classifyBlockLine from "../lib/classifyBlockLine.ts";
+import buildPositionMap from "./buildPositionMap.ts";
+import parseElements from "./parseElements.ts";
+import type { Line } from "./splitIntoBlocks.ts";
 import type {
   BlockWithMetadata,
   TextTreeWithMetadata,
-} from "./parseMetadata.js";
+} from "./parseMetadata.ts";
 
 /**
  * Parse the content of each block in the TextTree, returning a fully parsed MarkitDocument.
@@ -51,7 +51,7 @@ const parseTextContent = (
 
   // Parse content for each block
   const blockResults = text.blocks.map((block) =>
-    parseBlockContent(block, footnoteIds, text.id),
+    parseBlockContent(block, footnoteIds, text.id)
   );
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
@@ -81,14 +81,13 @@ const parseBlockContent = (
 ): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
-  const blockType: BlockType =
-    block.id === "title"
-      ? "title"
-      : block.id.startsWith("subtitle")
-        ? "subtitle"
-        : footnoteReferenceSpec.pattern.test(block.id)
-          ? "footnote"
-          : "paragraph";
+  const blockType: BlockType = block.id === "title"
+    ? "title"
+    : block.id.startsWith("subtitle")
+    ? "subtitle"
+    : footnoteReferenceSpec.pattern.test(block.id)
+    ? "footnote"
+    : "paragraph";
 
   const allowHeadings = blockType === "title" || blockType === "subtitle";
 
@@ -144,10 +143,10 @@ const parseBlockLevelElements = (
     | { kind: "stageDirection"; lines: Line[] }
     | { kind: "heading"; entries: HeadingEntry[] }
     | {
-        kind: "list";
-        ordered: "ordered" | "unordered" | "verse";
-        items: ListItemEntry[];
-      }
+      kind: "list";
+      ordered: "ordered" | "unordered" | "verse";
+      items: ListItemEntry[];
+    }
     | { kind: "table"; rows: TableRowEntry[] };
 
   let state: State = { kind: "none" };
@@ -332,12 +331,11 @@ const parseBlockLevelElements = (
       // Item at current indent level - parse its content
       const line = item.line;
       // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
-      const markerMatch =
-        ordered === "ordered"
-          ? /^\s*\d+\. /.exec(line.content)
-          : ordered === "verse"
-            ? /^\* /.exec(line.content)
-            : /^\s*- /.exec(line.content);
+      const markerMatch = ordered === "ordered"
+        ? /^\s*\d+\. /.exec(line.content)
+        : ordered === "verse"
+        ? /^\* /.exec(line.content)
+        : /^\s*- /.exec(line.content);
       const markerLength = markerMatch![0].length;
       const itemText = line.content.slice(markerLength);
 
@@ -515,7 +513,8 @@ const parseBlockLevelElements = (
       if (indent % listSpec.indentSize !== 0) {
         flush();
         errors.push({
-          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          message:
+            `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
           line: line.lineNumber + 1,
           column: line.charOffset + 1,
           endLine: line.lineNumber + 1,
@@ -555,7 +554,8 @@ const parseBlockLevelElements = (
       if (indent % listSpec.indentSize !== 0) {
         flush();
         errors.push({
-          message: `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+          message:
+            `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
           line: line.lineNumber + 1,
           column: line.charOffset + 1,
           endLine: line.lineNumber + 1,
@@ -692,7 +692,7 @@ const buildTable = (
 
   // Parse each row into cells
   const parsedRows: TableRow[] = dataRows.map((entry) =>
-    parseTableRow(entry.line, footnoteIds, errors, textId),
+    parseTableRow(entry.line, footnoteIds, errors, textId)
   );
 
   // Find maximum column count
@@ -705,7 +705,8 @@ const buildTable = (
       // Emit warning for inconsistent column count
       if (row.cells.length > 0) {
         errors.push({
-          message: `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
+          message:
+            `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
           line: rowLineNumber + 1,
           column: 1,
           endLine: rowLineNumber + 1,
@@ -753,7 +754,7 @@ const parseTableRow = (
   const content = line.content.trim();
 
   // Split by | and remove leading/trailing empty strings from optional leading/trailing pipes
-  let parts = content.split(tableSpec.cellDelimiter);
+  const parts = content.split(tableSpec.cellDelimiter);
 
   // Remove leading empty part if line starts with |
   if (parts.length > 0 && parts[0] === "") {

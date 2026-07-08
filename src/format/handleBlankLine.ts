@@ -1,5 +1,5 @@
-import { emitBlank, flushContent } from "./helpers.js";
-import type { State } from "./types.js";
+import { emitBlank, flushContent } from "./helpers.ts";
+import type { State } from "./types.ts";
 
 // Context-aware handler for blank lines.
 // Inside a content block, blank lines separate block-level elements and are
@@ -28,6 +28,6 @@ export default (state: State): State => {
   }
 
   // Outside content blocks: flush any buffered content and emit a blank.
-  let newState = flushContent(state);
+  const newState = flushContent(state);
   return emitBlank(newState);
 };

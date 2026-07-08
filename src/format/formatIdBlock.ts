@@ -1,5 +1,5 @@
-import { emitBlank, emitLine, flushContent } from "./helpers.js";
-import type { State } from "./types.js";
+import { emitBlank, emitLine, flushContent } from "./helpers.ts";
+import type { State } from "./types.ts";
 
 // Context aware formatter for ID lines
 export default (state: State, line: string): State => {

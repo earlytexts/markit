@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { endLine, startLine } from "../src/types.js";
-import { markit, markitWithMetadata } from "./utils/factories.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { markit, markitWithMetadata } from "./utils/factories.ts";
 
 describe("null case", () => {
   it("returns no metadata for a document with no metadata blocks", () => {

@@ -1,5 +1,5 @@
-import { emitLine } from "./helpers.js";
-import type { State } from "./types.js";
+import { emitLine } from "./helpers.ts";
+import type { State } from "./types.ts";
 
 // Context aware handler for content lines
 export default (state: State, line: string): State => {

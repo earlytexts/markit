@@ -1,6 +1,6 @@
-import type { MarkitError } from "../types.js";
-import makeError from "../lib/makeError.js";
-import type { RawBlock } from "./splitIntoBlocks.js";
+import type { MarkitError } from "../types.ts";
+import makeError from "../lib/makeError.ts";
+import type { RawBlock } from "./splitIntoBlocks.ts";
 
 /**
  * Generate a text tree from an array of blocks, noting any structural errors on the way.
@@ -25,10 +25,9 @@ export default (
   const rootLine = blocks[0].lines[0];
   const [rootLevel, rootId] = readTextHeading(rootLine.content);
   if (rootLevel !== 1) {
-    const message =
-      rootLevel === 0
-        ? "Document must begin with a level 1 header (e.g. # Document.Id)"
-        : `Expected level 1 header but found level ${rootLevel}`;
+    const message = rootLevel === 0
+      ? "Document must begin with a level 1 header (e.g. # Document.Id)"
+      : `Expected level 1 header but found level ${rootLevel}`;
     errors.push(
       makeError({
         message,
@@ -60,7 +59,8 @@ export default (
       if (level > currentLevel + 1) {
         errors.push(
           makeError({
-            message: `Level ${level} header cannot follow level ${currentLevel} header without an intermediate level`,
+            message:
+              `Level ${level} header cannot follow level ${currentLevel} header without an intermediate level`,
             line: block.startLine,
             length: firstLine.content.length,
           }),

@@ -235,7 +235,9 @@ export const serializeNode = (node: XmlNode): string => {
           ? `<${node.name}${attrs}/>`
           : `<${node.name}${attrs}></${node.name}>`;
       }
-      return `<${node.name}${attrs}>${serializeNodes(node.children)}</${node.name}>`;
+      return `<${node.name}${attrs}>${
+        serializeNodes(node.children)
+      }</${node.name}>`;
     }
   }
 };

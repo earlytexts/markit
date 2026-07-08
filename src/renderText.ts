@@ -3,7 +3,7 @@ import type {
   BlockElement,
   InlineElement,
   MarkitDocument,
-} from "./types.js";
+} from "./types.ts";
 
 export default (document: MarkitDocument): string =>
   documentToText(document) + "\n";
@@ -39,7 +39,7 @@ const blockElementToText = (
           blockElementToText(el, null)
             .split("\n")
             .map((line) => (line === "" ? line : `    ${line}`))
-            .join("\n"),
+            .join("\n")
         )
         .join("\n\n");
     case "stageDirection":
@@ -53,7 +53,7 @@ const blockElementToText = (
   }
 };
 
-const tableToText = (table: import("./types.js").Table): string => {
+const tableToText = (table: import("./types.ts").Table): string => {
   // Render table as plain text with simple formatting
   return table.rows
     .map((row) => {
@@ -64,7 +64,7 @@ const tableToText = (table: import("./types.js").Table): string => {
 };
 
 const listToText = (
-  list: import("./types.js").List,
+  list: import("./types.ts").List,
   indentLevel: number,
   startNumber: number,
 ): string => {

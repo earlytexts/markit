@@ -1,10 +1,10 @@
-import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.js";
-import type { MarkitError, Metadata, MetadataValue } from "../types.js";
-import { endLine, footnoteReferenceSpec, startLine } from "../types.js";
-import type { TextTree } from "./generateTextTree.js";
-import makeError from "../lib/makeError.js";
-import parseMetadataValue from "./parseMetadataValue.js";
-import type { Line, RawBlock } from "./splitIntoBlocks.js";
+import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
+import type { MarkitError, Metadata, MetadataValue } from "../types.ts";
+import { endLine, footnoteReferenceSpec, startLine } from "../types.ts";
+import type { TextTree } from "./generateTextTree.ts";
+import makeError from "../lib/makeError.ts";
+import parseMetadataValue from "./parseMetadataValue.ts";
+import type { Line, RawBlock } from "./splitIntoBlocks.ts";
 
 /**
  * Parse the TextTree into a tree with metadata.
@@ -45,13 +45,12 @@ const parseTextMetadata = (
   const contentBlocks = text.blocks.slice(metadataBlockCount);
 
   const allMetadataErrors: MarkitError[] = [];
-  const metadata: Metadata | undefined =
-    metadataBlocks.length > 0
-      ? {
-          [startLine]: metadataBlocks[0]!.startLine,
-          [endLine]: metadataBlocks.at(-1)!.endLine,
-        }
-      : undefined;
+  const metadata: Metadata | undefined = metadataBlocks.length > 0
+    ? {
+      [startLine]: metadataBlocks[0]!.startLine,
+      [endLine]: metadataBlocks.at(-1)!.endLine,
+    }
+    : undefined;
   let hasTopLevelBlock = false;
 
   for (const block of metadataBlocks) {
@@ -68,7 +67,8 @@ const parseTextMetadata = (
         const firstLine = block.lines[0]!;
         allMetadataErrors.push(
           makeError({
-            message: `Nested metadata block '[metadata.${subkey}]' must appear after the top-level '[metadata]' block`,
+            message:
+              `Nested metadata block '[metadata.${subkey}]' must appear after the top-level '[metadata]' block`,
             line: block.startLine,
             column: firstLine.charOffset,
             length: firstLine.content.length,
@@ -161,7 +161,8 @@ const parseMetadataBlock = (
   if (!headerMatch) {
     errors.push(
       makeError({
-        message: `Invalid metadata header '${firstLine.content.trim()}' — only '[metadata]' and '[metadata.<key>]' are allowed`,
+        message:
+          `Invalid metadata header '${firstLine.content.trim()}' — only '[metadata]' and '[metadata.<key>]' are allowed`,
         line: block.startLine,
         column: firstLine.charOffset,
         length: firstLine.content.length,
@@ -202,11 +203,12 @@ const parseMetadataBlock = (
 
           // Strip trailing comma from item
           const itemString = trimmed.replace(/,$/, "").trim();
-          const itemStartColumn =
-            arrayLine.charOffset + arrayLine.content.indexOf(itemString);
+          const itemStartColumn = arrayLine.charOffset +
+            arrayLine.content.indexOf(itemString);
 
-          const { value: itemValue, diagnostics } =
-            parseMetadataValue(itemString);
+          const { value: itemValue, diagnostics } = parseMetadataValue(
+            itemString,
+          );
           if (diagnostics.includes("invalid-value")) {
             errors.push(
               makeError({
@@ -345,7 +347,8 @@ const parseBlockMetadata = (
     const idOffset = firstLine.content.indexOf(id, 2);
     errors.push(
       makeError({
-        message: `Block ID '${id}' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')`,
+        message:
+          `Block ID '${id}' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')`,
         line: block.startLine,
         column: firstLine.charOffset + idOffset,
         length: id.length,
@@ -359,7 +362,8 @@ const parseBlockMetadata = (
     const idOffset = firstLine.content.indexOf(id, 2);
     errors.push(
       makeError({
-        message: `Block ID '${id}' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)`,
+        message:
+          `Block ID '${id}' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)`,
         line: block.startLine,
         column: firstLine.charOffset + idOffset,
         length: id.length,
@@ -457,26 +461,25 @@ const parseBlockMetadata = (
   const contentAfterTag = hasValidTag
     ? firstLine.content.slice(closingBrace + 1).trim()
     : isBlockTag
-      ? ""
-      : firstLine.content.trim();
+    ? ""
+    : firstLine.content.trim();
   const newFirstLine = contentAfterTag
     ? {
-        lineNumber: firstLine.lineNumber,
-        charOffset:
-          firstLine.charOffset + firstLine.content.indexOf(contentAfterTag),
-        content: contentAfterTag,
-      }
+      lineNumber: firstLine.lineNumber,
+      charOffset: firstLine.charOffset +
+        firstLine.content.indexOf(contentAfterTag),
+      content: contentAfterTag,
+    }
     : null;
 
   const lines = newFirstLine ? [newFirstLine, ...otherLines] : otherLines;
 
-  const metadataWithRanges =
-    Object.keys(metadata).length > 0
-      ? Object.assign(metadata, {
-          [startLine]: block.startLine,
-          [endLine]: block.startLine,
-        })
-      : undefined;
+  const metadataWithRanges = Object.keys(metadata).length > 0
+    ? Object.assign(metadata, {
+      [startLine]: block.startLine,
+      [endLine]: block.startLine,
+    })
+    : undefined;
 
   const blockWithMetadata: BlockWithMetadata = {
     ...block,

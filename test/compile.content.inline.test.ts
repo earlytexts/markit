@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { markit, markitWithContent, p, h, pt, hl } from "./utils/factories.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { h, hl, markit, markitWithContent, p, pt } from "./utils/factories.ts";
 
 describe("inline formatting", () => {
   it("parses inline formatting (bold and italic)", () => {

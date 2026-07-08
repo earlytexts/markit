@@ -1,4 +1,4 @@
-import type { MarkitError } from "../types.js";
+import type { MarkitError } from "../types.ts";
 
 type MakeErrorParams = {
   message: string;

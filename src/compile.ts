@@ -1,10 +1,10 @@
-import generateTextTree from "./compile/generateTextTree.js";
-import makeError from "./lib/makeError.js";
-import parseContent from "./compile/parseContent.js";
-import parseMetadata from "./compile/parseMetadata.js";
-import splitIntoBlocks from "./compile/splitIntoBlocks.js";
-import type { MarkitDocument, MarkitError } from "./types.js";
-import { endLine, startLine } from "./types.js";
+import generateTextTree from "./compile/generateTextTree.ts";
+import makeError from "./lib/makeError.ts";
+import parseContent from "./compile/parseContent.ts";
+import parseMetadata from "./compile/parseMetadata.ts";
+import splitIntoBlocks from "./compile/splitIntoBlocks.ts";
+import type { MarkitDocument, MarkitError } from "./types.ts";
+import { endLine, startLine } from "./types.ts";
 
 /**
  * Compile a Markit document string into a structured JSON-ready object.

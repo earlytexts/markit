@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { li, list, markitWithContent, pt } from "./utils/factories.js";
+// deno-lint-ignore-file no-explicit-any -- tests reach into unions with `as any`
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { li, list, markitWithContent, pt } from "./utils/factories.ts";
 
 describe("List compilation", () => {
   describe("Unordered lists", () => {
@@ -294,7 +296,7 @@ describe("List compilation", () => {
   describe("Error handling", () => {
     it("reports error for invalid list item indentation", () => {
       const input = markitWithContent("{#1}", "- Item", " - Bad indent");
-      const [result, errors] = compile(input);
+      const [, errors] = compile(input);
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain("indent must be a multiple of 2");
       expect(errors[0]!.line).toBe(5); // Line number in the full document
@@ -303,7 +305,7 @@ describe("List compilation", () => {
 
     it("reports error for odd indentation in ordered list", () => {
       const input = markitWithContent("{#1}", "1. Item", "   2. Bad indent");
-      const [result, errors] = compile(input);
+      const [, errors] = compile(input);
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain("indent must be a multiple of 2");
       expect(errors[0]!.severity).toBe("error");

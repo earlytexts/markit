@@ -1,10 +1,10 @@
-import formatBlockTag from "./formatBlockTag.js";
-import formatIdBlock from "./formatIdBlock.js";
-import formatMetadata from "./formatMetadata.js";
-import handleBlankLine from "./handleBlankLine.js";
-import handleContentLine from "./handleContentLine.js";
-import { emitBlank, emitLine } from "./helpers.js";
-import type { State } from "./types.js";
+import formatBlockTag from "./formatBlockTag.ts";
+import formatIdBlock from "./formatIdBlock.ts";
+import formatMetadata from "./formatMetadata.ts";
+import handleBlankLine from "./handleBlankLine.ts";
+import handleContentLine from "./handleContentLine.ts";
+import { emitBlank, emitLine } from "./helpers.ts";
+import type { State } from "./types.ts";
 
 export const initialState: State = {
   context: "start",
@@ -24,8 +24,8 @@ export default (state: State, line: string): State => {
   // Metadata lines keep their own handling; content lines route through a
   // marker-aware normaliser so the indentation after a leading `>`/`:` prefix
   // (which encodes nested-list depth) survives.
-  const inMetadata =
-    state.context === "inMetadata" || state.context === "inMetadataArray";
+  const inMetadata = state.context === "inMetadata" ||
+    state.context === "inMetadataArray";
   const normalized = inMetadata
     ? line.trimEnd().replace(/(?<=\S)\s+/g, " ")
     : normalizeContentLine(line);
@@ -40,26 +40,23 @@ export default (state: State, line: string): State => {
     /^\[.+\]$/.test(normalized.trim());
 
   // TOML key = value line (only in metadata context, after a header)
-  const isMetadataKeyValue =
-    state.context === "inMetadata" &&
+  const isMetadataKeyValue = state.context === "inMetadata" &&
     !isBlank &&
     !isMetadataHeader &&
     normalized.includes("=") &&
     !normalized.trim().startsWith("[");
 
   // Multiline array start: key = [ with no closing ] on the same line
-  const isMetadataArrayStart =
-    state.context === "inMetadata" &&
+  const isMetadataArrayStart = state.context === "inMetadata" &&
     !isBlank &&
     /^\w+\s*=\s*\[$/.test(normalized.trim());
 
   // Inside a multiline array
-  const isMetadataArrayEnd =
-    state.context === "inMetadataArray" &&
+  const isMetadataArrayEnd = state.context === "inMetadataArray" &&
     (normalized.trim() === "]" || normalized.trim() === "],");
 
-  const isMetadataArrayItem =
-    state.context === "inMetadataArray" && !isBlank && !isMetadataArrayEnd;
+  const isMetadataArrayItem = state.context === "inMetadataArray" && !isBlank &&
+    !isMetadataArrayEnd;
 
   // ... and conquer
   if (isBlank) return handleBlankLine(state);

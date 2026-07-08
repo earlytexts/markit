@@ -1,4 +1,4 @@
-import type { Line } from "./splitIntoBlocks.js";
+import type { Line } from "./splitIntoBlocks.ts";
 
 export type PositionInfo = {
   line: number;

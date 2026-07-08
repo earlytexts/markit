@@ -10,7 +10,7 @@ import {
   isElement,
   localName,
   type XmlElement,
-} from "./xml.js";
+} from "./xml.ts";
 
 // The intermediate shape `fromTei` serialises into `[metadata]` blocks: ordered
 // top-level pairs plus ordered nested sections (`[metadata.<section>]`).
@@ -35,9 +35,7 @@ const childrenNamed = (element: XmlElement, name: string): XmlElement[] =>
 const text = (element: XmlElement): string => {
   const gather = (node: XmlElement): string =>
     node.children
-      .map((c) =>
-        c.kind === "text" ? c.content : isElement(c) ? gather(c) : "",
-      )
+      .map((c) => c.kind === "text" ? c.content : isElement(c) ? gather(c) : "")
       .join("");
   return gather(element).replace(/\s+/g, " ").trim();
 };
@@ -120,8 +118,7 @@ export const headerToMetadata = (header: XmlElement): MetaTree => {
     if (idnoPairs.length > 0) sections.push(["idno", idnoPairs]);
   }
 
-  const biblFull =
-    fileDesc &&
+  const biblFull = fileDesc &&
     child(fileDesc, "sourceDesc") &&
     child(child(fileDesc, "sourceDesc")!, "biblFull");
   if (biblFull) {
@@ -159,8 +156,8 @@ const asArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.map(String)
     : value === undefined
-      ? []
-      : [String(value)];
+    ? []
+    : [String(value)];
 
 const tag = (name: string, value: string): string =>
   `<${name}>${value}</${name}>`;
@@ -179,7 +176,8 @@ export const metadataToHeader = (metadata: MetaObject | undefined): string => {
   const editorTags = asArray(meta["editors"] ?? meta["editor"])
     .map((e) => tag("editor", escapeText(e)))
     .join("");
-  const titleStmt = `<titleStmt>${titleTags}${authorTags}${editorTags}</titleStmt>`;
+  const titleStmt =
+    `<titleStmt>${titleTags}${authorTags}${editorTags}</titleStmt>`;
 
   const extent = meta["extent"] ? tag("extent", str(meta["extent"])) : "";
 
@@ -189,31 +187,36 @@ export const metadataToHeader = (metadata: MetaObject | undefined): string => {
     .flatMap(([type, value]) =>
       asArray(value).map(
         (v) => `<idno type="${escapeText(type)}">${escapeText(v)}</idno>`,
-      ),
+      )
     )
     .join("");
-  const publicationStmt = `<publicationStmt>${pubBody(publication)}${idnoTags}</publicationStmt>`;
+  const publicationStmt = `<publicationStmt>${
+    pubBody(publication)
+  }${idnoTags}</publicationStmt>`;
 
   const notes = asArray(meta["notes"]);
-  const notesStmt =
-    notes.length > 0
-      ? `<notesStmt>${notes.map((n) => tag("note", escapeText(n))).join("")}</notesStmt>`
-      : "";
+  const notesStmt = notes.length > 0
+    ? `<notesStmt>${
+      notes.map((n) => tag("note", escapeText(n))).join("")
+    }</notesStmt>`
+    : "";
 
   const source = isObject(meta["source"]) ? meta["source"] : {};
-  const sourceBody =
-    Object.keys(source).length > 0
-      ? `<biblFull><publicationStmt>${pubBody(source)}</publicationStmt>${
-          source["extent"] ? tag("extent", str(source["extent"])) : ""
-        }</biblFull>`
-      : "<p>Source description not available.</p>";
+  const sourceBody = Object.keys(source).length > 0
+    ? `<biblFull><publicationStmt>${pubBody(source)}</publicationStmt>${
+      source["extent"] ? tag("extent", str(source["extent"])) : ""
+    }</biblFull>`
+    : "<p>Source description not available.</p>";
   const sourceDesc = `<sourceDesc>${sourceBody}</sourceDesc>`;
 
-  const fileDesc = `<fileDesc>${titleStmt}${extent}${publicationStmt}${notesStmt}${sourceDesc}</fileDesc>`;
+  const fileDesc =
+    `<fileDesc>${titleStmt}${extent}${publicationStmt}${notesStmt}${sourceDesc}</fileDesc>`;
 
   const language = meta["language"];
   const profileDesc = language
-    ? `<profileDesc><langUsage><language ident="${escapeText(String(language))}">${escapeText(String(language))}</language></langUsage></profileDesc>`
+    ? `<profileDesc><langUsage><language ident="${
+      escapeText(String(language))
+    }">${escapeText(String(language))}</language></langUsage></profileDesc>`
     : "";
 
   return `<teiHeader>${fileDesc}${profileDesc}</teiHeader>`;

@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { markit } from "./utils/factories.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { markit } from "./utils/factories.ts";
 
 describe("document tree", () => {
   it("parses the document tree and text IDs", () => {

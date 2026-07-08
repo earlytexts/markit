@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { markit, markitWithContent } from "./utils/factories.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { markit, markitWithContent } from "./utils/factories.ts";
 
 describe("block IDs", () => {
   it("parses blocks with their ids", () => {

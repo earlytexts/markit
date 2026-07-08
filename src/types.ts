@@ -14,19 +14,25 @@ export type Ranges = {
   [endLine]: number;
 };
 
-export const startLine = Symbol("startLine");
+export const startLine: unique symbol = Symbol("startLine");
 
-export const endLine = Symbol("endLine");
+export const endLine: unique symbol = Symbol("endLine");
 
 // Metadata types
 export type MetadataValue =
-  number | boolean | string | number[] | boolean[] | string[];
+  | number
+  | boolean
+  | string
+  | number[]
+  | boolean[]
+  | string[];
 
-export type Metadata = Record<
-  string,
-  MetadataValue | (Record<string, MetadataValue> & Ranges)
-> &
-  Ranges;
+export type Metadata =
+  & Record<
+    string,
+    MetadataValue | (Record<string, MetadataValue> & Ranges)
+  >
+  & Ranges;
 
 // Document type
 export type MarkitDocument = {
@@ -48,7 +54,12 @@ export type Block = {
 
 // Block-level element types
 export type BlockElement =
-  Heading | Paragraph | Blockquote | StageDirection | List | Table;
+  | Heading
+  | Paragraph
+  | Blockquote
+  | StageDirection
+  | List
+  | Table;
 
 export type Heading = {
   type: "heading";
@@ -72,7 +83,11 @@ export type Paragraph = {
 // lists, verse, tables, and nested quotations/stage directions, not just
 // paragraphs.
 export type NestableBlockElement =
-  Paragraph | Blockquote | StageDirection | List | Table;
+  | Paragraph
+  | Blockquote
+  | StageDirection
+  | List
+  | Table;
 
 export type Blockquote = {
   type: "blockquote";

@@ -1,6 +1,6 @@
-import classifyBlockLine from "../lib/classifyBlockLine.js";
-import splitOnLineBreakMarker from "../lib/splitLineBreaks.js";
-import type { State } from "./types.js";
+import classifyBlockLine from "../lib/classifyBlockLine.ts";
+import splitOnLineBreakMarker from "../lib/splitLineBreaks.ts";
+import type { State } from "./types.ts";
 
 // Emit the given line
 export const emitLine = (state: State, line: string): State => {
@@ -207,7 +207,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
         const isSeparator = /^\|?\s*-+\s*(\|\s*-+\s*)*\|?\s*$/.test(trimmed);
 
         // Split by | and remove leading/trailing empty parts
-        let parts = trimmed.split("|");
+        const parts = trimmed.split("|");
         if (parts.length > 0 && parts[0] === "") {
           parts.shift();
         }
@@ -241,7 +241,7 @@ const extractBlockElements = (buffer: string[]): string[] => {
       if (row.isSeparator) {
         // Format separator row - fill column width plus spaces with dashes
         const separatorCells = columnWidths.map((width) =>
-          "-".repeat(width + 2),
+          "-".repeat(width + 2)
         );
         output.push(`|${separatorCells.join("|")}|`);
       } else {
@@ -436,8 +436,11 @@ const extractBlockElements = (buffer: string[]): string[] => {
   flushTable();
 
   // Strip any trailing blank or bare blockquote/stage-direction separator lines
-  while (output.at(-1) === "" || output.at(-1) === ">" || output.at(-1) === ":")
+  while (
+    output.at(-1) === "" || output.at(-1) === ">" || output.at(-1) === ":"
+  ) {
     output.pop();
+  }
 
   return output;
 };
