@@ -13,14 +13,35 @@ jobs:
     steps:
       - uses: "actions/checkout@v6"
 
+      - name: "Setup Deno"
+        uses: "denoland/setup-deno@v2"
+        with:
+          deno-version: "v2.x"
+
+      - name: "Run tests, type checking, linting, and format checking"
+        run: "deno task test"
+
+      - name: "Publish dry run"
+        run: "deno publish --dry-run"
+
+  test-vscode:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: "actions/checkout@v6"
+
       - name: "Setup Node.js"
         uses: "actions/setup-node@v6"
         with:
           node-version: "24"
           cache: "npm"
+          cache-dependency-path: "vscode-markit/package-lock.json"
 
       - name: "Install dependencies"
-        run: "npm ci"
+        run: "cd vscode-markit && npm ci"
 
-      - name: "Run tests, type checking, and format checking"
-        run: "npm test"
+      - name: "Type checking and format checking"
+        run: "cd vscode-markit && npm run check && npm run format:check"
+
+      - name: "Build"
+        run: "cd vscode-markit && npm run build"

@@ -1,6 +1,6 @@
-import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.js";
-import { emitBlank, emitLine, flushContent } from "./helpers.js";
-import type { State } from "./types.js";
+import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
+import { emitBlank, emitLine, flushContent } from "./helpers.ts";
+import type { State } from "./types.ts";
 
 // Context aware formatter for lines starting with block tags
 export default (state: State, line: string): State => {

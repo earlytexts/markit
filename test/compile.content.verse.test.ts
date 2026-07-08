@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { li, list, markitWithContent, p, pt } from "./utils/factories.js";
+// deno-lint-ignore-file no-explicit-any -- tests reach into unions with `as any`
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { li, list, markitWithContent, p, pt } from "./utils/factories.ts";
 
 describe("Verse compilation", () => {
   it("compiles a single stanza", () => {

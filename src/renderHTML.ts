@@ -3,13 +3,15 @@ import type {
   BlockElement,
   InlineElement,
   MarkitDocument,
-} from "./types.js";
-import { startLine } from "./types.js";
+} from "./types.ts";
+import { startLine } from "./types.ts";
 
 export default (document: MarkitDocument): string => {
-  return `<!doctype html><html><head><meta charset="UTF-8"><title>${document.id}</title></head><body>${documentToHTML(
-    document,
-  )}</body></html>`;
+  return `<!doctype html><html><head><meta charset="UTF-8"><title>${document.id}</title></head><body>${
+    documentToHTML(
+      document,
+    )
+  }</body></html>`;
 };
 
 const documentToHTML = (
@@ -45,8 +47,9 @@ const blockElementToHTML = (
 ): string => {
   switch (element.type) {
     case "paragraph": {
-      const fnPrefix =
-        footnotePrefix !== null ? `<sup>${footnotePrefix}</sup> ` : "";
+      const fnPrefix = footnotePrefix !== null
+        ? `<sup>${footnotePrefix}</sup> `
+        : "";
       return `<p>${fnPrefix}${inlineElementsToHTML(element.content)}</p>`;
     }
     case "heading": {
@@ -54,19 +57,25 @@ const blockElementToHTML = (
       const inner = element.content
         .map(
           (l) =>
-            `<span class="size-${l.level}">${inlineElementsToHTML(l.content)}</span>`,
+            `<span class="size-${l.level}">${
+              inlineElementsToHTML(l.content)
+            }</span>`,
         )
         .join("");
       return `<h${hLevel}>${inner}</h${hLevel}>`;
     }
     case "blockquote":
-      return `<blockquote>${element.content
-        .map((el) => blockElementToHTML(el, null, depth))
-        .join("")}</blockquote>`;
+      return `<blockquote>${
+        element.content
+          .map((el) => blockElementToHTML(el, null, depth))
+          .join("")
+      }</blockquote>`;
     case "stageDirection":
-      return `<div class="stage-direction">${element.content
-        .map((el) => blockElementToHTML(el, null, depth))
-        .join("")}</div>`;
+      return `<div class="stage-direction">${
+        element.content
+          .map((el) => blockElementToHTML(el, null, depth))
+          .join("")
+      }</div>`;
     case "list": {
       if (element.ordered === "verse") {
         const lines = element.items
@@ -93,24 +102,33 @@ const blockElementToHTML = (
       return `<${tag}${startAttr}>${items}</${tag}>`;
     }
     case "table": {
-      const headerRow =
-        element.hasHeader && element.rows.length > 0 ? element.rows[0] : null;
+      const headerRow = element.hasHeader && element.rows.length > 0
+        ? element.rows[0]
+        : null;
       const dataRows = element.hasHeader ? element.rows.slice(1) : element.rows;
 
       const theadHTML = headerRow
-        ? `<thead><tr>${headerRow.cells
+        ? `<thead><tr>${
+          headerRow.cells
             .map((cell) => `<th>${inlineElementsToHTML(cell.content)}</th>`)
-            .join("")}</tr></thead>`
+            .join("")
+        }</tr></thead>`
         : "";
 
-      const tbodyHTML = `<tbody>${dataRows
-        .map(
-          (row) =>
-            `<tr>${row.cells
-              .map((cell) => `<td>${inlineElementsToHTML(cell.content)}</td>`)
-              .join("")}</tr>`,
-        )
-        .join("")}</tbody>`;
+      const tbodyHTML = `<tbody>${
+        dataRows
+          .map(
+            (row) =>
+              `<tr>${
+                row.cells
+                  .map((cell) =>
+                    `<td>${inlineElementsToHTML(cell.content)}</td>`
+                  )
+                  .join("")
+              }</tr>`,
+          )
+          .join("")
+      }</tbody>`;
 
       return `<table>${theadHTML}${tbodyHTML}</table>`;
     }
@@ -145,28 +163,44 @@ const inlineElementToHTML = (element: InlineElement): string => {
     case "subscript":
       return `<sub>${inlineElementsToHTML(element.content)}</sub>`;
     case "aside":
-      return `<span class="aside">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="aside">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "speaker":
-      return `<span class="speaker">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="speaker">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "stageDirection":
-      return `<span class="stage-direction">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="stage-direction">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "insertion":
       return `<ins>${inlineElementsToHTML(element.content)}</ins>`;
     case "deletion":
       return `<del>${inlineElementsToHTML(element.content)}</del>`;
     case "uncertain":
-      return `<span class="uncertain">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="uncertain">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "person":
-      return `<span class="person">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="person">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "place":
-      return `<span class="place">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="place">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "org":
-      return `<span class="org">${inlineElementsToHTML(element.content)}</span>`;
+      return `<span class="org">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "citation":
       return `<cite>${inlineElementsToHTML(element.content)}</cite>`;
     case "language":
       return element.lang !== undefined
-        ? `<em lang="${element.lang}">${inlineElementsToHTML(element.content)}</em>`
+        ? `<em lang="${element.lang}">${
+          inlineElementsToHTML(element.content)
+        }</em>`
         : `<em class="foreign">${inlineElementsToHTML(element.content)}</em>`;
     case "pageBreak":
       return element.ref !== undefined
@@ -175,9 +209,11 @@ const inlineElementToHTML = (element: InlineElement): string => {
     case "highlight":
       return `<mark>${inlineElementsToHTML(element.content)}</mark>`;
     case "element":
-      return `<span class="element" data-tag="${element.tag}">${inlineElementsToHTML(
-        element.content,
-      )}</span>`;
+      return `<span class="element" data-tag="${element.tag}">${
+        inlineElementsToHTML(
+          element.content,
+        )
+      }</span>`;
     /* v8 ignore next 2 */
     default:
       return element satisfies never;

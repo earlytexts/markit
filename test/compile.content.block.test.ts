@@ -1,19 +1,20 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
 import {
-  markitWithContent,
-  p,
+  bq,
   h,
   hl,
-  bq,
-  sd,
-  pt,
-  list,
   li,
+  list,
+  markitWithContent,
+  p,
+  pt,
+  sd,
   table,
-  tr,
   tc,
-} from "./utils/factories.js";
+  tr,
+} from "./utils/factories.ts";
 
 describe("paragraphs", () => {
   it("parses text into paragraphs by default", () => {

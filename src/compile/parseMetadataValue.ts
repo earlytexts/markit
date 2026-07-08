@@ -1,4 +1,4 @@
-import type { MetadataValue } from "../types.js";
+import type { MetadataValue } from "../types.ts";
 
 export type ValueDiagnostic = "invalid-value" | "mixed-array";
 

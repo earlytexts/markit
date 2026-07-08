@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import renderHTML from "../src/renderHTML.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import renderHTML from "../src/renderHTML.ts";
 import {
   document,
   markit,
   markitWithContent,
   paragraph,
-} from "./utils/factories.js";
-import type { MarkitDocument } from "../src/types.js";
+} from "./utils/factories.ts";
 
 describe("document structure", () => {
   it("renders document as a section with id and data-line", () => {

@@ -1,11 +1,12 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { endLine, startLine } from "../src/types.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { endLine, startLine } from "../src/types.ts";
 import {
   markit,
   markitWithContent,
   markitWithMetadata,
-} from "./utils/factories.js";
+} from "./utils/factories.ts";
 
 describe("text ranges", () => {
   it("records startLine and endLine for a text with no children", () => {

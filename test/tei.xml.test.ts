@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
 import {
   attr,
   childElements,
@@ -9,7 +10,7 @@ import {
   serializeNodes,
   startTagInner,
   type XmlElement,
-} from "../src/tei/xml.js";
+} from "../src/tei/xml.ts";
 
 const firstElement = (xml: string): XmlElement => {
   const node = parseXml(xml).find(isElement);

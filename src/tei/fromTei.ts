@@ -6,7 +6,7 @@ import {
   startTagInner,
   type XmlElement,
   type XmlNode,
-} from "./xml.js";
+} from "./xml.ts";
 import {
   JOIN_GLYPHS,
   langOf,
@@ -14,10 +14,10 @@ import {
   matchInlineRule,
   SEMANTIC_BLOCKS,
   STRUCTURAL,
-} from "./schema.js";
-import { headerToMetadata, type MetaTree } from "./header.js";
-import classifyBlockLine from "../lib/classifyBlockLine.js";
-import splitOnLineBreakMarker from "../lib/splitLineBreaks.js";
+} from "./schema.ts";
+import { headerToMetadata, type MetaTree } from "./header.ts";
+import classifyBlockLine from "../lib/classifyBlockLine.ts";
+import splitOnLineBreakMarker from "../lib/splitLineBreaks.ts";
 
 // Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
 // (long-s and similar); by default the source is preserved faithfully.
@@ -167,7 +167,9 @@ const emitBlocks = (
       open(
         tag,
         [
-          `^${level} ${page}${finishInline(renderInline(child.children, w, new Set()))}`,
+          `^${level} ${page}${
+            finishInline(renderInline(child.children, w, new Set()))
+          }`,
         ],
         false,
       );
@@ -212,8 +214,9 @@ const renderBlockElement = (element: XmlElement, w: Walker): BlockOut => {
   if (name === "lg" || name === "l") return markup(verseLines(element, w));
   if (name === "list") return markup(listLines(element, 0, w));
   if (name === "table") return markup(tableLines(element, w));
-  if (name === "quote" || name === "cit")
+  if (name === "quote" || name === "cit") {
     return markup(blockquoteLines(element, w));
+  }
   if (name === "stage") return markup(stageLines(element, w));
   if (name === "sp") return markup(mixedContent(element.children, w, false));
   if (isFootnote(element)) {
@@ -297,7 +300,7 @@ const mixedContent = (
     return paragraphLines(renderInline(nodes, w, new Set()));
   }
   return blockContentGroups(nodes, w).flatMap((group, i) =>
-    i === 0 ? group.lines : ["", ...group.lines],
+    i === 0 ? group.lines : ["", ...group.lines]
   );
 };
 
@@ -359,7 +362,9 @@ const listLines = (
         (c) => !(isElement(c) && localName(c.name) === "list"),
       );
       lines.push(
-        `${pad}${marker} ${finishInline(renderInline(inlineKids, w, new Set()))}`,
+        `${pad}${marker} ${
+          finishInline(renderInline(inlineKids, w, new Set()))
+        }`,
       );
       for (const sub of nested) lines.push(...listLines(sub, indent + 2, w));
     } else if (name === "head") {
@@ -382,7 +387,7 @@ const tableLines = (element: XmlElement, w: Walker): string[] => {
       finishInline(renderInline(cell.children, w, new Set())).replace(
         /\|/g,
         "\\|",
-      ),
+      )
     );
     lines.push(`| ${rendered.join(" | ")} |`);
     if (!headerDone && (attr(row, "role") ?? "").toLowerCase() === "label") {
@@ -455,8 +460,9 @@ const renderInlineNode = (
   if (name === "foreign") {
     const lang = langOf(element);
     const inner = renderInline(element.children, w, open);
-    return hoistWhitespace(inner, (core) =>
-      lang ? `$${lang}:${core}$` : `$${core}$`,
+    return hoistWhitespace(
+      inner,
+      (core) => lang ? `$${lang}:${core}$` : `$${core}$`,
     );
   }
 
@@ -472,8 +478,7 @@ const renderInlineNode = (
 
   // Abbreviation choices: prefer the expansion, dropping the abbreviated form.
   if (name === "choice") {
-    const target =
-      childElementsNamed(element, "expan")[0] ??
+    const target = childElementsNamed(element, "expan")[0] ??
       childElementsNamed(element, "abbr")[0];
     return renderInline(target ? [target] : element.children, w, open);
   }
@@ -599,12 +604,11 @@ const prependPage = (line: string, page: string | null): string =>
 
 // Concatenate a node's descendant text, optionally modernising letterforms.
 const plainText = (node: XmlNode, w: Walker): string => {
-  const raw =
-    node.kind === "text"
-      ? node.content
-      : node.kind === "element"
-        ? node.children.map((c) => plainText(c, w)).join("")
-        : "";
+  const raw = node.kind === "text"
+    ? node.content
+    : node.kind === "element"
+    ? node.children.map((c) => plainText(c, w)).join("")
+    : "";
   return w.options.modernize ? modernize(raw) : raw;
 };
 

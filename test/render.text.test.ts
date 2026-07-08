@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import renderText from "../src/renderText.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import renderText from "../src/renderText.ts";
 import {
   document,
   markit,
   markitWithContent,
   paragraph,
-} from "./utils/factories.js";
+} from "./utils/factories.ts";
 
 describe("document structure", () => {
   it("joins multiple blocks with double newlines", () => {

@@ -1,23 +1,23 @@
 import {
+  type Block,
+  type BlockElement,
   type Blockquote,
-  type InlineElement,
+  endLine,
   type Heading,
   type HeadingLine,
+  type InlineElement,
   type List,
   type ListItem,
+  type MarkitDocument,
   type NestableBlockElement,
   type Paragraph,
   type PlainText,
   type StageDirection,
-  type Table,
-  type TableRow,
-  type TableCell,
-  type Block,
-  type MarkitDocument,
   startLine,
-  endLine,
-  type BlockElement,
-} from "../../src/types.js";
+  type Table,
+  type TableCell,
+  type TableRow,
+} from "../../src/types.ts";
 
 export const markit = (...lines: string[]): string => lines.join("\n");
 

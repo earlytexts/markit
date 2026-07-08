@@ -5,7 +5,7 @@
 // <text>/<front>/<body>/<back>/<div> body. The mapping favours native Markit
 // features and reserves the generic <<tag>> escape hatch for the long tail.
 
-import { attr, localName, type XmlElement } from "./xml.js";
+import { attr, localName, type XmlElement } from "./xml.ts";
 
 // The TEI P5 namespace, re-emitted on the root element by toTei.
 export const TEI_NS = "http://www.tei-c.org/ns/1.0";
@@ -114,8 +114,9 @@ export const matchInlineRule = (element: XmlElement): string | undefined => {
     if (rule.tei !== name) continue;
     if (rule.attr === undefined) return rule.type;
     const value = (attr(element, rule.attr) ?? "").toLowerCase();
-    if (rule.value === "" ? value === "" : value === rule.value)
+    if (rule.value === "" ? value === "" : value === rule.value) {
       return rule.type;
+    }
   }
   return undefined;
 };

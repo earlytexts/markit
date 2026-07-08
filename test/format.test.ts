@@ -1,11 +1,12 @@
-import { describe, it, expect } from "vitest";
-import formatDocument from "../src/format.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import formatDocument from "../src/format.ts";
 import {
   markit,
+  markitWithContent,
   markitWithId,
   markitWithMetadata,
-  markitWithContent,
-} from "./utils/factories.js";
+} from "./utils/factories.ts";
 
 describe("formatter", () => {
   describe("blank line normalization", () => {

@@ -1,5 +1,5 @@
-import formatLine, { initialState } from "./format/formatLine.js";
-import { flushContent } from "./format/helpers.js";
+import formatLine, { initialState } from "./format/formatLine.ts";
+import { flushContent } from "./format/helpers.ts";
 
 /**
  * Format a Markit document string by normalizing whitespace and ensuring consistent line breaks.

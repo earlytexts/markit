@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import path from "node:path";
 
 const watch = process.argv.includes("--watch");
 
@@ -11,6 +12,11 @@ const sharedOptions = {
   sourcemap: true,
   minify: !watch,
   logLevel: "info",
+  // The library is the sibling package in this repo, published to JSR rather
+  // than npm; esbuild compiles its TypeScript source directly.
+  alias: {
+    "@earlytexts/markit": path.resolve(import.meta.dirname, "../src/index.ts"),
+  },
 };
 
 /** Client entry — depends on the `vscode` module which must be external */

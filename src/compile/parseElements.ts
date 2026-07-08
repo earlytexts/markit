@@ -3,18 +3,18 @@ import type {
   InlineElement,
   Language,
   MarkitError,
-} from "../types.js";
+} from "../types.ts";
 import {
   elementSpec,
   footnoteReferenceSpec,
   isWrapperElement,
   leafElements,
   wrapperElements,
-} from "../types.js";
-import type { PositionInfo } from "./buildPositionMap.js";
-import makeError from "../lib/makeError.js";
-import processGreekMode from "./greekMode.js";
-import processCharacterMode from "./characterMode.js";
+} from "../types.ts";
+import type { PositionInfo } from "./buildPositionMap.ts";
+import makeError from "../lib/makeError.ts";
+import processGreekMode from "./greekMode.ts";
+import processCharacterMode from "./characterMode.ts";
 
 export default (
   input: string,
@@ -136,9 +136,11 @@ const parseElements = (
 
     // 3. Leaf elements (check longest first)
     let leafMatched = false;
-    for (const leaf of [...leafElements].sort(
-      (a, b) => b.trigger.length - a.trigger.length,
-    )) {
+    for (
+      const leaf of [...leafElements].sort(
+        (a, b) => b.trigger.length - a.trigger.length,
+      )
+    ) {
       if (input.startsWith(leaf.trigger, pos)) {
         flushPlainText();
         result.push({ type: leaf.type });
@@ -300,10 +302,9 @@ const parseElements = (
       }
 
       flushPlainText();
-      const languageElement: Language =
-        lang !== undefined
-          ? { type: "language", lang, content: wrapperContent }
-          : { type: "language", content: wrapperContent };
+      const languageElement: Language = lang !== undefined
+        ? { type: "language", lang, content: wrapperContent }
+        : { type: "language", content: wrapperContent };
       result.push(languageElement);
       pos = newPos;
       continue;
@@ -311,9 +312,11 @@ const parseElements = (
 
     // 7. Wrapper elements (check longest first)
     let wrapperMatched = false;
-    for (const wrapper of [...wrapperElements].sort(
-      (a, b) => b.open.length - a.open.length,
-    )) {
+    for (
+      const wrapper of [...wrapperElements].sort(
+        (a, b) => b.open.length - a.open.length,
+      )
+    ) {
       if (input.startsWith(wrapper.open, pos)) {
         const [wrapperContent, newPos] = parseElements(
           input,

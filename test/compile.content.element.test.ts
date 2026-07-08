@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import renderText from "../src/renderText.js";
-import renderHTML from "../src/renderHTML.js";
-import { markitWithContent, pt } from "./utils/factories.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import renderText from "../src/renderText.ts";
+import renderHTML from "../src/renderHTML.ts";
+import { markitWithContent, pt } from "./utils/factories.ts";
 
 const inlineOf = (source: string) => {
   const [document, errors] = compile(markitWithContent("{#1}", source));

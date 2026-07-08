@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import { markitWithContent, pt, table, tc, tr } from "./utils/factories.js";
+// deno-lint-ignore-file no-explicit-any -- tests reach into unions with `as any`
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import { markitWithContent, pt, table, tc, tr } from "./utils/factories.ts";
 
 describe("Table compilation", () => {
   describe("Basic tables without headers", () => {
@@ -274,7 +276,7 @@ describe("Table compilation", () => {
         "| D | E |",
         "| F |",
       );
-      const [result, errors] = compile(input);
+      const [result] = compile(input);
       // Should emit warnings but still produce output
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -295,7 +297,7 @@ describe("Table compilation", () => {
         "|---|---|",
         "| D | E | F |",
       );
-      const [result, errors] = compile(input);
+      const [result] = compile(input);
       // Should still recognize as header and normalize
       expect(result.blocks[0]!.content[0]!.type).toBe("table");
       const tableElement = result.blocks[0]!.content[0] as any;
@@ -335,7 +337,7 @@ describe("Table compilation", () => {
 
     it("handles standalone separator row", () => {
       const input = markitWithContent("{#1}", "|---|---|");
-      const [result, errors] = compile(input);
+      const [result] = compile(input);
       // Standalone separator creates an empty table
       expect(result.blocks[0]!.content).toHaveLength(0);
     });

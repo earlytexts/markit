@@ -1,15 +1,17 @@
-import { describe, expect, it } from "vitest";
-import compile from "../src/compile.js";
-import format from "../src/format.js";
-import fromTEIXML from "../src/tei/fromTei.js";
-import toTEIXML from "../src/tei/toTei.js";
+import { expect } from "@std/expect";
+import { describe, it } from "@std/testing/bdd";
+import compile from "../src/compile.ts";
+import format from "../src/format.ts";
+import fromTEIXML from "../src/tei/fromTei.ts";
+import toTEIXML from "../src/tei/toTei.ts";
 
 // Wrap body markup in a minimal, valid TEI P5 document (TEI namespace, header,
 // single text/body). Most fromTEIXML tests feed `tei(<div>…</div>)`.
 const tei = (body: string, header = HEADER): string =>
   `<TEI xmlns="http://www.tei-c.org/ns/1.0">${header}<text><body>${body}</body></text></TEI>`;
 
-const HEADER = `<teiHeader><fileDesc><titleStmt><title>T</title></titleStmt><publicationStmt><idno type="DLPS">A1</idno></publicationStmt><sourceDesc><p>s</p></sourceDesc></fileDesc></teiHeader>`;
+const HEADER =
+  `<teiHeader><fileDesc><titleStmt><title>T</title></titleStmt><publicationStmt><idno type="DLPS">A1</idno></publicationStmt><sourceDesc><p>s</p></sourceDesc></fileDesc></teiHeader>`;
 
 // Convert, and assert the produced Markit compiles without diagnostics.
 const clean = (xml: string, opts?: { modernize?: boolean }): string => {
@@ -549,31 +551,33 @@ describe("toTEIXML — Markit to canonical P5", () => {
       "the note",
     ].join("\n");
     const xml = toTEIXML(mit);
-    for (const fragment of [
-      '<hi rend="smallcaps">strong</hi>',
-      '<hi rend="italic">em</hi>',
-      '<note place="margin">aside</note>',
-      "<speaker>sp</speaker>",
-      "<stage>stg</stage>",
-      "<add>ins</add>",
-      "<del>del</del>",
-      "<unclear>unc</unclear>",
-      "<persName>per</persName>",
-      "<placeName>pla</placeName>",
-      "<orgName>org</orgName>",
-      "<bibl>cit</bibl>",
-      '<foreign xml:lang="la">fr</foreign>',
-      "<foreign>plain</foreign>",
-      "<gap/>",
-      "<pb/>",
-      '<pb n="p5"/>',
-      '<hi rend="superscript">sup</hi>',
-      '<hi rend="subscript">sub</hi>',
-      "<q>q</q>",
-      "&#160;",
-      "<lb/>",
-      '<note place="bottom">the note</note>',
-    ]) {
+    for (
+      const fragment of [
+        '<hi rend="smallcaps">strong</hi>',
+        '<hi rend="italic">em</hi>',
+        '<note place="margin">aside</note>',
+        "<speaker>sp</speaker>",
+        "<stage>stg</stage>",
+        "<add>ins</add>",
+        "<del>del</del>",
+        "<unclear>unc</unclear>",
+        "<persName>per</persName>",
+        "<placeName>pla</placeName>",
+        "<orgName>org</orgName>",
+        "<bibl>cit</bibl>",
+        '<foreign xml:lang="la">fr</foreign>',
+        "<foreign>plain</foreign>",
+        "<gap/>",
+        "<pb/>",
+        '<pb n="p5"/>',
+        '<hi rend="superscript">sup</hi>',
+        '<hi rend="subscript">sub</hi>',
+        "<q>q</q>",
+        "&#160;",
+        "<lb/>",
+        '<note place="bottom">the note</note>',
+      ]
+    ) {
       expect(xml).toContain(fragment);
     }
   });
