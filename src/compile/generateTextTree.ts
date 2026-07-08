@@ -85,18 +85,20 @@ export default (
     }
   });
 
-  // Iterate through the flat list to generate the tree structure
-  flatTexts.slice(1).forEach((text, index) => {
-    // Find the parent text for this text by looking backwards for the nearest text with a lower level
-    // note we can be sure to find one because the first text is the root with level 1
-    // error handling for invalid levels is done in the previous loop
-    const parent = flatTexts
-      .slice(0, index + 1)
-      .reverse()
-      .find((t) => t.level < text.level)!;
+  // Iterate through the flat list to generate the tree structure, keeping a
+  // stack of the current ancestors: each text's parent is the nearest earlier
+  // text with a lower level (the root, at level 1, is always there to catch it;
+  // error handling for invalid levels is done in the previous loop)
+  const ancestors = [rootText];
+  flatTexts.slice(1).forEach((text) => {
+    while (ancestors.at(-1)!.level >= text.level && ancestors.length > 1) {
+      ancestors.pop();
+    }
+    const parent = ancestors.at(-1)!;
     // Prepend parent ID to child ID
     text.id = `${parent.id}.${text.id}`;
     parent.children.push(text);
+    ancestors.push(text);
   });
 
   // Fix the end lines of all texts to be the end line of their last child (if any)

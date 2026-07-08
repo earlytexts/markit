@@ -5,28 +5,48 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
+import { evictDocument } from "./server/compileCache.js";
 import getDiagnostics from "./server/diagnostics.js";
 import getFoldingRanges from "./server/foldingRanges.js";
 import getFormattingEdits from "./server/formatting.js";
+
+// Trailing debounce for diagnostics: recompiling on every keystroke makes
+// large documents feel sluggish, so wait for a brief pause in typing.
+const DIAGNOSTICS_DEBOUNCE_MS = 200;
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 connection.onInitialize(() => ({
   capabilities: {
-    textDocumentSync: TextDocumentSyncKind.Full,
+    textDocumentSync: TextDocumentSyncKind.Incremental,
     foldingRangeProvider: true,
     documentFormattingProvider: true,
   },
 }));
 
+const pendingDiagnostics = new Map<string, NodeJS.Timeout>();
+
 documents.onDidChangeContent((change) => {
-  const diagnostics = getDiagnostics(change.document);
-  connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
+  const { uri } = change.document;
+  clearTimeout(pendingDiagnostics.get(uri));
+  pendingDiagnostics.set(
+    uri,
+    setTimeout(() => {
+      pendingDiagnostics.delete(uri);
+      // change.document is live, so this sees the latest content
+      const diagnostics = getDiagnostics(change.document);
+      connection.sendDiagnostics({ uri, diagnostics });
+    }, DIAGNOSTICS_DEBOUNCE_MS),
+  );
 });
 
 documents.onDidClose((event) => {
-  connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
+  const { uri } = event.document;
+  clearTimeout(pendingDiagnostics.get(uri));
+  pendingDiagnostics.delete(uri);
+  evictDocument(uri);
+  connection.sendDiagnostics({ uri, diagnostics: [] });
 });
 
 connection.onFoldingRanges((params) => {

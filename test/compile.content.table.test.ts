@@ -349,6 +349,22 @@ describe("Table compilation", () => {
       expect(result.blocks[0]!.content[0]!.type).toBe("table");
     });
 
+    it("positions cell errors correctly when two cells have identical text", () => {
+      const input = markitWithContent("{#1}", "| *a | *a |");
+      const [, errors] = compile(input);
+      expect(errors).toHaveLength(2);
+      expect(errors[0]).toMatchObject({
+        message: "Unclosed formatting: *",
+        line: 4,
+        column: 3,
+      });
+      expect(errors[1]).toMatchObject({
+        message: "Unclosed formatting: *",
+        line: 4,
+        column: 8,
+      });
+    });
+
     it("warns about misplaced separator row (not second row)", () => {
       const input = markitWithContent(
         "{#1}",

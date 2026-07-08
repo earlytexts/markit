@@ -191,6 +191,23 @@ describe("subtitle blocks", () => {
     expect(document.blocks[1]!.id).toBe("Text.subtitle2");
     expect(document.blocks[2]!.id).toBe("Text.subtitle3");
   });
+
+  it("ignores other ids beginning with 'subtitle' when auto-numbering", () => {
+    const [document, errors] = compile(
+      markitWithContent(
+        "{#subtitles}",
+        "Not a subtitle",
+        "",
+        "{#subtitle}",
+        "A subtitle",
+        "",
+      ),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.id).toBe("Text.subtitles");
+    expect(document.blocks[1]!.id).toBe("Text.subtitle1");
+  });
 });
 
 describe("paragraph blocks", () => {

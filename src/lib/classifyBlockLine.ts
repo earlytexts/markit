@@ -25,6 +25,19 @@ export type BlockLineKind =
   | { kind: "tableSeparator" }
   | { kind: "paragraph" };
 
+// The heading and list patterns, built once from the grammar specs (constructing
+// them per call is measurably slow when classifying every line of a large file).
+const invalidHeadingPattern = new RegExp(
+  `^\\${headingSpec.marker}([${headingSpec.maxLevel + 1}-9]) `,
+);
+const bareHeadingPattern = new RegExp(`^\\${headingSpec.marker} `);
+const headingPattern = new RegExp(
+  `^\\${headingSpec.marker}([${headingSpec.minLevel}-${headingSpec.maxLevel}]) `,
+);
+const unorderedItemPattern = new RegExp(
+  `^(\\s*)\\${listSpec.unorderedMarker} `,
+);
+
 /**
  * Classify a line of block-level content.
  * Returns structured data indicating what type of block element the line represents.
@@ -36,23 +49,19 @@ export default (content: string): BlockLineKind => {
   }
 
   // Heading with invalid level (digit > maxLevel)
-  const invalidLevelMatch = new RegExp(
-    `^\\${headingSpec.marker}([${headingSpec.maxLevel + 1}-9]) `,
-  ).exec(content);
+  const invalidLevelMatch = invalidHeadingPattern.exec(content);
   if (invalidLevelMatch) {
     const level = parseInt(invalidLevelMatch[1]!, 10);
     return { kind: "invalidHeading", level };
   }
 
   // Heading marker without a level digit
-  if (new RegExp(`^\\${headingSpec.marker} `).test(content)) {
+  if (bareHeadingPattern.test(content)) {
     return { kind: "headingWithoutLevel" };
   }
 
   // Valid heading: marker followed by level digit and space
-  const headingMatch = new RegExp(
-    `^\\${headingSpec.marker}([${headingSpec.minLevel}-${headingSpec.maxLevel}]) `,
-  ).exec(content);
+  const headingMatch = headingPattern.exec(content);
   if (headingMatch) {
     const level = parseInt(headingMatch[1]!, 10);
     return { kind: "heading", level };
@@ -74,9 +83,7 @@ export default (content: string): BlockLineKind => {
   }
 
   // Unordered list item: starts with optional spaces, hyphen, and space
-  const unorderedMatch = new RegExp(
-    `^(\\s*)\\${listSpec.unorderedMarker} `,
-  ).exec(content);
+  const unorderedMatch = unorderedItemPattern.exec(content);
   if (unorderedMatch) {
     const indent = unorderedMatch[1]!.length;
     return { kind: "unorderedListItem", indent };
