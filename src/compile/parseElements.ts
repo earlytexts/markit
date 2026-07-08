@@ -16,10 +16,31 @@ import makeError from "../lib/makeError.ts";
 import processGreekMode from "./greekMode.ts";
 import processCharacterMode from "./characterMode.ts";
 
+// The grammar's leaf and wrapper specs, pre-sorted longest-trigger-first so the
+// parser always matches the most specific marker (e.g. `~~` before `~`).
+const leafElementsByLength = [...leafElements].sort(
+  (a, b) => b.trigger.length - a.trigger.length,
+);
+const wrapperElementsByLength = [...wrapperElements].sort(
+  (a, b) => b.open.length - a.open.length,
+);
+
+// Every character that can begin a non-plain-text construct, derived from the
+// grammar specs. The parser consumes whole runs of non-special characters as a
+// single slice of plain text, so only the (rare) special characters pay for the
+// full construct dispatch below. Close markers whose first character is not in
+// this table (`+]`, `-]`, `?]`) are handled by an extra per-call check.
+const specialChars = new Uint8Array(128);
+for (const char of "\\{/<$") specialChars[char.charCodeAt(0)] = 1;
+for (const leaf of leafElements) specialChars[leaf.trigger.charCodeAt(0)] = 1;
+for (const wrapper of wrapperElements) {
+  specialChars[wrapper.open.charCodeAt(0)] = 1;
+}
+
 export default (
   input: string,
   positionMap: PositionInfo[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   textId: string,
 ): [InlineElement[], MarkitError[]] => {
   const errors: MarkitError[] = [];
@@ -37,19 +58,27 @@ export default (
   return [cleanedElements, errors];
 };
 
+/**
+ * Parse inline elements from `input` starting at `startPos`, stopping at
+ * `closeMarker` (or the end of input). Returns the parsed elements, the
+ * position after the last consumed character, and whether the close marker
+ * was actually found and consumed — callers report an "unclosed" diagnostic
+ * when it wasn't.
+ */
 const parseElements = (
   input: string,
   startPos: number,
   closeMarker: string | null,
   positionMap: PositionInfo[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   suppressEscape: boolean,
   textId: string,
-): [InlineElement[], number] => {
+): [InlineElement[], number, boolean] => {
   const result: InlineElement[] = [];
   let pos = startPos;
   let plainTextBuffer = "";
+  const closeChar = closeMarker === null ? -1 : closeMarker.charCodeAt(0);
 
   const flushPlainText = () => {
     if (plainTextBuffer.length > 0) {
@@ -59,27 +88,39 @@ const parseElements = (
   };
 
   while (pos < input.length) {
+    // Fast path: consume a whole run of plain text, up to the next character
+    // that could begin a construct or the current close marker
+    const code = input.charCodeAt(pos);
+    if (code !== closeChar && (code >= 128 || specialChars[code] === 0)) {
+      let end = pos + 1;
+      while (end < input.length) {
+        const c = input.charCodeAt(end);
+        if (c === closeChar || (c < 128 && specialChars[c] === 1)) break;
+        end++;
+      }
+      plainTextBuffer += input.slice(pos, end);
+      pos = end;
+      continue;
+    }
+
     // Check for close marker
     if (closeMarker && input.startsWith(closeMarker, pos)) {
       flushPlainText();
-      return [result, pos + closeMarker.length];
+      return [result, pos + closeMarker.length, true];
     }
 
-    // 1. Line break: \ followed by whitespace or end of input
+    // 1. Backslash (suppressed inside language wrappers): a hard line break
+    // when followed by whitespace or the end of input, otherwise an escape
     if (!suppressEscape && input[pos] === "\\") {
       const next = pos + 1;
       if (next >= input.length || /\s/.test(input[next]!)) {
         flushPlainText();
         result.push({ type: "lineBreak" });
         pos = next;
-        continue;
+      } else {
+        plainTextBuffer += input[next]!;
+        pos += 2;
       }
-    }
-
-    // 2. Escape character (suppressed inside language wrappers)
-    if (!suppressEscape && input[pos] === "\\") {
-      plainTextBuffer += input[pos + 1]!;
-      pos += 2;
       continue;
     }
 
@@ -107,7 +148,7 @@ const parseElements = (
       continue;
     }
 
-    // 2b. Character mode: {...}
+    // 3. Character mode: {...}
     if (input[pos] === "{") {
       const closePos = input.indexOf("}", pos + 1);
       if (closePos === -1) {
@@ -134,13 +175,9 @@ const parseElements = (
       continue;
     }
 
-    // 3. Leaf elements (check longest first)
+    // 4. Leaf elements (check longest first)
     let leafMatched = false;
-    for (
-      const leaf of [...leafElements].sort(
-        (a, b) => b.trigger.length - a.trigger.length,
-      )
-    ) {
+    for (const leaf of leafElementsByLength) {
       if (input.startsWith(leaf.trigger, pos)) {
         flushPlainText();
         result.push({ type: leaf.type });
@@ -151,7 +188,7 @@ const parseElements = (
     }
     if (leafMatched) continue;
 
-    // 4. Page break: /// (bare) or //ref// (with reference)
+    // 5. Page break: /// (bare) or //ref// (with reference)
     if (!suppressEscape && input.startsWith("//", pos)) {
       if (input[pos + 2] === "/") {
         flushPlainText();
@@ -174,7 +211,7 @@ const parseElements = (
       continue;
     }
 
-    // 4b. Generic raw element: <<TAG attr="v">>content<</TAG>> or <<TAG/>>
+    // 6. Generic raw element: <<TAG attr="v">>content<</TAG>> or <<TAG/>>
     // (checked before footnote references, which use a single `<`)
     if (input.startsWith(elementSpec.open, pos)) {
       const tagEnd = input.indexOf(
@@ -203,7 +240,7 @@ const parseElements = (
           }
 
           const endMarker = `${elementSpec.endOpen}${tag}${elementSpec.close}`;
-          const [elementContent, newPos] = parseElements(
+          const [elementContent, newPos, closed] = parseElements(
             input,
             afterTag,
             endMarker,
@@ -214,10 +251,7 @@ const parseElements = (
             textId,
           );
 
-          if (
-            newPos === afterTag ||
-            !input.startsWith(endMarker, newPos - endMarker.length)
-          ) {
+          if (!closed) {
             const position = positionMap[pos]!;
             errors.push(
               makeError({
@@ -242,7 +276,7 @@ const parseElements = (
       }
     }
 
-    // 5. Footnote reference
+    // 7. Footnote reference
     if (input[pos] === "<") {
       const closeAnglePos = input.indexOf(">", pos + 1);
       if (closeAnglePos !== -1) {
@@ -251,7 +285,7 @@ const parseElements = (
           flushPlainText();
           result.push({ type: "footnoteReference", id: `${textId}.${refId}` });
 
-          if (!footnoteIds.includes(refId)) {
+          if (!footnoteIds.has(refId)) {
             const position = positionMap[pos]!;
             errors.push(
               makeError({
@@ -269,7 +303,7 @@ const parseElements = (
       }
     }
 
-    // 6. Language wrapper: $lang:...$  or generic foreign $...$
+    // 8. Language wrapper: $lang:...$  or generic foreign $...$
     if (input[pos] === "$") {
       const langMatch = /[a-z]+:/y;
       langMatch.lastIndex = pos + 1;
@@ -278,7 +312,7 @@ const parseElements = (
       const openMarker = match ? `$${match[0]}` : "$";
       const startAfterOpen = pos + openMarker.length;
 
-      const [wrapperContent, newPos] = parseElements(
+      const [wrapperContent, newPos, closed] = parseElements(
         input,
         startAfterOpen,
         "$",
@@ -289,7 +323,7 @@ const parseElements = (
         textId,
       );
 
-      if (newPos === startAfterOpen || !input.startsWith("$", newPos - 1)) {
+      if (!closed) {
         const position = positionMap[pos]!;
         errors.push(
           makeError({
@@ -310,15 +344,11 @@ const parseElements = (
       continue;
     }
 
-    // 7. Wrapper elements (check longest first)
+    // 9. Wrapper elements (check longest first)
     let wrapperMatched = false;
-    for (
-      const wrapper of [...wrapperElements].sort(
-        (a, b) => b.open.length - a.open.length,
-      )
-    ) {
+    for (const wrapper of wrapperElementsByLength) {
       if (input.startsWith(wrapper.open, pos)) {
-        const [wrapperContent, newPos] = parseElements(
+        const [wrapperContent, newPos, closed] = parseElements(
           input,
           pos + wrapper.open.length,
           wrapper.close,
@@ -329,11 +359,7 @@ const parseElements = (
           textId,
         );
 
-        if (
-          newPos === pos + wrapper.open.length ||
-          !input.startsWith(wrapper.close, newPos - wrapper.close.length)
-        ) {
-          // Unclosed wrapper
+        if (!closed) {
           const position = positionMap[pos]!;
           errors.push(
             makeError({
@@ -354,14 +380,14 @@ const parseElements = (
     }
     if (wrapperMatched) continue;
 
-    // 6. Plain text
+    // 10. Plain text (a special character that began no construct)
     plainTextBuffer += input[pos];
     pos++;
   }
 
   flushPlainText();
 
-  return [result, pos];
+  return [result, pos, false];
 };
 
 /**

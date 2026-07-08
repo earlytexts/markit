@@ -82,22 +82,24 @@ const parseTextMetadata = (
     }
   }
 
-  // Parse metadata for each block, passing in previously parsed blocks for duplicate ID checking
-  const parseBlockMetadataResult = contentBlocks.reduce(
-    (acc, block) => {
-      const [blockWithMetadata, blockErrors] = parseBlockMetadata(
-        block,
-        acc.map((b) => b[0]),
-      );
-      acc.push([blockWithMetadata, blockErrors]);
-      return acc;
-    },
-    [] as [BlockWithMetadata, MarkitError[]][],
-  );
-  const blocksWithMetadata = parseBlockMetadataResult.map(
-    (result) => result[0],
-  );
-  const blockErrors = parseBlockMetadataResult.flatMap((result) => result[1]);
+  // Parse metadata for each block, tracking the ids seen so far for duplicate
+  // checking, title placement, and subtitle auto-numbering
+  const blocksWithMetadata: BlockWithMetadata[] = [];
+  const blockErrors: MarkitError[] = [];
+  const seenIds = new Set<string>();
+  let subtitleCount = 0;
+  for (const block of contentBlocks) {
+    const [blockWithMetadata, errors] = parseBlockMetadata(
+      block,
+      seenIds,
+      subtitleCount,
+      blocksWithMetadata.length,
+    );
+    blocksWithMetadata.push(blockWithMetadata);
+    blockErrors.push(...errors);
+    seenIds.add(blockWithMetadata.id);
+    if (/^subtitle\d+$/.test(blockWithMetadata.id)) subtitleCount++;
+  }
 
   // Validate footnote ordering: footnote blocks must appear after all paragraph blocks
   const footnoteErrors: MarkitError[] = [];
@@ -304,7 +306,9 @@ const parseMetadataBlock = (
 
 const parseBlockMetadata = (
   block: RawBlock,
-  previousBlocks: BlockWithMetadata[],
+  seenIds: ReadonlySet<string>,
+  subtitleCount: number,
+  previousBlockCount: number,
 ): [BlockWithMetadata, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
@@ -419,7 +423,7 @@ const parseBlockMetadata = (
 
   // Title block validation: only one allowed, and it must be first
   if (id === "title") {
-    if (previousBlocks.some((b) => b.id === "title")) {
+    if (seenIds.has("title")) {
       errors.push(
         makeError({
           message: "Only one title block is allowed per text",
@@ -428,7 +432,7 @@ const parseBlockMetadata = (
           length: firstLine.content.length,
         }),
       );
-    } else if (previousBlocks.length > 0) {
+    } else if (previousBlockCount > 0) {
       errors.push(
         makeError({
           message: "Title block must be the first block in the text",
@@ -442,12 +446,11 @@ const parseBlockMetadata = (
 
   // Subtitle auto-numbering: multiple subtitle blocks are allowed; each gets a unique compiled ID
   if (id === "subtitle") {
-    const n = previousBlocks.filter((b) => b.id.startsWith("subtitle")).length;
-    id = `subtitle${n + 1}`;
+    id = `subtitle${subtitleCount + 1}`;
   }
 
   // check for duplicate block ID (title duplicates are already handled above)
-  if (id !== "title" && previousBlocks.some((b) => b.id === id)) {
+  if (id !== "title" && seenIds.has(id)) {
     errors.push(
       makeError({
         message: `Duplicate block ID: #${id}`,

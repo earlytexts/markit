@@ -45,9 +45,11 @@ const parseTextContent = (
   text: TextTreeWithMetadata,
 ): [MarkitDocument, MarkitError[]] => {
   // Get footnote reference ids to validate footnote references
-  const footnoteIds = text.blocks
-    .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
-    .map((b) => b.id);
+  const footnoteIds = new Set(
+    text.blocks
+      .filter((b) => footnoteReferenceSpec.pattern.test(b.id))
+      .map((b) => b.id),
+  );
 
   // Parse content for each block
   const blockResults = text.blocks.map((block) =>
@@ -76,7 +78,7 @@ const parseTextContent = (
 
 const parseBlockContent = (
   block: BlockWithMetadata,
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   textId: string,
 ): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
@@ -141,7 +143,7 @@ type State =
  */
 const parseBlockLevelElements = (
   lines: Line[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   allowHeadings: boolean,
   headingErrorMessage = "Headings are not allowed inside block quotations.",
@@ -398,7 +400,7 @@ const parseBlockLevelElements = (
 const flushHeading = (
   entries: HeadingEntry[],
   elements: BlockElement[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): void => {
@@ -434,7 +436,7 @@ const flushHeading = (
 const flushBlockquote = (
   bqLines: Line[],
   elements: BlockElement[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): void => {
@@ -479,7 +481,7 @@ const flushBlockquote = (
 const flushStageDirection = (
   sdLines: Line[],
   elements: BlockElement[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): void => {
@@ -518,7 +520,7 @@ const flushStageDirection = (
  */
 const buildParagraph = (
   lines: Line[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): Paragraph => {
@@ -549,7 +551,7 @@ const buildParagraph = (
 const buildList = (
   ordered: "ordered" | "unordered" | "verse",
   items: ListItemEntry[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): List => {
@@ -588,7 +590,7 @@ const buildListItems = (
   ordered: "ordered" | "unordered" | "verse",
   items: ListItemEntry[],
   baseIndent: number,
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): ListItem[] => {
@@ -688,7 +690,7 @@ const buildListItems = (
  */
 const buildTable = (
   rowEntries: { line: Line; isSeparator: boolean }[],
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): Table | null => {
@@ -758,23 +760,33 @@ const buildTable = (
  */
 const parseTableRow = (
   line: Line,
-  footnoteIds: string[],
+  footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
 ): TableRow => {
   const content = line.content.trim();
+  const contentStart = line.content.indexOf(content);
 
-  // Split by | and remove leading/trailing empty strings from optional leading/trailing pipes
+  // Split by | and remove leading/trailing empty strings from optional
+  // leading/trailing pipes, keeping each part's offset within the content
   const parts = content.split(tableSpec.cellDelimiter);
+  let cursor = 0;
+  const partOffsets = parts.map((part) => {
+    const offset = cursor;
+    cursor += part.length + 1;
+    return offset;
+  });
 
   // Remove leading empty part if line starts with |
   if (parts.length > 0 && parts[0] === "") {
     parts.shift();
+    partOffsets.shift();
   }
 
   // Remove trailing empty part if line ends with |
   if (parts.length > 0 && parts[parts.length - 1] === "") {
     parts.pop();
+    partOffsets.pop();
   }
 
   // Parse each cell
@@ -786,12 +798,9 @@ const parseTableRow = (
     }
 
     // Calculate char offset for this cell
-    const cellStart = content.indexOf(
-      cellText,
-      cellIndex === 0 ? 0 : undefined,
-    );
     const trimStart = cellText.indexOf(trimmed);
-    const charOffset = line.charOffset + cellStart + trimStart;
+    const charOffset = line.charOffset + contentStart +
+      partOffsets[cellIndex]! + trimStart;
 
     const posMap = buildPositionMap([
       {

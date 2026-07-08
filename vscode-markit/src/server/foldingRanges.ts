@@ -1,5 +1,4 @@
 import {
-  compile,
   endLine,
   startLine,
   type MarkitDocument,
@@ -7,11 +6,10 @@ import {
 } from "@earlytexts/markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
+import { compileDocument } from "./compileCache.js";
 
 export default (textDocument: TextDocument): FoldingRange[] => {
-  const text = textDocument.getText();
-
-  const [doc] = compile(text);
+  const [doc] = compileDocument(textDocument);
   const ranges: FoldingRange[] = [];
   collectFoldingRanges(doc, ranges);
   return ranges;

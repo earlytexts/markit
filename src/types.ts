@@ -225,8 +225,12 @@ export const wrapperElements = [
 
 export type WrapperType = (typeof wrapperElements)[number]["type"];
 
+const wrapperTypes: ReadonlySet<string> = new Set(
+  wrapperElements.map((wrapper) => wrapper.type),
+);
+
 export const isWrapperElement = (element: InlineElement): element is Wrapper =>
-  wrapperElements.some((wrapper) => wrapper.type === element.type);
+  wrapperTypes.has(element.type);
 
 export type Language = {
   type: "language";

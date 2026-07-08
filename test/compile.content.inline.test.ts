@@ -80,6 +80,21 @@ describe("inline formatting", () => {
     });
   });
 
+  it("returns error for unclosed formatting ending in an escaped close marker", () => {
+    const [, errors] = compile(
+      markit("# Text", "", "{#3}", "This has *escaped close\\*", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: *",
+      line: 4,
+      column: 10,
+      endLine: 4,
+      endColumn: 11,
+      severity: "error",
+    });
+  });
+
   it("returns error for overlapping inline formatting", () => {
     const [, errors] = compile(
       markit("# Text", "", "{#1}", "*bold _italic* wrong_", ""),
@@ -420,6 +435,21 @@ describe("foreign text", () => {
   it("returns error for unclosed generic foreign wrapper", () => {
     const [, errors] = compile(
       markitWithContent("{#1}", "some $unclosed text", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Unclosed formatting: $",
+      line: 4,
+      column: 6,
+      endLine: 4,
+      endColumn: 7,
+      severity: "error",
+    });
+  });
+
+  it("returns error for unclosed foreign wrapper ending in an escaped close marker", () => {
+    const [, errors] = compile(
+      markitWithContent("{#1}", "some $escaped\\$", ""),
     );
 
     expect(errors[0]).toMatchObject({

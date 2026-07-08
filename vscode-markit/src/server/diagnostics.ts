@@ -1,11 +1,9 @@
-import { compile } from "@earlytexts/markit";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
+import { compileDocument } from "./compileCache.js";
 
 export default (textDocument: TextDocument): Diagnostic[] => {
-  const text = textDocument.getText();
-
-  const [, errors] = compile(text);
+  const [, errors] = compileDocument(textDocument);
   return errors.map((err): Diagnostic => {
     const startLine = (err.line ?? 1) - 1; // convert 1-based to 0-based
     const startCol = (err.column ?? 1) - 1;

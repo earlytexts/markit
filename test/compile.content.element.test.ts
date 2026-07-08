@@ -89,6 +89,20 @@ describe("generic raw element", () => {
     ]);
   });
 
+  it("reports an unclosed element ending in an escaped close marker", () => {
+    const { content, errors } = inlineOf(`<<HI>>text\\<</HI>>`);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe("Unclosed element: <<HI");
+    expect(content).toEqual([
+      {
+        type: "element",
+        tag: "HI",
+        attributes: [],
+        content: [pt("text<</HI>>")],
+      },
+    ]);
+  });
+
   it("treats `<<` with no closing `>>` as plain text", () => {
     const { content, errors } = inlineOf(`a << b`);
     expect(errors).toHaveLength(0);
