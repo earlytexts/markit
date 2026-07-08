@@ -112,6 +112,29 @@ const parseBlockContent = (
   return [parsedBlock, errors];
 };
 
+type HeadingEntry = { level: number; line: Line };
+
+type ListItemEntry = {
+  indent: number;
+  number: number; // Item number for ordered lists (ignored for unordered)
+  line: Line;
+};
+
+type TableRowEntry = { line: Line; isSeparator: boolean };
+
+type State =
+  | { kind: "none" }
+  | { kind: "paragraph"; lines: Line[] }
+  | { kind: "blockquote"; lines: Line[] }
+  | { kind: "stageDirection"; lines: Line[] }
+  | { kind: "heading"; entries: HeadingEntry[] }
+  | {
+    kind: "list";
+    ordered: "ordered" | "unordered" | "verse";
+    items: ListItemEntry[];
+  }
+  | { kind: "table"; rows: TableRowEntry[] };
+
 /**
  * Parse an array of lines into block-level elements (headings, paragraphs, blockquotes).
  * When `allowHeadings` is false, any heading markers are treated as paragraph text.
@@ -125,299 +148,27 @@ const parseBlockLevelElements = (
   textId: string,
 ): BlockElement[] => {
   const elements: BlockElement[] = [];
-
-  type HeadingEntry = { level: number; line: Line };
-
-  type ListItemEntry = {
-    indent: number;
-    number: number; // Item number for ordered lists (ignored for unordered)
-    line: Line;
-  };
-
-  type TableRowEntry = { line: Line; isSeparator: boolean };
-
-  type State =
-    | { kind: "none" }
-    | { kind: "paragraph"; lines: Line[] }
-    | { kind: "blockquote"; lines: Line[] }
-    | { kind: "stageDirection"; lines: Line[] }
-    | { kind: "heading"; entries: HeadingEntry[] }
-    | {
-      kind: "list";
-      ordered: "ordered" | "unordered" | "verse";
-      items: ListItemEntry[];
-    }
-    | { kind: "table"; rows: TableRowEntry[] };
-
   let state: State = { kind: "none" };
 
-  const flushParagraph = (paragraphLines: Line[]): void => {
-    const el = buildParagraph(paragraphLines, footnoteIds, errors, textId);
-    elements.push(el);
-  };
-
-  const flushHeading = (entries: HeadingEntry[]): void => {
-    const parsedLines: HeadingLine[] = entries.map(({ level, line }) => {
-      const headingText = line.content.slice(3); // "^N " is always 3 chars
-      const posMap = buildPositionMap([
-        {
-          lineNumber: line.lineNumber,
-          charOffset: line.charOffset + 3,
-          content: headingText,
-        },
-      ]);
-      const [inlineContent, inlineErrors] = parseElements(
-        headingText,
-        posMap,
-        footnoteIds,
-        textId,
-      );
-      errors.push(...inlineErrors);
-      return { type: "headingLine", level, content: inlineContent };
-    });
-    const heading: Heading = { type: "heading", content: parsedLines };
-    elements.push(heading);
-  };
-
-  const flushBlockquote = (bqLines: Line[]): void => {
-    // Strip > prefix from each line (including "blank" > lines which become blank)
-    const innerLines: Line[] = bqLines.map((line) => {
-      // Strip leading > (and optional single space after it)
-      const stripped = line.content
-        .slice(blockquoteSpec.marker.length)
-        .replace(/^ /, "");
-      return {
-        lineNumber: line.lineNumber,
-        charOffset: line.charOffset + (line.content.length - stripped.length),
-        content: stripped,
-      };
-    });
-
-    // Recursively parse inner lines as block-level content. Headings are
-    // disallowed (they only belong in title/subtitle blocks); everything else —
-    // paragraphs, lists, verse, tables, and nested quotations/stage directions —
-    // is kept.
-    const innerElements = parseBlockLevelElements(
-      innerLines,
-      footnoteIds,
-      errors,
-      false,
-      "Headings are not allowed inside block quotations.",
-      textId,
-    );
-
-    // The allowHeadings=false guard means no heading ever reaches this list; the
-    // filter narrows the type from BlockElement to NestableBlockElement.
-    const content = innerElements.filter(
-      (el): el is NestableBlockElement => el.type !== "heading",
-    );
-
-    // A blockquote can end up empty if it only contained a heading (removed
-    // above), in which case it produces no block element.
-    if (content.length > 0) {
-      elements.push({ type: "blockquote", content });
-    }
-  };
-
-  const flushStageDirection = (sdLines: Line[]): void => {
-    // Strip the `:` prefix (and an optional single space) from each line.
-    const innerLines: Line[] = sdLines.map((line) => {
-      const stripped = line.content
-        .slice(stageDirectionSpec.marker.length)
-        .replace(/^ /, "");
-      return {
-        lineNumber: line.lineNumber,
-        charOffset: line.charOffset + (line.content.length - stripped.length),
-        content: stripped,
-      };
-    });
-
-    // Inner lines are parsed as block-level content. As with blockquotes,
-    // headings are disallowed but any other block element is kept.
-    const innerElements = parseBlockLevelElements(
-      innerLines,
-      footnoteIds,
-      errors,
-      false,
-      "Headings are not allowed inside stage directions.",
-      textId,
-    );
-
-    const content = innerElements.filter(
-      (el): el is NestableBlockElement => el.type !== "heading",
-    );
-
-    if (content.length > 0) {
-      elements.push({ type: "stageDirection", content });
-    }
-  };
-
-  const flushList = (
-    ordered: "ordered" | "unordered" | "verse",
-    items: ListItemEntry[],
-  ): void => {
-    elements.push(buildList(ordered, items, footnoteIds, errors, textId));
-  };
-
-  const flushTable = (tableRows: TableRowEntry[]): void => {
-    const table = buildTable(tableRows, footnoteIds, errors, textId);
-    if (table) {
-      elements.push(table);
-    }
-  };
-
-  /**
-   * Build a list from a flat array of list item entries.
-   * Groups items by indent level and builds nested list structure.
-   */
-  const buildList = (
-    ordered: "ordered" | "unordered" | "verse",
-    items: ListItemEntry[],
-    footnoteIds: string[],
-    errors: MarkitError[],
-    textId: string,
-  ): List => {
-    // Find the minimum indent level (base level for this list)
-    const baseIndent = Math.min(...items.map((item) => item.indent));
-
-    // Extract start number from first item at base indent if ordered and not 1
-    const firstItemAtBase = items.find((item) => item.indent === baseIndent);
-    const start =
-      ordered === "ordered" && firstItemAtBase && firstItemAtBase.number !== 1
-        ? firstItemAtBase.number
-        : undefined;
-
-    // Build list items recursively, handling nesting
-    const listItems = buildListItems(
-      ordered,
-      items,
-      baseIndent,
-      footnoteIds,
-      errors,
-      textId,
-    );
-
-    return {
-      type: "list",
-      ordered,
-      ...(start !== undefined ? { start } : {}),
-      items: listItems,
-    };
-  };
-
-  /**
-   * Recursively build list items, handling nesting by indent level.
-   */
-  const buildListItems = (
-    ordered: "ordered" | "unordered" | "verse",
-    items: ListItemEntry[],
-    baseIndent: number,
-    footnoteIds: string[],
-    errors: MarkitError[],
-    textId: string,
-  ): ListItem[] => {
-    const result: ListItem[] = [];
-    let i = 0;
-
-    while (i < items.length) {
-      const item = items[i]!;
-
-      // Skip items at deeper indent (they'll be processed as nested lists)
-      if (item.indent > baseIndent) {
-        i++;
-        continue;
-      }
-
-      // Item at current indent level - parse its content
-      const line = item.line;
-      // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
-      const markerMatch = ordered === "ordered"
-        ? /^\s*\d+\. /.exec(line.content)
-        : ordered === "verse"
-        ? /^\* /.exec(line.content)
-        : /^\s*- /.exec(line.content);
-      const markerLength = markerMatch![0].length;
-      const itemText = line.content.slice(markerLength);
-
-      const posMap = buildPositionMap([
-        {
-          lineNumber: line.lineNumber,
-          charOffset: line.charOffset + markerLength,
-          content: itemText,
-        },
-      ]);
-
-      const [inlineContent, inlineErrors] = parseElements(
-        itemText,
-        posMap,
-        footnoteIds,
-        textId,
-      );
-      errors.push(...inlineErrors);
-
-      const listItem: ListItem = {
-        type: "listItem",
-        content: inlineContent,
-      };
-
-      // Check if the next items are nested (deeper indent)
-      if (i + 1 < items.length && items[i + 1]!.indent > baseIndent) {
-        // Find all consecutive items at deeper indents
-        const nestedStart = i + 1;
-        let nestedEnd = i + 1;
-        const nextIndent = items[nestedStart]!.indent;
-        while (
-          nestedEnd < items.length &&
-          items[nestedEnd]!.indent >= nextIndent
-        ) {
-          nestedEnd++;
-        }
-
-        // Take these items and recursively build a nested list
-        const nestedItems = items.slice(nestedStart, nestedEnd);
-        // Detect nested list type from first item at the nested base indent
-        const nestedBaseIndent = Math.min(
-          ...nestedItems.map((item) => item.indent),
-        );
-        const firstNestedItem = nestedItems.find(
-          (item) => item.indent === nestedBaseIndent,
-        );
-        const nestedOrdered: "ordered" | "unordered" =
-          firstNestedItem!.number > 0 ? "ordered" : "unordered";
-
-        listItem.nestedList = buildList(
-          nestedOrdered,
-          nestedItems,
-          footnoteIds,
-          errors,
-          textId,
-        )!;
-
-        // Skip past the nested items
-        i = nestedEnd;
-      } else {
-        i++;
-      }
-
-      result.push(listItem);
-    }
-
-    return result;
-  };
-
+  // Emit the block accumulated in the current state, then reset to none.
   const flush = (): void => {
     if (state.kind === "paragraph") {
-      flushParagraph(state.lines);
+      elements.push(buildParagraph(state.lines, footnoteIds, errors, textId));
     } else if (state.kind === "blockquote") {
-      flushBlockquote(state.lines);
+      flushBlockquote(state.lines, elements, footnoteIds, errors, textId);
     } else if (state.kind === "stageDirection") {
-      flushStageDirection(state.lines);
+      flushStageDirection(state.lines, elements, footnoteIds, errors, textId);
     } else if (state.kind === "heading") {
-      flushHeading(state.entries);
+      flushHeading(state.entries, elements, footnoteIds, errors, textId);
     } else if (state.kind === "list") {
-      flushList(state.ordered, state.items);
+      elements.push(
+        buildList(state.ordered, state.items, footnoteIds, errors, textId),
+      );
     } else if (state.kind === "table") {
-      flushTable(state.rows);
+      const table = buildTable(state.rows, footnoteIds, errors, textId);
+      if (table) {
+        elements.push(table);
+      }
     }
     state = { kind: "none" };
   };
@@ -642,8 +393,128 @@ const parseBlockLevelElements = (
 };
 
 /**
+ * Emit a heading element built from consecutive heading lines.
+ */
+const flushHeading = (
+  entries: HeadingEntry[],
+  elements: BlockElement[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): void => {
+  const parsedLines: HeadingLine[] = entries.map(({ level, line }) => {
+    const headingText = line.content.slice(3); // "^N " is always 3 chars
+    const posMap = buildPositionMap([
+      {
+        lineNumber: line.lineNumber,
+        charOffset: line.charOffset + 3,
+        content: headingText,
+      },
+    ]);
+    const [inlineContent, inlineErrors] = parseElements(
+      headingText,
+      posMap,
+      footnoteIds,
+      textId,
+    );
+    errors.push(...inlineErrors);
+    return { type: "headingLine", level, content: inlineContent };
+  });
+  const heading: Heading = { type: "heading", content: parsedLines };
+  elements.push(heading);
+};
+
+/**
+ * Emit a blockquote element by recursively parsing its inner (`>`-stripped)
+ * lines as block-level content. Headings are disallowed (they only belong in
+ * title/subtitle blocks); everything else — paragraphs, lists, verse, tables,
+ * and nested quotations/stage directions — is kept. A blockquote that contained
+ * only a heading ends up empty and produces no element.
+ */
+const flushBlockquote = (
+  bqLines: Line[],
+  elements: BlockElement[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): void => {
+  // Strip > prefix from each line (including "blank" > lines which become blank)
+  const innerLines: Line[] = bqLines.map((line) => {
+    // Strip leading > (and optional single space after it)
+    const stripped = line.content
+      .slice(blockquoteSpec.marker.length)
+      .replace(/^ /, "");
+    return {
+      lineNumber: line.lineNumber,
+      charOffset: line.charOffset + (line.content.length - stripped.length),
+      content: stripped,
+    };
+  });
+
+  const innerElements = parseBlockLevelElements(
+    innerLines,
+    footnoteIds,
+    errors,
+    false,
+    "Headings are not allowed inside block quotations.",
+    textId,
+  );
+
+  // The allowHeadings=false guard means no heading ever reaches this list; the
+  // filter narrows the type from BlockElement to NestableBlockElement.
+  const content = innerElements.filter(
+    (el): el is NestableBlockElement => el.type !== "heading",
+  );
+
+  if (content.length > 0) {
+    elements.push({ type: "blockquote", content });
+  }
+};
+
+/**
+ * Emit a stage-direction element by recursively parsing its inner (`:`-stripped)
+ * lines as block-level content. As with blockquotes, headings are disallowed but
+ * any other block element is kept, and an empty result produces no element.
+ */
+const flushStageDirection = (
+  sdLines: Line[],
+  elements: BlockElement[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): void => {
+  // Strip the `:` prefix (and an optional single space) from each line.
+  const innerLines: Line[] = sdLines.map((line) => {
+    const stripped = line.content
+      .slice(stageDirectionSpec.marker.length)
+      .replace(/^ /, "");
+    return {
+      lineNumber: line.lineNumber,
+      charOffset: line.charOffset + (line.content.length - stripped.length),
+      content: stripped,
+    };
+  });
+
+  const innerElements = parseBlockLevelElements(
+    innerLines,
+    footnoteIds,
+    errors,
+    false,
+    "Headings are not allowed inside stage directions.",
+    textId,
+  );
+
+  const content = innerElements.filter(
+    (el): el is NestableBlockElement => el.type !== "heading",
+  );
+
+  if (content.length > 0) {
+    elements.push({ type: "stageDirection", content });
+  }
+};
+
+/**
  * Build a paragraph from a list of non-blank content lines.
- * Returns null if there are no content lines.
  */
 const buildParagraph = (
   lines: Line[],
@@ -669,6 +540,146 @@ const buildParagraph = (
   errors.push(...inlineErrors);
 
   return { type: "paragraph", content: inlineContent };
+};
+
+/**
+ * Build a list from a flat array of list item entries.
+ * Groups items by indent level and builds nested list structure.
+ */
+const buildList = (
+  ordered: "ordered" | "unordered" | "verse",
+  items: ListItemEntry[],
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): List => {
+  // Find the minimum indent level (base level for this list)
+  const baseIndent = Math.min(...items.map((item) => item.indent));
+
+  // Extract start number from first item at base indent if ordered and not 1
+  const firstItemAtBase = items.find((item) => item.indent === baseIndent);
+  const start =
+    ordered === "ordered" && firstItemAtBase && firstItemAtBase.number !== 1
+      ? firstItemAtBase.number
+      : undefined;
+
+  // Build list items recursively, handling nesting
+  const listItems = buildListItems(
+    ordered,
+    items,
+    baseIndent,
+    footnoteIds,
+    errors,
+    textId,
+  );
+
+  return {
+    type: "list",
+    ordered,
+    ...(start !== undefined ? { start } : {}),
+    items: listItems,
+  };
+};
+
+/**
+ * Recursively build list items, handling nesting by indent level.
+ */
+const buildListItems = (
+  ordered: "ordered" | "unordered" | "verse",
+  items: ListItemEntry[],
+  baseIndent: number,
+  footnoteIds: string[],
+  errors: MarkitError[],
+  textId: string,
+): ListItem[] => {
+  const result: ListItem[] = [];
+  let i = 0;
+
+  while (i < items.length) {
+    const item = items[i]!;
+
+    // Skip items at deeper indent (they'll be processed as nested lists)
+    if (item.indent > baseIndent) {
+      i++;
+      continue;
+    }
+
+    // Item at current indent level - parse its content
+    const line = item.line;
+    // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
+    const markerMatch = ordered === "ordered"
+      ? /^\s*\d+\. /.exec(line.content)
+      : ordered === "verse"
+      ? /^\* /.exec(line.content)
+      : /^\s*- /.exec(line.content);
+    const markerLength = markerMatch![0].length;
+    const itemText = line.content.slice(markerLength);
+
+    const posMap = buildPositionMap([
+      {
+        lineNumber: line.lineNumber,
+        charOffset: line.charOffset + markerLength,
+        content: itemText,
+      },
+    ]);
+
+    const [inlineContent, inlineErrors] = parseElements(
+      itemText,
+      posMap,
+      footnoteIds,
+      textId,
+    );
+    errors.push(...inlineErrors);
+
+    const listItem: ListItem = {
+      type: "listItem",
+      content: inlineContent,
+    };
+
+    // Check if the next items are nested (deeper indent)
+    if (i + 1 < items.length && items[i + 1]!.indent > baseIndent) {
+      // Find all consecutive items at deeper indents
+      const nestedStart = i + 1;
+      let nestedEnd = i + 1;
+      const nextIndent = items[nestedStart]!.indent;
+      while (
+        nestedEnd < items.length &&
+        items[nestedEnd]!.indent >= nextIndent
+      ) {
+        nestedEnd++;
+      }
+
+      // Take these items and recursively build a nested list
+      const nestedItems = items.slice(nestedStart, nestedEnd);
+      // Detect nested list type from first item at the nested base indent
+      const nestedBaseIndent = Math.min(
+        ...nestedItems.map((item) => item.indent),
+      );
+      const firstNestedItem = nestedItems.find(
+        (item) => item.indent === nestedBaseIndent,
+      );
+      const nestedOrdered: "ordered" | "unordered" = firstNestedItem!.number > 0
+        ? "ordered"
+        : "unordered";
+
+      listItem.nestedList = buildList(
+        nestedOrdered,
+        nestedItems,
+        footnoteIds,
+        errors,
+        textId,
+      )!;
+
+      // Skip past the nested items
+      i = nestedEnd;
+    } else {
+      i++;
+    }
+
+    result.push(listItem);
+  }
+
+  return result;
 };
 
 /**
