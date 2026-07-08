@@ -53,16 +53,6 @@ const blockElementToText = (
   }
 };
 
-const tableToText = (table: import("./types.ts").Table): string => {
-  // Render table as plain text with simple formatting
-  return table.rows
-    .map((row) => {
-      const cells = row.cells.map((cell) => inlineElementsToText(cell.content));
-      return cells.join(" | ");
-    })
-    .join("\n");
-};
-
 const listToText = (
   list: import("./types.ts").List,
   indentLevel: number,
@@ -88,6 +78,16 @@ const listToText = (
           )
         : "";
       return `${indent}${marker}${content}${nested}`;
+    })
+    .join("\n");
+};
+
+const tableToText = (table: import("./types.ts").Table): string => {
+  // Render table as plain text with simple formatting
+  return table.rows
+    .map((row) => {
+      const cells = row.cells.map((cell) => inlineElementsToText(cell.content));
+      return cells.join(" | ");
     })
     .join("\n");
 };
