@@ -2,7 +2,7 @@
   "name": "markit-language",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Text Centre)",
-  "version": "3.4.2",
+  "version": "3.5.0",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
   "repository": {
@@ -22,7 +22,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "cd ../ && npm run build && cd vscode-markit && node esbuild.mjs",
+    "build": "node esbuild.mjs",
     "build:watch": "node esbuild.mjs --watch",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
@@ -31,7 +31,6 @@
     "package": "vsce package --no-dependencies --out build/markit-language.vsix"
   },
   "dependencies": {
-    "@earlytexts/markit": "file:..",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
