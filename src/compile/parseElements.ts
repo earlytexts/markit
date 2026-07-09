@@ -9,6 +9,7 @@ import {
   footnoteReferenceSpec,
   isWrapperElement,
   leafElements,
+  wordSpec,
   wrapperElements,
 } from "../types.ts";
 import type { PositionInfo } from "./buildPositionMap.ts";
@@ -344,7 +345,47 @@ const parseElements = (
       continue;
     }
 
-    // 9. Wrapper elements (check longest first)
+    // 9. Word disambiguation: [w:surface=word] (e.g. [w:humane=human]). The
+    // surface is parsed as inline content; the disambiguated word is a plain
+    // string. Checked before the wrapper loop, where `[` opens a citation.
+    if (input.startsWith(wordSpec.open, pos)) {
+      const surfaceStart = pos + wordSpec.open.length;
+      const [separator, close] = scanWordDelimiters(input, surfaceStart);
+      if (separator !== -1) {
+        const [surface] = parseElements(
+          input.slice(surfaceStart, separator),
+          0,
+          null,
+          positionMap.slice(surfaceStart, separator),
+          footnoteIds,
+          errors,
+          suppressEscape,
+          textId,
+        );
+        const word = input
+          .slice(separator + 1, close)
+          .replace(/\\(.)/g, "$1")
+          .trim();
+        flushPlainText();
+        result.push({ type: "word", word, content: surface });
+        pos = close + 1;
+        continue;
+      }
+      const position = positionMap[pos]!;
+      errors.push(
+        makeError({
+          message: "Malformed word element; expected [w:surface=word].",
+          line: position.line,
+          column: position.column,
+          length: wordSpec.open.length,
+        }),
+      );
+      plainTextBuffer += input[pos];
+      pos++;
+      continue;
+    }
+
+    // 10. Wrapper elements (check longest first)
     let wrapperMatched = false;
     for (const wrapper of wrapperElementsByLength) {
       if (input.startsWith(wrapper.open, pos)) {
@@ -380,7 +421,7 @@ const parseElements = (
     }
     if (wrapperMatched) continue;
 
-    // 10. Plain text (a special character that began no construct)
+    // 11. Plain text (a special character that began no construct)
     plainTextBuffer += input[pos];
     pos++;
   }
@@ -431,6 +472,32 @@ const parseRawStartTag = (
 };
 
 /**
+ * Scan a `[w:` body for its `=` separator and closing `]`, honouring backslash
+ * escapes so `\=` and `\]` are literal. Returns [separatorIndex, closeIndex]
+ * for a well-formed `[w:surface=word]`, or [-1, -1] when there is no unescaped
+ * `=` followed later by an unescaped `]` (a malformed word element).
+ */
+const scanWordDelimiters = (
+  input: string,
+  start: number,
+): [number, number] => {
+  let separator = -1;
+  for (let i = start; i < input.length; i++) {
+    const char = input[i];
+    if (char === "\\") {
+      i++;
+      continue;
+    }
+    if (char === wordSpec.separator && separator === -1) {
+      separator = i;
+    } else if (char === wordSpec.close) {
+      return separator === -1 ? [-1, -1] : [separator, i];
+    }
+  }
+  return [-1, -1];
+};
+
+/**
  * Trim leading and trailing whitespace from the element list, trim whitespace
  * adjacent to lineBreak elements, and recursively clean wrapper element content.
  */
@@ -440,9 +507,10 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Recursively clean wrapper, language, and generic-element content
+    // Recursively clean wrapper, word, language, and generic-element content
     if (
       isWrapperElement(element) ||
+      element.type === "word" ||
       element.type === "language" ||
       element.type === "element"
     ) {

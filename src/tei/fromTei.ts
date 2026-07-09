@@ -487,6 +487,15 @@ const renderInlineNode = (
     return renderInline(element.children, w, open); // unwrap, keep content
   }
 
+  // A word tagged with a disambiguating lemma becomes a Markit word element;
+  // a bare <w> (no lemma) carries no extra meaning, so keep just its content.
+  if (name === "w") {
+    const lemma = attr(element, "lemma");
+    if (lemma === undefined) return renderInline(element.children, w, open);
+    const surface = renderInline(element.children, w, new Set());
+    return `[w:${escapeWord(surface)}=${escapeWord(lemma)}]`;
+  }
+
   // Native wrapper elements.
   const type = matchInlineRule(element);
   if (type) return wrapNative(type, element, w, open);
@@ -534,6 +543,11 @@ const wrapNative = (
   return hoistWhitespace(inner, (core) => delimit(type, core));
 };
 
+// Escape the structural characters of a `[w:surface=word]` element (`=`, `]`,
+// and the escape character itself) so a surface or lemma round-trips intact.
+const escapeWord = (text: string): string =>
+  text.replace(/[\\=\]]/g, (char) => `\\${char}`);
+
 const delimit = (type: string, inner: string): string => {
   switch (type) {
     case "emphasis":
@@ -564,7 +578,7 @@ const delimit = (type: string, inner: string): string => {
       return `[o:${inner}]`;
     case "stageDirection":
       return `::${inner}::`;
-    /* v8 ignore next 2 -- citation is the only remaining wrapper type */
+    // citation is the only remaining wrapper type
     default:
       return `[${inner}]`;
   }

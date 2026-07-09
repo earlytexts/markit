@@ -259,6 +259,12 @@ describe("fromTEIXML — inline", () => {
     expect(inline(`<bibl>b</bibl>`)).toContain("[b]");
   });
 
+  it("maps a lemmatized word to a disambiguation and unwraps a bare word", () => {
+    expect(inline(`<w lemma="human">humane</w>`)).toContain("[w:humane=human]");
+    expect(inline(`<w>humane</w>`)).toContain("humane");
+    expect(inline(`<w>humane</w>`)).not.toContain("[w:");
+  });
+
   it("maps foreign runs with and without a language code", () => {
     expect(inline(`<foreign xml:lang="la">ave</foreign>`)).toContain(
       "$la:ave$",
@@ -627,6 +633,17 @@ describe("toTEIXML — Markit to canonical P5", () => {
       '<table><row role="label"><cell>h</cell></row><row><cell>c</cell></row></table>',
     );
     expect(xml).toContain("<lg><l>verse line</l></lg>");
+  });
+
+  it("renders a disambiguated word as <w lemma>", () => {
+    expect(toTEIXML("# d\n\n{#1}\n[w:humane=human]")).toContain(
+      '<w lemma="human">humane</w>',
+    );
+  });
+
+  it("round-trips a disambiguated word through TEI", () => {
+    const mit = "# d\n\n{#1}\nHe was [w:humane=human] and kind.\n";
+    expect(clean(toTEIXML(mit))).toContain("[w:humane=human]");
   });
 
   it("renders a block stage direction as <stage>", () => {

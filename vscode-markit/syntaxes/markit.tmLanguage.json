@@ -125,6 +125,7 @@
         { "include": "#deletion" },
         { "include": "#uncertain" },
         { "include": "#illegible" },
+        { "include": "#word" },
         { "include": "#citation" },
         { "include": "#emSpace" },
         { "include": "#nbSpace" },
@@ -279,6 +280,20 @@
         "1": { "name": "punctuation.definition.organisation.end.markit" }
       },
       "name": "markup.other.organisation.markit",
+      "patterns": [{ "include": "#inline" }]
+    },
+    "word": {
+      "begin": "(?<!\\\\)(\\[w:)",
+      "end": "(?<!\\\\)(=)([^\\]]*)(\\])",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.word.begin.markit" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.word.separator.markit" },
+        "2": { "name": "entity.name.word.markit" },
+        "3": { "name": "punctuation.definition.word.end.markit" }
+      },
+      "name": "markup.other.word.markit",
       "patterns": [{ "include": "#inline" }]
     },
     "insertion": {

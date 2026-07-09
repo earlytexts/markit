@@ -711,3 +711,129 @@ describe("escape sequences", () => {
     expect(document.blocks[0]!.content).toEqual([p([pt("price: | tax")])]);
   });
 });
+
+describe("word disambiguation", () => {
+  it("parses a disambiguated word", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "The word [w:humane=human] is ambiguous."),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("The word "),
+        { type: "word", word: "human", content: [pt("humane")] },
+        pt(" is ambiguous."),
+      ]),
+    ]);
+  });
+
+  it("applies transliteration inside the surface form", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "[w:{oe}conomy=economy]"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "word", word: "economy", content: [pt("œ"), pt("conomy")] },
+      ]),
+    ]);
+  });
+
+  it("parses inline markup inside the surface form", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "[w:_humane_=human]"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        {
+          type: "word",
+          word: "human",
+          content: [{ type: "emphasis", content: [pt("humane")] }],
+        },
+      ]),
+    ]);
+  });
+
+  it("trims whitespace around the surface and the word", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "[w: humane = human ]"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "word", word: "human", content: [pt("humane")] }]),
+    ]);
+  });
+
+  it("honours an escaped separator in the surface form", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "[w:a\\=b=equals]"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "word", word: "equals", content: [pt("a=b")] }]),
+    ]);
+  });
+
+  it("honours an escaped closing bracket in the word", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "[w:x=y\\]z]"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "word", word: "y]z", content: [pt("x")] }]),
+    ]);
+  });
+
+  it("nests inside another inline element", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "_[w:humane=human]_"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        {
+          type: "emphasis",
+          content: [{ type: "word", word: "human", content: [pt("humane")] }],
+        },
+      ]),
+    ]);
+  });
+
+  it("reports an error and keeps the text literal when the separator is missing", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "a [w:humane] b"),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Malformed word element; expected [w:surface=word].",
+      line: 4,
+      column: 3,
+      severity: "error",
+    });
+    expect(document.blocks[0]!.content).toEqual([p([pt("a [w:humane] b")])]);
+  });
+
+  it("reports an error when the closing bracket is missing", () => {
+    const [document, errors] = compile(
+      markitWithContent("{#1}", "a [w:humane=human b"),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Malformed word element; expected [w:surface=word].",
+      line: 4,
+      column: 3,
+      severity: "error",
+    });
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("a [w:humane=human b")]),
+    ]);
+  });
+});

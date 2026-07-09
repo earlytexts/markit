@@ -307,6 +307,13 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("London");
   });
 
+  it("renders a disambiguated word as its surface form", () => {
+    const [document] = compile(markitWithContent("{#1}", "[w:humane=human]"));
+    const text = renderText(document);
+    expect(text).toContain("humane");
+    expect(text).not.toContain("human]");
+  });
+
   it("renders org name as inner text", () => {
     const [document] = compile(markitWithContent("{#1}", "[o:Acme]"));
     expect(renderText(document)).toContain("Acme");

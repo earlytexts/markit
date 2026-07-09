@@ -358,6 +358,13 @@ describe("inline elements", () => {
     expect(renderHTML(document)).toContain('<span class="org">Acme</span>');
   });
 
+  it("renders a disambiguated word as a span carrying data-word", () => {
+    const [document] = compile(markitWithContent("{#1}", "[w:humane=human]"));
+    expect(renderHTML(document)).toContain(
+      '<span class="word" data-word="human">humane</span>',
+    );
+  });
+
   it("renders superscript as <sup>", () => {
     const [document] = compile(markitWithContent("{#1}", "^raised^"));
     expect(renderHTML(document)).toContain("<sup>raised</sup>");
