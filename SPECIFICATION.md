@@ -199,6 +199,7 @@ Block-level elements can contain a mixture of plan text and inline elements. Inl
 | `[p:text]`          | `person`            | Person name                                          |
 | `[l:text]`          | `place`             | Place name                                           |
 | `[o:text]`          | `org`               | Organization name                                    |
+| `[w:surface=word]`  | `word`              | Disambiguated form (see §3.5)                        |
 | `<<tag…>>…<</tag>>` | `element`           | Generic/raw element (escape hatch); see §3.4         |
 
 ### 3.2. Whitespace
@@ -223,6 +224,18 @@ Markit's inline vocabulary is deliberately small. For markup that has no native 
 The first form wraps further inline content (which may itself contain native elements or nested generic elements); the second is self-closing/empty. The tag name and ordered attributes are preserved verbatim, so a foreign element survives a round trip unchanged. Attribute values are read literally between double quotes and therefore cannot contain a `"` (encode it as `&quot;`). A `<<` that does not open a well-formed start tag is treated as literal text.
 
 This element carries no inherent display semantics; renderers fall back to emitting its content. It is intended for machine-generated documents (e.g. the output of `fromTEIXML`) and the long tail of preserved markup, not for everyday authoring.
+
+### 3.5. Word Disambiguation
+
+Early modern spelling is often ambiguous: a single printed form can stand for what are, to a modern reader, two different words. A word element records both — the surface form exactly as printed, and the intended (disambiguated) word — without altering the text a reader sees:
+
+```
+but of very little use in [w:humane=human] Life
+```
+
+The surface (`humane`, before the `=`) is what renders; the disambiguated word (`human`, after the `=`) is preserved in the compiled output for search and indexing but is never displayed. The surface is parsed as ordinary inline content, so transliteration modes and other inline markup work inside it (`[w:{oe}conomy=economy]`); the disambiguated word is a plain string.
+
+Because `=` separates the two parts and `]` closes the element, both are structural inside `[w:…]`. To use either literally, escape it: `[w:a\=b=equals]` gives the surface `a=b`. A `[w:…]` with no `=` before its closing `]`, or with no closing `]` at all, is a malformed word element: the compiler reports a diagnostic and leaves the text literal.
 
 ## 4. Transliteration Modes
 

@@ -164,6 +164,7 @@ export type InlineElement =
   | LineBreak
   | FootnoteReference
   | Wrapper
+  | Word
   | Language
   | PageBreak
   | RawElement
@@ -231,6 +232,26 @@ const wrapperTypes: ReadonlySet<string> = new Set(
 
 export const isWrapperElement = (element: InlineElement): element is Wrapper =>
   wrapperTypes.has(element.type);
+
+// A disambiguated word: the surface form as it is printed in the text, tagged
+// with the intended (disambiguated) word for search and indexing. Written
+// `[w:surface=word]`, e.g. `[w:humane=human]` — where "humane" is printed and
+// "human" is the disambiguation. `content` is the surface, parsed as inline
+// content so transliteration and nested markup still work; `word` is the plain
+// disambiguated form. `=` and `]` are structural inside `[w:...]`, so escape
+// them (`\=`, `\]`) to use them literally.
+export type Word = {
+  type: "word";
+  word: string;
+  content: InlineElement[];
+};
+
+export const wordSpec = {
+  open: "[w:",
+  separator: "=",
+  close: "]",
+  type: "word",
+} as const;
 
 export type Language = {
   type: "language";

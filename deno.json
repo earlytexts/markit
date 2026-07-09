@@ -1,6 +1,6 @@
 {
   "name": "@earlytexts/markit",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "license": "MIT",
   "exports": { ".": "./src/index.ts" },
   "publish": {
@@ -17,11 +17,12 @@
     "@std/testing": "jsr:@std/testing@^1.0.0"
   },
   "tasks": {
-    "test": "deno test test/ && deno task check",
-    "test:watch": "deno test --watch test/",
+    "test": "deno test test/",
     "test:coverage": "deno test --coverage test/ && deno coverage",
     "bench": "deno bench bench/",
-    "check": "deno check src/ test/ bench/ && deno lint && deno fmt --check"
+    "check": "deno check src/ test/ bench/ && deno lint",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check"
   },
   "fmt": {
     "exclude": ["*.md"]

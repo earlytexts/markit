@@ -2,7 +2,7 @@
   "name": "markit-language",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Text Centre)",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
   "repository": {
@@ -23,10 +23,9 @@
   ],
   "scripts": {
     "build": "node esbuild.mjs",
-    "build:watch": "node esbuild.mjs --watch",
     "check": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
     "vscode:prepublish": "npm run build",
     "package": "vsce package --no-dependencies --out build/markit-language.vsix"
   },

@@ -139,6 +139,8 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "citation":
       return `[${inlineElementsToText(element.content)}]`;
+    case "word":
+      return inlineElementsToText(element.content);
     case "language":
       return inlineElementsToText(element.content);
     case "pageBreak":
@@ -147,8 +149,9 @@ const inlineElementToText = (element: InlineElement): string => {
       return inlineElementsToText(element.content);
     case "element":
       return inlineElementsToText(element.content);
-    /* v8 ignore next 2 */
+    // deno-coverage-ignore
     default:
+      // deno-coverage-ignore
       return element satisfies never;
   }
 };

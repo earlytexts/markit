@@ -196,6 +196,10 @@ const inlineElementToHTML = (element: InlineElement): string => {
       }</span>`;
     case "citation":
       return `<cite>${inlineElementsToHTML(element.content)}</cite>`;
+    case "word":
+      return `<span class="word" data-word="${element.word}">${
+        inlineElementsToHTML(element.content)
+      }</span>`;
     case "language":
       return element.lang !== undefined
         ? `<em lang="${element.lang}">${
@@ -214,8 +218,9 @@ const inlineElementToHTML = (element: InlineElement): string => {
           element.content,
         )
       }</span>`;
-    /* v8 ignore next 2 */
+    // deno-coverage-ignore
     default:
+      // deno-coverage-ignore
       return element satisfies never;
   }
 };

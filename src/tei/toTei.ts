@@ -115,8 +115,11 @@ const blockElementXml = (
   switch (element.type) {
     case "paragraph":
       return `<p>${inlineXml(element.content, footnotes)}</p>`;
-    /* v8 ignore next 2 -- headings occur only in title/subtitle blocks, handled by blockElementBody */
+    // Headings occur only in title/subtitle blocks, which blockElementBody
+    // handles before this switch, so this case is unreachable.
+    // deno-coverage-ignore
     case "heading":
+      // deno-coverage-ignore
       return `<head>${headingInline(element, footnotes)}</head>`;
     case "blockquote":
       // <quote> uses TEI's macro.specialPara, so any nested block element
@@ -235,6 +238,10 @@ const inlineElementXml = (
         inlineXml(element.content, footnotes)
       }</${name}>`;
     }
+    case "word":
+      return `<w lemma="${escapeAttribute(element.word)}">${
+        inlineXml(element.content, footnotes)
+      }</w>`;
     case "language":
       return element.lang !== undefined
         ? `<foreign xml:lang="${escapeAttribute(element.lang)}">${
@@ -269,8 +276,11 @@ const inlineElementXml = (
           inlineXml(element.content, footnotes)
         }</${element.tag}>`;
     }
-    /* v8 ignore next 2 -- `highlight` is a search artefact, never produced by compile */
+    // `highlight` is a search artefact, never produced by compile, so this
+    // case is unreachable.
+    // deno-coverage-ignore
     case "highlight":
+      // deno-coverage-ignore
       return inlineXml(element.content, footnotes);
   }
 };

@@ -18,8 +18,14 @@ jobs:
         with:
           deno-version: "v2.x"
 
-      - name: "Run tests, type checking, linting, and format checking"
+      - name: "Run tests"
         run: "deno task test"
+
+      - name: "Type checking and linting"
+        run: "deno task check"
+
+      - name: "Format checking"
+        run: "deno task fmt:check"
 
       - name: "Publish dry run"
         run: "deno publish --dry-run"
@@ -41,7 +47,7 @@ jobs:
         run: "cd vscode-markit && npm ci"
 
       - name: "Type checking and format checking"
-        run: "cd vscode-markit && npm run check && npm run format:check"
+        run: "cd vscode-markit && npm run check && npm run fmt:check"
 
       - name: "Build"
         run: "cd vscode-markit && npm run build"
