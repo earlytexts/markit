@@ -2,7 +2,6 @@ import { expect } from "@std/expect";
 import { describe, it } from "@std/testing/bdd";
 import compile from "../src/compile.ts";
 import renderText from "../src/renderText.ts";
-import renderHTML from "../src/renderHTML.ts";
 import { markitWithContent, pt } from "./utils/factories.ts";
 
 const inlineOf = (source: string) => {
@@ -124,19 +123,5 @@ describe("generic raw element", () => {
   it("renders element content to plain text, ignoring the tag", () => {
     const { document } = inlineOf(`x<<HI REND="bold">>word<</HI>>y`);
     expect(renderText(document)).toContain("xwordy");
-  });
-
-  it("renders an element to an HTML span carrying the tag", () => {
-    const { document } = inlineOf(`<<SEG REND="decorInit">>I<</SEG>>`);
-    expect(renderHTML(document)).toContain(
-      '<span class="element" data-tag="SEG">I</span>',
-    );
-  });
-
-  it("renders a self-closing element to an empty HTML span", () => {
-    const { document } = inlineOf(`<<PB REF="1"/>>`);
-    expect(renderHTML(document)).toContain(
-      '<span class="element" data-tag="PB"></span>',
-    );
   });
 });

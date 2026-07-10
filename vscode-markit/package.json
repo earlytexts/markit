@@ -10,7 +10,7 @@
     "url": "https://github.com/earlytexts/markit"
   },
   "icon": "./markit-logo.png",
-  "main": "./dist/client.js",
+  "main": "./dist/extension.js",
   "files": [
     "dist",
     "media",
@@ -24,6 +24,8 @@
   "scripts": {
     "build": "node esbuild.mjs",
     "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check .",
     "vscode:prepublish": "npm run build",
@@ -41,7 +43,8 @@
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.3",
     "prettier": "^3.4.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "vscode": "^1.85.0"

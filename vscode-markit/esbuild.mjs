@@ -19,36 +19,32 @@ const sharedOptions = {
   },
 };
 
+// The extension has two bundles, mirroring its two entry points: the client
+// (extension.ts, activated by VSCode) and the language server (server.ts,
+// spawned by the client over IPC).
 /** Client entry — depends on the `vscode` module which must be external */
-const clientBuild = esbuild.build({
+const clientOptions = {
   ...sharedOptions,
-  entryPoints: ["src/client.ts"],
-  outfile: "dist/client.js",
+  entryPoints: ["src/extension.ts"],
+  outfile: "dist/extension.js",
   external: ["vscode"],
-});
+};
 
 /** Server entry — no external dependencies except node builtins */
-const serverBuild = esbuild.build({
+const serverOptions = {
   ...sharedOptions,
   entryPoints: ["src/server.ts"],
   outfile: "dist/server.js",
-});
+};
 
 if (watch) {
-  // In watch mode, rebuild both on change
-  const ctx1 = await esbuild.context({
-    ...sharedOptions,
-    entryPoints: ["src/client.ts"],
-    outfile: "dist/client.js",
-    external: ["vscode"],
-  });
-  const ctx2 = await esbuild.context({
-    ...sharedOptions,
-    entryPoints: ["src/server.ts"],
-    outfile: "dist/server.js",
-  });
+  const ctx1 = await esbuild.context(clientOptions);
+  const ctx2 = await esbuild.context(serverOptions);
   await Promise.all([ctx1.watch(), ctx2.watch()]);
   console.log("Watching for changes...");
 } else {
-  await Promise.all([clientBuild, serverBuild]);
+  await Promise.all([
+    esbuild.build(clientOptions),
+    esbuild.build(serverOptions),
+  ]);
 }

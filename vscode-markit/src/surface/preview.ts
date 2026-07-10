@@ -1,4 +1,4 @@
-import { compile, renderHTML } from "@earlytexts/markit";
+import { compile } from "@earlytexts/markit";
 import {
   ExtensionContext,
   TextEditor,
@@ -8,6 +8,7 @@ import {
   window,
   workspace,
 } from "vscode";
+import renderHtml from "../lib/renderHtml.ts";
 
 let previewPanel: WebviewPanel | undefined;
 let activeEditor: TextEditor | undefined;
@@ -91,7 +92,7 @@ const updatePreview = (
   content: string,
 ): void => {
   const [document] = compile(content);
-  const html = renderHTML(document);
+  const html = renderHtml(document);
 
   // Get webview URIs for CSS and JS files
   const cssUri = previewPanel.webview.asWebviewUri(
