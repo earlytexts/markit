@@ -1,14 +1,15 @@
-import { renderHTML, renderText } from "@earlytexts/markit";
+import { renderText } from "@earlytexts/markit";
 import * as path from "node:path";
-import { ExtensionContext, commands } from "vscode";
+import { commands, ExtensionContext } from "vscode";
 import {
   LanguageClient,
-  TransportKind,
   type LanguageClientOptions,
   type ServerOptions,
+  TransportKind,
 } from "vscode-languageclient/node";
-import compileCommand from "./client/compile.js";
-import showPreview from "./client/preview.js";
+import compileCommand from "./surface/compile.ts";
+import showPreview from "./surface/preview.ts";
+import renderHtml from "./lib/renderHtml.ts";
 
 let client: LanguageClient;
 
@@ -45,7 +46,7 @@ export const activate = (context: ExtensionContext): void => {
 
   context.subscriptions.push(
     commands.registerCommand("markit.compileToHTML", async () => {
-      await compileCommand("html", renderHTML);
+      await compileCommand("html", renderHtml);
     }),
   );
 

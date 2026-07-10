@@ -5,10 +5,10 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
-import { evictDocument } from "./server/compileCache.js";
-import getDiagnostics from "./server/diagnostics.js";
-import getFoldingRanges from "./server/foldingRanges.js";
-import getFormattingEdits from "./server/formatting.js";
+import { evictDocument } from "./surface/compileCache.ts";
+import getDiagnostics from "./surface/diagnostics.ts";
+import getFoldingRanges from "./surface/foldingRanges.ts";
+import getFormattingEdits from "./surface/formatting.ts";
 
 // Trailing debounce for diagnostics: recompiling on every keystroke makes
 // large documents feel sluggish, so wait for a brief pause in typing.

@@ -28,17 +28,16 @@ npm install @earlytexts/markit
 Then you can import the compiler functions in your code:
 
 ```typescript
-import { compile, renderHTML, renderText } from "@earlytexts/markit";
+import { compile, renderText } from "@earlytexts/markit";
 
 const markitInput = `...`; // your Markit document as a string
 const [document, errors] = compile(markitInput);
-const htmlOutput = renderHTML(document);
 const textOutput = renderText(document);
 ```
 
 The `compile` function returns a tuple of the form `[document, errors]`, where `document` is the compiled result and `errors` is an array of any syntax errors encountered during compilation. The `document` is always produced even if there are errors, so you can choose to use it anyway (e.g. for a best-effort preview), but you should always check the `errors` array to see if there were any issues with the input.
 
-The two functions `renderHTML` and `renderText` take a compiled document and return a string - either an HTML representation of the document or plain text.
+`renderText` takes a compiled document and returns its plain-text projection.
 
 ## Architecture
 
@@ -53,10 +52,9 @@ diagnostics, enabling live preview workflows. See
 - [src/compile/](./src/compile/): Pipeline stage implementations
 - [src/format.ts](./src/format.ts): Formatter entrypoint (state machine)
 - [src/format/](./src/format/): Handlers for each formatter state
-- [src/renderHTML.ts](./src/renderHTML.ts): Converts compiler output to HTML
 - [src/renderText.ts](./src/renderText.ts): Converts compiler output to plain text
-- [src/tei/](./src/tei/): Lossless conversion to/from TCP/TEI XML (`fromTEIXML`/`toTEIXML`); self-contained `xml.ts` reader/writer, a schema adapter, and the two walkers
-- [vscode-markit/](./vscode-markit/): VS Code LSP extension — thin wrapper, delegates to core, has no tests
+- [src/tei/](./src/tei/): Lossless conversion to/from TCP/TEI XML (`fromTEIXML`/`toTEIXML`)
+- [vscode-markit/](./vscode-markit/): VS Code LSP extension (bundled with esbuild)
 
 ### Source code organization
 
@@ -69,7 +67,6 @@ src/
 ├── format/        # Formatter state machine implementation
 ├── compile.ts     # Public API: compilation function (orchestration only)
 ├── format.ts      # Public API: autoformatting function (orchestration only)
-├── renderHTML.ts  # Public API: HTML rendering (self-contained)
 ├── renderText.ts  # Public API: text rendering (self-contained)
 ├── types.ts       # Public API: language definition (types, grammar constants)
 └── index.ts       # Public API entry point (re-exports)

@@ -55,148 +55,244 @@
     U+FFFD;
 }
 
+/**
+ * The live preview renders the same semantic classes the web sites' shared
+ * Blocks renderer emits (see web/ui/src/reading.css), so what an author sees
+ * here matches the published page. The palette below reproduces the davidhume
+ * reading colours (reading.css's fallbacks); the layout is the same
+ * citable-ID gutter, footnote apparatus and heading scale.
+ */
+
+:root {
+  --reading-ink: #221e1a;
+  --reading-secondary: #44403c;
+  --reading-muted: #78716c;
+  --reading-faint: #a8a29e;
+  --reading-rule: #d6d3d1;
+  --reading-accent: #7d2230;
+  --reading-accent-soft: #e4c4c7;
+  --reading-mark: #f6dcdc;
+  --reading-aside: #f3e4e5;
+  --reading-correction: #f3ece0;
+  --font-fell: "IM Fell English", serif;
+  --font-smallcaps: "IM Fell English SC", serif;
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
 * {
   box-sizing: border-box;
-  font-family: inherit;
-  font-style: inherit;
-  font-size: inherit;
-  background: inherit;
-  border: 0;
   margin: 0;
   padding: 0;
+  border: 0;
 }
 
 body {
-  padding: 2rem;
-  max-width: 800px;
+  padding: 2rem 2.5rem;
+  max-width: 52rem;
   margin: auto;
-  line-height: 1.5;
-  font-family: "IM Fell English", serif;
-  font-size: 1.25rem;
-  text-align: justify;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  background: #fbf9f5;
+}
+
+.reading {
+  font-family: var(--font-fell);
+  font-size: 1.1875rem;
+  line-height: 1.65;
+  color: var(--reading-ink);
 }
 
 section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  display: block;
 }
 
-div {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-weight: normal;
-  text-align: center;
-  line-height: 1.2;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-
-  .size-1 {
-    font-size: 2rem;
-  }
-
-  .size-2 {
-    font-size: 1.875rem;
-  }
-
-  .size-3 {
-    font-size: 1.75rem;
-  }
-
-  .size-4 {
-    font-size: 1.625rem;
-  }
-
-  .size-5 {
-    font-size: 1.5rem;
-  }
-
-  .size-6 {
-    font-size: 1.375rem;
-  }
-}
-
-p,
-blockquote {
+.reading p {
+  margin-bottom: 0.9em;
   text-align: justify;
 }
 
-blockquote {
-  padding-left: 2rem;
-  padding-right: 1rem;
+/* Emphasised words are set in small caps, as in the printed originals. */
+.reading strong {
+  font-family: var(--font-smallcaps);
+  font-weight: 400;
 }
-
-a {
-  text-decoration: underline;
-  color: #1e90ff;
-}
-
-strong {
-  font-family: "IM Fell English SC", serif;
-  font-weight: normal;
-}
-
-em {
+.reading em {
   font-style: italic;
+}
+.reading q {
+  quotes: "\201C" "\201D" "\2018" "\2019";
+}
+.reading cite {
+  font-style: italic;
+}
+.reading .foreign {
+  font-style: italic;
+}
+.reading .foreign:lang(grc),
+.reading [lang="grc"] {
+  font-family: "GFS Didot", serif;
+  font-style: normal;
+}
+.reading .speaker {
+  font-family: var(--font-smallcaps);
+}
+.reading .stage-direction {
+  font-style: italic;
+  color: var(--reading-secondary);
+}
+.reading a {
+  color: var(--reading-accent);
+}
 
-  .greek {
-    font-family: "GFS Didot", serif;
+.reading blockquote {
+  margin: 0.9em 0 0.9em 1.6em;
+  font-size: 0.95em;
+}
+.reading ol,
+.reading ul {
+  margin: 0.9em 0 0.9em 2em;
+}
+.reading ol {
+  list-style: decimal;
+}
+.reading ul {
+  list-style: disc;
+}
+.reading ul.verse {
+  list-style: none;
+  margin-left: 2.6em;
+}
+.reading table {
+  margin: 1em auto;
+  border-collapse: collapse;
+}
+.reading th,
+.reading td {
+  border: 1px solid var(--reading-rule);
+  padding: 0.25em 0.75em;
+}
+
+.reading mark {
+  background: var(--reading-mark);
+}
+/* Marginal notes float to the right, like printed shoulder notes. */
+.reading .aside {
+  float: right;
+  clear: right;
+  max-width: 11em;
+  margin: 0 0 0.4em 1em;
+  padding: 0 0.4em;
+  background: var(--reading-aside);
+  font-size: 0.8em;
+  line-height: 1.5;
+  text-align: right;
+}
+.reading .illegible,
+.reading .uncertain {
+  border-bottom: 1px dotted var(--reading-faint);
+}
+.reading ins {
+  text-decoration: none;
+  background: var(--reading-correction);
+}
+.reading del {
+  color: var(--reading-muted);
+}
+
+/* ------------------------------ title pages --------------------------- */
+
+.titlepage,
+.subtitle {
+  text-align: center;
+  margin: 1.5em 0 2em;
+}
+.titlepage p,
+.subtitle p {
+  margin: 0.8em 0;
+}
+.heading-line {
+  margin: 0.45em 0;
+  line-height: 1.25;
+}
+.heading-line.level-1 {
+  font-size: 2.1em;
+  letter-spacing: 0.04em;
+}
+.heading-line.level-2 {
+  font-size: 1.7em;
+  letter-spacing: 0.04em;
+}
+.heading-line.level-3 {
+  font-size: 1.35em;
+  letter-spacing: 0.03em;
+}
+.heading-line.level-4 {
+  font-size: 1.1em;
+}
+.heading-line.level-5 {
+  font-size: 0.95em;
+}
+.heading-line.level-6 {
+  font-size: 0.85em;
+}
+
+/* --------------------- citable IDs & scholarly apparatus -------------- */
+
+/* Each block sits beside its citable ID: stacked when the preview is narrow,
+   the ID in a left-hand gutter once there is room. */
+.text-block-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.9em 0;
+}
+@media (min-width: 40rem) {
+  .text-block-wrapper {
+    flex-direction: row;
+    gap: 1.25rem;
+  }
+  .block-id {
+    flex: 0 0 4rem;
+    text-align: right !important;
+  }
+  .text-block {
+    flex: 1;
+    min-width: 0;
   }
 }
-
-ins {
-  background-color: #a3f3a3;
+.block-id {
+  display: block;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--reading-accent);
+  user-select: none;
 }
-
-del {
-  text-decoration: line-through;
-  background-color: #ed8a8a;
+.subsection-marker {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--reading-faint);
+  margin-right: 0.5em;
 }
-
-mark {
-  background-color: #f5f5dc;
+.footnote {
+  font-size: 0.82em;
+  line-height: 1.5;
+  padding-left: 0.9em;
+  border-left: 2px solid var(--reading-accent-soft);
+  color: var(--reading-secondary);
 }
-
-cite {
-  color: #1e90ff;
+.fnref a {
+  font-family: var(--font-sans);
+  font-size: 0.72em;
+  color: var(--reading-accent);
+  text-decoration: none;
 }
-
-.aside {
-  float: right;
-  background: #f0f0f0;
-  font-size: 0.875em;
-  line-height: 1.6;
-  text-align: right;
-  padding: 0 0.25em;
-  margin-left: 1em;
-  max-width: 10em;
+.fnref a:hover {
+  text-decoration: underline;
 }
-
-.illegible,
-.uncertain {
-  color: #2f4f4f;
-  text-decoration: wavy;
-}
-
-.speaker {
-  font-family: "IM Fell English SC", serif;
-  font-weight: normal;
-}
-
-.person,
-.place {
-  color: #1e90ff;
+.pagebreak::before {
+  content: "|";
+  color: var(--reading-rule);
+  font-size: 0.8em;
+  margin: 0 0.08em;
+  cursor: help;
 }
