@@ -252,7 +252,7 @@ const inlineElementXml = (
       return "<gap/>";
     case "nbSpace":
       return "&#160;";
-    case "emSpace":
+    case "tab":
       return "&#160;&#160;";
     case "lineBreak":
       return "<lb/>";

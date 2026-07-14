@@ -3,18 +3,47 @@ import makeError from "./lib/makeError.ts";
 import parseContent from "./compile/parseContent.ts";
 import parseMetadata from "./compile/parseMetadata.ts";
 import splitIntoBlocks from "./compile/splitIntoBlocks.ts";
-import type { MarkitDocument, MarkitError } from "./types.ts";
+import tokenize from "./tokenize.ts";
+import { withProvenance } from "./compile/provenance.ts";
+import type { MarkitDocument, MarkitError, Token } from "./types.ts";
 import { endLine, startLine } from "./types.ts";
 
-/**
- * Compile a Markit document string into a structured JSON-ready object.
- *
- * @param text The input Markit document as a string.
- * @returns A tuple of:
- *   [0] The parsed document (always produced, even if there are errors)
- *   [1] An array of any errors and warnings encountered during parsing and validation
- */
-export default (text: string): [MarkitDocument, MarkitError[]] => {
+type CompileResult = [MarkitDocument, MarkitError[]];
+type CompileWithTokens = [MarkitDocument, MarkitError[], Token[]];
+
+type Compile = {
+  /**
+   * Compile a Markit document string into a structured JSON-ready object.
+   *
+   * @returns `[document, errors]` — the parsed document (always produced, even on
+   * errors) and any diagnostics.
+   */
+  (text: string): CompileResult;
+  /**
+   * Compile and also tokenize, in one pass: `[document, errors, tokens]`. The
+   * tokens carry `source` spans (see `Token`), which a bare `tokenize(document)`
+   * cannot recover.
+   */
+  (text: string, options: { tokens: true }): CompileWithTokens;
+};
+
+// Cast: an implementation whose single signature returns the union of both
+// overloads' results is not structurally assignable to the overloaded type, so
+// the shape is declared by `Compile` above and asserted here.
+const compile = ((
+  text: string,
+  options?: { tokens?: boolean },
+): CompileResult | CompileWithTokens => {
+  if (options?.tokens) {
+    const [document, errors] = withProvenance(() => compileDocument(text));
+    return [document, errors, tokenize(document)];
+  }
+  return compileDocument(text);
+}) as Compile;
+
+export default compile;
+
+const compileDocument = (text: string): CompileResult => {
   // Parse the text into blocks separated by one or more blank lines
   const [firstBlock, ...otherBlocks] = splitIntoBlocks(text);
   if (!firstBlock) {

@@ -145,7 +145,7 @@ const inlineElementToHtml = (element: InlineElement): string => {
       return escapeText(element.content);
     case "lineBreak":
       return "<br />";
-    case "emSpace":
+    case "tab":
       return "&emsp;";
     case "nbSpace":
       return "&nbsp;";

@@ -175,6 +175,12 @@ export type LineBreak = { type: "lineBreak" };
 export type PlainText = {
   type: "plainText";
   content: string;
+  /**
+   * Per-character source positions, one per `content` character. Populated only
+   * when compiling with `{ tokens: true }` (so `tokenize` can map a rendered
+   * offset back to source); absent otherwise, so ordinary compiles stay lean.
+   */
+  sources?: SourcePosition[];
 };
 
 export type Leaf = {
@@ -182,7 +188,7 @@ export type Leaf = {
 };
 
 export const leafElements = [
-  { trigger: "~~", type: "emSpace" },
+  { trigger: "~~", type: "tab" },
   { trigger: "~", type: "nbSpace" },
   { trigger: "[...]", type: "illegible" },
 ] as const;
@@ -262,6 +268,11 @@ export type Language = {
 export type PageBreak = {
   type: "pageBreak";
   ref?: string;
+  // Whether the break falls inside a word — no whitespace on either side in the
+  // source (`be///ginning`). A tight break joins the text around it (renders to
+  // nothing, so tokenisation reads one word); a loose break (whitespace on at
+  // least one side, or a paragraph edge) is a word boundary. Absent means loose.
+  tight?: boolean;
 };
 
 // There's no "highlight" element in Markit syntax, but the type is included
@@ -270,6 +281,24 @@ export type PageBreak = {
 export type Highlight = {
   type: "highlight";
   content: InlineElement[];
+};
+
+/** A source position: 0-based line and column, as `buildPositionMap` reports. */
+export type SourcePosition = { line: number; column: number };
+
+/**
+ * One word token of a document's rendered text (see `tokenize`). `text` is the
+ * word with any non-breaking spaces normalised to a plain space (so `a~priori`
+ * reads `"a priori"`); `start`/`end` are `[start, end)` offsets into
+ * `renderText`'s output (which holds the raw U+00A0), for highlighting. `source`
+ * — present only on tokens from `compile(text, { tokens: true })` — is the
+ * token's span in the source, `end` exclusive.
+ */
+export type Token = {
+  text: string;
+  start: number;
+  end: number;
+  source?: { start: SourcePosition; end: SourcePosition };
 };
 
 // A generic, "raw" element: an escape hatch for markup that has no native

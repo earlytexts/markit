@@ -3,6 +3,7 @@ import type {
   InlineElement,
   Language,
   MarkitError,
+  PlainText,
 } from "../types.ts";
 import {
   elementSpec,
@@ -13,6 +14,7 @@ import {
   wrapperElements,
 } from "../types.ts";
 import type { PositionInfo } from "./buildPositionMap.ts";
+import { isRecording } from "./provenance.ts";
 import makeError from "../lib/makeError.ts";
 import processGreekMode from "./greekMode.ts";
 import processCharacterMode from "./characterMode.ts";
@@ -76,17 +78,51 @@ const parseElements = (
   suppressEscape: boolean,
   textId: string,
 ): [InlineElement[], number, boolean] => {
+  const rec = isRecording();
   const result: InlineElement[] = [];
   let pos = startPos;
   let plainTextBuffer = "";
+  let bufferPositions: PositionInfo[] = [];
   const closeChar = closeMarker === null ? -1 : closeMarker.charCodeAt(0);
 
   const flushPlainText = () => {
     if (plainTextBuffer.length > 0) {
-      result.push({ type: "plainText", content: plainTextBuffer });
+      result.push({
+        type: "plainText",
+        content: plainTextBuffer,
+        ...(rec ? { sources: bufferPositions } : {}),
+      });
       plainTextBuffer = "";
+      bufferPositions = [];
     }
   };
+
+  // Append the source characters `input[from..to)` to the plain-text buffer,
+  // tracking each one's source position for provenance while recording.
+  const appendSource = (from: number, to: number) => {
+    plainTextBuffer += input.slice(from, to);
+    if (rec) {
+      for (let k = from; k < to; k++) bufferPositions.push(positionMap[k]!);
+    }
+  };
+  // Append `char` (already resolved, e.g. an unescaped character) mapping it to
+  // the single source index `at`.
+  const appendChar = (char: string, at: number) => {
+    plainTextBuffer += char;
+    if (rec) bufferPositions.push(positionMap[at]!);
+  };
+  // Positions for a transformed run (Greek/character mode) whose rendered length
+  // may differ from its source: map each output char onto a source char, holding
+  // at the last one once the source runs out.
+  const spanPositions = (
+    start: number,
+    sourceLen: number,
+    outLen: number,
+  ): PositionInfo[] =>
+    Array.from(
+      { length: outLen },
+      (_, i) => positionMap[start + Math.min(i, sourceLen - 1)]!,
+    );
 
   while (pos < input.length) {
     // Fast path: consume a whole run of plain text, up to the next character
@@ -99,7 +135,7 @@ const parseElements = (
         if (c === closeChar || (c < 128 && specialChars[c] === 1)) break;
         end++;
       }
-      plainTextBuffer += input.slice(pos, end);
+      appendSource(pos, end);
       pos = end;
       continue;
     }
@@ -119,7 +155,7 @@ const parseElements = (
         result.push({ type: "lineBreak" });
         pos = next;
       } else {
-        plainTextBuffer += input[next]!;
+        appendChar(input[next]!, next);
         pos += 2;
       }
       continue;
@@ -138,13 +174,20 @@ const parseElements = (
             length: 2,
           }),
         );
-        plainTextBuffer += "{{";
+        appendSource(pos, pos + 2);
         pos += 2;
         continue;
       }
       const content = input.slice(pos + 2, closePos);
       flushPlainText();
-      result.push({ type: "plainText", content: processGreekMode(content) });
+      const greek = processGreekMode(content);
+      result.push({
+        type: "plainText",
+        content: greek,
+        ...(rec
+          ? { sources: spanPositions(pos + 2, content.length, greek.length) }
+          : {}),
+      });
       pos = closePos + 2;
       continue;
     }
@@ -162,15 +205,21 @@ const parseElements = (
             length: 1,
           }),
         );
-        plainTextBuffer += "{";
+        appendSource(pos, pos + 1);
         pos++;
         continue;
       }
       const content = input.slice(pos + 1, closePos);
       flushPlainText();
+      const characters = processCharacterMode(content);
       result.push({
         type: "plainText",
-        content: processCharacterMode(content),
+        content: characters,
+        ...(rec
+          ? {
+            sources: spanPositions(pos + 1, content.length, characters.length),
+          }
+          : {}),
       });
       pos = closePos + 1;
       continue;
@@ -193,7 +242,8 @@ const parseElements = (
     if (!suppressEscape && input.startsWith("//", pos)) {
       if (input[pos + 2] === "/") {
         flushPlainText();
-        result.push({ type: "pageBreak" });
+        const tight = isTightBreak(input[pos - 1], input[pos + 3]);
+        result.push({ type: "pageBreak", ...(tight ? { tight } : {}) });
         pos += 3;
         continue;
       }
@@ -202,12 +252,13 @@ const parseElements = (
         const ref = input.slice(pos + 2, closePos);
         if (ref.length > 0 && !/\s/.test(ref)) {
           flushPlainText();
-          result.push({ type: "pageBreak", ref });
+          const tight = isTightBreak(input[pos - 1], input[closePos + 2]);
+          result.push({ type: "pageBreak", ref, ...(tight ? { tight } : {}) });
           pos = closePos + 2;
           continue;
         }
       }
-      plainTextBuffer += "/";
+      appendSource(pos, pos + 1);
       pos++;
       continue;
     }
@@ -380,7 +431,7 @@ const parseElements = (
           length: wordSpec.open.length,
         }),
       );
-      plainTextBuffer += input[pos];
+      appendSource(pos, pos + 1);
       pos++;
       continue;
     }
@@ -422,7 +473,7 @@ const parseElements = (
     if (wrapperMatched) continue;
 
     // 11. Plain text (a special character that began no construct)
-    plainTextBuffer += input[pos];
+    appendSource(pos, pos + 1);
     pos++;
   }
 
@@ -498,6 +549,37 @@ const scanWordDelimiters = (
 };
 
 /**
+ * Whether a page break falls inside a word: non-whitespace on both sides in the
+ * (whitespace-collapsed) source. A break at a paragraph edge, or with whitespace
+ * on either side, is loose — a word boundary. `undefined` (off the ends of the
+ * input) counts as whitespace, so edge breaks are loose.
+ */
+const isTightBreak = (
+  before: string | undefined,
+  after: string | undefined,
+): boolean =>
+  before !== undefined &&
+  after !== undefined &&
+  !/\s/.test(before) &&
+  !/\s/.test(after);
+
+/**
+ * A `plainText` node holding `node.content[from..to)`, carrying the matching
+ * slice of the original's source positions so trimming (below) keeps provenance
+ * aligned. `node.sources` is present exactly when recording, so the spread is
+ * exercised both ways.
+ */
+const slicePlainText = (
+  node: PlainText,
+  from: number,
+  to: number,
+): PlainText => ({
+  type: "plainText",
+  content: node.content.slice(from, to),
+  ...(node.sources ? { sources: node.sources.slice(from, to) } : {}),
+});
+
+/**
  * Trim leading and trailing whitespace from the element list, trim whitespace
  * adjacent to lineBreak elements, and recursively clean wrapper element content.
  */
@@ -523,22 +605,22 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   // Trim leading whitespace from the first plainText element
   const first = result[0];
   if (first && first.type === "plainText") {
-    const trimmed = first.content.trimStart();
-    if (trimmed.length === 0) {
+    const from = first.content.length - first.content.trimStart().length;
+    if (from === first.content.length) {
       result.shift();
     } else {
-      result[0] = { type: "plainText", content: trimmed };
+      result[0] = slicePlainText(first, from, first.content.length);
     }
   }
 
   // Trim trailing whitespace from the last plainText element
   const last = result[result.length - 1];
   if (last && last.type === "plainText") {
-    const trimmed = last.content.trimEnd();
-    if (trimmed.length === 0) {
+    const to = last.content.trimEnd().length;
+    if (to === 0) {
       result.pop();
     } else {
-      result[result.length - 1] = { type: "plainText", content: trimmed };
+      result[result.length - 1] = slicePlainText(last, 0, to);
     }
   }
 
@@ -547,21 +629,21 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
     if (result[i]?.type === "lineBreak" || result[i]?.type === "pageBreak") {
       const prev = result[i - 1];
       if (prev?.type === "plainText") {
-        const trimmed = prev.content.trimEnd();
-        if (trimmed.length === 0) {
+        const to = prev.content.trimEnd().length;
+        if (to === 0) {
           result.splice(i - 1, 1);
           i--;
         } else {
-          result[i - 1] = { type: "plainText", content: trimmed };
+          result[i - 1] = slicePlainText(prev, 0, to);
         }
       }
       const next = result[i + 1];
       if (next?.type === "plainText") {
-        const trimmed = next.content.trimStart();
-        if (trimmed.length === 0) {
+        const from = next.content.length - next.content.trimStart().length;
+        if (from === next.content.length) {
           result.splice(i + 1, 1);
         } else {
-          result[i + 1] = { type: "plainText", content: trimmed };
+          result[i + 1] = slicePlainText(next, from, next.content.length);
         }
       }
     }

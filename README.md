@@ -2,7 +2,9 @@
 
 Markit is a textual markup language similar to Markdown, but designed for use in textual preservation projects, as a more human-readable alternative to TEI XML. It compiles to JSON for representing document structure and metadata, while the text content itself can then be further compiled to either plain text or HTML.
 
-Markit comes with a VS Code extension which supports syntax highlighting, block folding, in-editor error reporting, and a live preview of the rendered HTML output.
+See the [specification](./SPECIFICATION.md) for a complete description of the Markit syntax.
+
+Markit comes with a VS Code language server extension which supports syntax highlighting, block folding, in-editor error reporting, and a live preview of the rendered HTML output.
 
 ## How to Use
 
@@ -12,17 +14,12 @@ Markit comes with a VS Code extension which supports syntax highlighting, block 
 4. Preview the rendered HTML output using the live preview feature (`Cmd+Shift+V` or `Ctrl+Shift+V`).
 5. Compile your Markit document to JSON, HTML, or plain text using the provided commands (`Cmd+Shift+P` or `Ctrl+Shift+P` to open the command palette, then search for "Markit: Compile to JSON/HTML/Text").
 
-## Markit Syntax
-
-- See the [specification](./SPECIFICATION.md) for a complete description of the Markit syntax.
-- See the [example.mit](./test/fixtures/example.mit) file for a sample Markit document demonstrating all the features.
-
 ## Programmatic Use (Advanced)
 
 The Markit compiler is written in TypeScript and can be used programmatically in your own projects. You can install it via npm:
 
 ```bash
-npm install @earlytexts/markit
+npx jsr add @earlytexts/markit
 ```
 
 Then you can import the compiler functions in your code:
@@ -41,11 +38,9 @@ The `compile` function returns a tuple of the form `[document, errors]`, where `
 
 ## Architecture
 
-The compiler is error-tolerant: it always produces output and accumulates
-diagnostics, enabling live preview workflows. See
-[SPECIFICATION.md](./SPECIFICATION.md) for the language itself.
+The compiler is error-tolerant: it always produces output and accumulates diagnostics, enabling live preview workflows.
 
-**Pipeline**: split → tree generation → metadata parsing → content parsing
+**Pipeline**: split → tree generation → metadata parsing → content parsing.
 
 - [src/types.ts](./src/types.ts): Domain model and grammar constants (element types, specs)
 - [src/compile.ts](./src/compile.ts): Compilation orchestration
@@ -53,6 +48,7 @@ diagnostics, enabling live preview workflows. See
 - [src/format.ts](./src/format.ts): Formatter entrypoint (state machine)
 - [src/format/](./src/format/): Handlers for each formatter state
 - [src/renderText.ts](./src/renderText.ts): Converts compiler output to plain text
+- [src/tokenize.ts](./src/tokenize.ts): Tokenizes a Markit document into a stream of word tokens
 - [src/tei/](./src/tei/): Lossless conversion to/from TCP/TEI XML (`fromTEIXML`/`toTEIXML`)
 - [vscode-markit/](./vscode-markit/): VS Code LSP extension (bundled with esbuild)
 
