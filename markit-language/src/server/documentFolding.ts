@@ -7,7 +7,7 @@
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { FoldingRange, FoldingRangeKind } from "vscode-languageserver/node";
 import { compileDocument } from "./compileCache.ts";
-import planFoldingRanges from "../lib/foldingPlan.ts";
+import planFoldingRanges from "./lib/foldingPlan.ts";
 
 export default (textDocument: TextDocument): FoldingRange[] => {
   const [document] = compileDocument(textDocument);

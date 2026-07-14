@@ -8,9 +8,7 @@
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver/node";
 import { compileDocument } from "./compileCache.ts";
-import planDiagnostics, {
-  type PlainDiagnostic,
-} from "../lib/diagnosticPlan.ts";
+import planDiagnostics, { type PlainDiagnostic } from "./lib/diagnosticPlan.ts";
 
 export default (textDocument: TextDocument): Diagnostic[] => {
   const [, errors] = compileDocument(textDocument);

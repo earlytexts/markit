@@ -25,7 +25,7 @@ const sharedOptions = {
 /** Client entry — depends on the `vscode` module which must be external */
 const clientOptions = {
   ...sharedOptions,
-  entryPoints: ["src/extension.ts"],
+  entryPoints: ["src/client.ts"],
   outfile: "dist/extension.js",
   external: ["vscode"],
 };
