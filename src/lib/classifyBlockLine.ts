@@ -4,7 +4,7 @@ import {
   listSpec,
   stageDirectionSpec,
   tableSpec,
-} from "../types.ts";
+} from "./grammar.ts";
 
 /**
  * Classification result for a line of block-level content.

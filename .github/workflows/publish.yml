@@ -42,15 +42,15 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: "vscode-markit/package-lock.json"
+          cache-dependency-path: "markit-language/package-lock.json"
 
       - name: "Install dependencies"
-        run: "cd vscode-markit && npm ci"
+        run: "cd markit-language && npm ci"
 
       - name: "Check if version is new"
         id: "check"
         run: |
-          CURRENT=$(node -p "require('./vscode-markit/package.json').version")
+          CURRENT=$(node -p "require('./markit-language/package.json').version")
           PUBLISHED=$(curl -s -X POST \
             "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
             -H "Content-Type: application/json" \
@@ -66,6 +66,6 @@ jobs:
 
       - name: "Publish to VS Code Marketplace"
         if: "steps.check.outputs.publish == 'true'"
-        run: "cd vscode-markit && npx vsce publish --no-dependencies"
+        run: "cd markit-language && npx vsce publish --no-dependencies"
         env:
           VSCE_PAT: "${{ secrets.VSCE_PAT }}"

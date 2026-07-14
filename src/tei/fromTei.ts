@@ -19,19 +19,23 @@ import { headerToMetadata, type MetaTree } from "./header.ts";
 import classifyBlockLine from "../lib/classifyBlockLine.ts";
 import splitOnLineBreakMarker from "../lib/splitLineBreaks.ts";
 
-// Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
-// (long-s and similar); by default the source is preserved faithfully.
+/**
+ * Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
+ * (long-s and similar); by default the source is preserved faithfully.
+ */
 export type FromTEIOptions = {
   modernize?: boolean;
 };
 
-// Convert a TEI P5 XML document into clean Markit (`.mit`) source text. The
-// converter favours native Markit features (emphasis, quotes, lists, verse,
-// footnotes, page breaks, foreign-language runs, editorial marks) and only falls
-// back to the generic `<<tag>>` element for markup with no native equivalent.
-// Page layout is normalised to reading text: end-of-line hyphens are closed up,
-// `<g>` glyphs resolve to their Unicode content, and `<pb>` becomes a Markit
-// page break. See toTei.ts for the inverse.
+/**
+ * Convert a TEI P5 XML document into clean Markit (`.mit`) source text. The
+ * converter favours native Markit features (emphasis, quotes, lists, verse,
+ * footnotes, page breaks, foreign-language runs, editorial marks) and only falls
+ * back to the generic `<<tag>>` element for markup with no native equivalent.
+ * Page layout is normalised to reading text: end-of-line hyphens are closed up,
+ * `<g>` glyphs resolve to their Unicode content, and `<pb>` becomes a Markit
+ * page break. See `toTEIXML` for the inverse.
+ */
 export const fromTEIXML = (
   xml: string,
   options: FromTEIOptions = {},

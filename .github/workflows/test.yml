@@ -41,13 +41,13 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: "vscode-markit/package-lock.json"
+          cache-dependency-path: "markit-language/package-lock.json"
 
       - name: "Install dependencies"
-        run: "cd vscode-markit && npm ci"
+        run: "cd markit-language && npm ci"
 
       - name: "Type checking and format checking"
-        run: "cd vscode-markit && npm run check && npm run fmt:check"
+        run: "cd markit-language && npm run check && npm run fmt:check"
 
       - name: "Build"
-        run: "cd vscode-markit && npm run build"
+        run: "cd markit-language && npm run build"

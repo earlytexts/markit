@@ -30,6 +30,11 @@ type Compile = {
 // Cast: an implementation whose single signature returns the union of both
 // overloads' results is not structurally assignable to the overloaded type, so
 // the shape is declared by `Compile` above and asserted here.
+/**
+ * Compile a Markit document string into a structured, JSON-ready document.
+ * Overloaded — pass `{ tokens: true }` to also tokenize in the same pass; see
+ * the two call signatures on `Compile` above for details of each form.
+ */
 const compile = ((
   text: string,
   options?: { tokens?: boolean },

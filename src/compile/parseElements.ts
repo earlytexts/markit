@@ -12,7 +12,7 @@ import {
   leafElements,
   wordSpec,
   wrapperElements,
-} from "../types.ts";
+} from "../lib/grammar.ts";
 import type { PositionInfo } from "./buildPositionMap.ts";
 import { isRecording } from "./provenance.ts";
 import makeError from "../lib/makeError.ts";

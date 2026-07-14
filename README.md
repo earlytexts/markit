@@ -36,37 +36,47 @@ The `compile` function returns a tuple of the form `[document, errors]`, where `
 
 `renderText` takes a compiled document and returns its plain-text projection.
 
+### Tokenization
+
+Two functions expose a document's words for indexing and search:
+
+- `tokenize(document)` walks a compiled document in reading order and returns an array of word tokens. Each token carries its `text` (with any non-breaking spaces normalised to plain spaces, so `a~priori` reads as `"a priori"`) and its `[start, end)` offsets into the `renderText(document)` output — enough to highlight the word in the rendered text.
+- `compile(text, { tokens: true })` compiles and tokenizes in a single pass, returning `[document, errors, tokens]`. These tokens additionally carry a `source` span: the word's `{ line, column }` range in the original Markit source. A bare `tokenize(document)` cannot recover this (the rendered text carries no provenance), so reach for the `{ tokens: true }` form whenever you need to map a word back to where it was written.
+
+```typescript
+import { compile, tokenize } from "@earlytexts/markit";
+
+// Compile and tokenize in one pass; tokens carry source positions.
+const [document, errors, tokens] = compile(markitInput, { tokens: true });
+// tokens[0] === { text: "...", start, end, source: { start, end } }
+
+// Or tokenize an already-compiled document (rendered-text offsets only):
+const [doc] = compile(markitInput);
+const tokens = tokenize(doc);
+// tokens[0] === { text: "...", start, end }  // no `source` property
+```
+
 ## Architecture
 
-The compiler is error-tolerant: it always produces output and accumulates diagnostics, enabling live preview workflows.
+The compiler is error-tolerant: it always produces output and accumulates diagnostics, enabling live-preview workflows. Compilation runs as a four-stage pipeline: split → tree generation → metadata parsing → content parsing.
 
-**Pipeline**: split → tree generation → metadata parsing → content parsing.
-
-- [src/types.ts](./src/types.ts): Domain model and grammar constants (element types, specs)
-- [src/compile.ts](./src/compile.ts): Compilation orchestration
-- [src/compile/](./src/compile/): Pipeline stage implementations
-- [src/format.ts](./src/format.ts): Formatter entrypoint (state machine)
-- [src/format/](./src/format/): Handlers for each formatter state
-- [src/renderText.ts](./src/renderText.ts): Converts compiler output to plain text
-- [src/tokenize.ts](./src/tokenize.ts): Tokenizes a Markit document into a stream of word tokens
-- [src/tei/](./src/tei/): Lossless conversion to/from TCP/TEI XML (`fromTEIXML`/`toTEIXML`)
-- [vscode-markit/](./vscode-markit/): VS Code LSP extension (bundled with esbuild)
-
-### Source code organization
-
-The `src/` directory separates public API from implementation details:
+The `src/` directory separates the public API (the top-level modules, re-exported from `index.ts`) from the implementation details beneath them:
 
 ```
 src/
-├── lib/           # Shared utilities used by multiple modules
-├── compile/       # Compiler pipeline implementation
-├── format/        # Formatter state machine implementation
-├── compile.ts     # Public API: compilation function (orchestration only)
-├── format.ts      # Public API: autoformatting function (orchestration only)
-├── renderText.ts  # Public API: text rendering (self-contained)
-├── types.ts       # Public API: language definition (types, grammar constants)
-└── index.ts       # Public API entry point (re-exports)
+├── compile.ts     # Public API: compile a Markit string → document (+ optional tokens)
+├── format.ts      # Public API: autoformat a Markit string (orchestration only)
+├── renderText.ts  # Public API: render a compiled document to plain text
+├── tokenize.ts    # Public API: tokenize a compiled document into word tokens
+├── types.ts       # Public API: the language's type definitions
+├── index.ts       # Public API entry point (re-exports)
+├── compile/       # Compiler pipeline stages
+├── format/        # Formatter state-machine handlers
+├── tei/           # Lossless TCP/TEI XML conversion (fromTEIXML / toTEIXML)
+└── lib/           # Shared internals, incl. grammar.ts (the markers/specs the parser matches)
 ```
+
+The VS Code language-server extension lives alongside `src/` in [markit-language/](./markit-language/) (bundled with esbuild).
 
 ### Source code conventions
 
@@ -80,4 +90,4 @@ src/
 - **Error tolerance**: invalid constructs → emit diagnostic, continue with fallback parsing
 - **Error positions**: 0-based internally, 1-based in public errors
 - **Symbol metadata**: editor-only data (e.g. `startLine`/`endLine`) goes on symbols, not JSON keys
-- **Grammar**: define element types and specs as constants in [src/types.ts](./src/types.ts), consumed by parsers
+- **Grammar**: element types are defined in [src/types.ts](./src/types.ts); the matching markers and specs live as constants in [src/lib/grammar.ts](./src/lib/grammar.ts), consumed by the parsers

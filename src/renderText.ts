@@ -18,9 +18,17 @@ import type {
  */
 export type Sourced = { text: string; sources: (SourcePosition | null)[] };
 
+/** Like the default export, but each character of the result carries its source position; see `Sourced`. */
 export const renderSourced = (document: MarkitDocument): Sourced =>
   concat([documentToText(document), raw("\n")]);
 
+/**
+ * Render a compiled document to its plain-text projection: block-level
+ * structure becomes blank-line separation and indentation, and inline
+ * elements render to the text a reader would see (wrapper furniture such as
+ * emphasis markers is dropped; quotes keep their `"..."`, citations their
+ * `[...]`).
+ */
 export default (document: MarkitDocument): string =>
   renderSourced(document).text;
 

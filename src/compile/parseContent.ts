@@ -14,15 +14,14 @@ import type {
   TableCell,
   TableRow,
 } from "../types.ts";
+import { endLine, startLine } from "../types.ts";
 import {
   blockquoteSpec,
-  endLine,
   footnoteReferenceSpec,
   listSpec,
   stageDirectionSpec,
-  startLine,
   tableSpec,
-} from "../types.ts";
+} from "../lib/grammar.ts";
 import classifyBlockLine from "../lib/classifyBlockLine.ts";
 import buildPositionMap from "./buildPositionMap.ts";
 import parseElements from "./parseElements.ts";
