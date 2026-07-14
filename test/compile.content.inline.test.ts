@@ -328,14 +328,14 @@ describe("whitespace and line breaks", () => {
     ]);
   });
 
-  it("parses em spaces (double tildes)", () => {
+  it("parses tabs (double tildes)", () => {
     const [document, errors] = compile(
       markitWithContent("{#1}", "before~~after"),
     );
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.content).toEqual([
-      p([pt("before"), { type: "emSpace" }, pt("after")]),
+      p([pt("before"), { type: "tab" }, pt("after")]),
     ]);
   });
 

@@ -1,6 +1,7 @@
 {
   "name": "@earlytexts/markit",
-  "version": "3.7.0",
+  "version": "3.8.0",
+  "description": "A human-readable markup language and compiler for early modern text preservation — a lightweight alternative to TEI-XML.",
   "license": "MIT",
   "exports": { ".": "./src/index.ts" },
   "publish": {
@@ -33,5 +34,5 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true
   },
-  "exclude": ["vscode-markit/"]
+  "exclude": ["markit-language/"]
 }

@@ -185,7 +185,7 @@ Block-level elements can contain a mixture of plan text and inline elements. Inl
 | `#text#`            | `aside`             | Margin comment                                       |
 | `<nID>`             | `footnoteReference` | Must match a `footnote` block in same text           |
 | `~`                 | `nbSpace`           | Non-breaking space                                   |
-| `~~`                | `emSpace`           | Em space / tab                                       |
+| `~~`                | `tab`               | Tab                                                  |
 | `\\`                | `lineBreak`         | Line break                                           |
 | `///`               | `pageBreak`         | No page reference                                    |
 | `//ref//`           | `pageBreak`         | `ref` is any non-whitespace string                   |

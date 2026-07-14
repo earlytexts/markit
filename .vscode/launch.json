@@ -5,9 +5,9 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/vscode-markit"],
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/markit-language"],
       "preLaunchTask": "build-extension",
-      "outFiles": ["${workspaceFolder}/vscode-markit/dist/**/*.js"]
+      "outFiles": ["${workspaceFolder}/markit-language/dist/**/*.js"]
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
 import type { MarkitError, Metadata, MetadataValue } from "../types.ts";
-import { endLine, footnoteReferenceSpec, startLine } from "../types.ts";
+import { endLine, startLine } from "../types.ts";
+import { footnoteReferenceSpec } from "../lib/grammar.ts";
 import type { TextTree } from "./generateTextTree.ts";
 import makeError from "../lib/makeError.ts";
 import parseMetadataValue from "./parseMetadataValue.ts";

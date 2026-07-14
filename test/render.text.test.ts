@@ -329,12 +329,18 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("lower");
   });
 
-  it("renders page break as empty string", () => {
+  it("renders a loose page break as a space (word boundary)", () => {
     const [document] = compile(markitWithContent("{#1}", "before /// after"));
     const text = renderText(document);
-    expect(text).not.toContain("||");
-    expect(text).toContain("before");
-    expect(text).toContain("after");
+    expect(text).toContain("before after");
+    expect(text).not.toContain("beforeafter");
+  });
+
+  it("renders a tight page break as nothing (mid-word)", () => {
+    const [document] = compile(markitWithContent("{#1}", "be///ginning"));
+    const text = renderText(document);
+    expect(text).toContain("beginning");
+    expect(text).not.toContain("be ginning");
   });
 
   it("renders footnote reference as <id>", () => {
@@ -351,14 +357,14 @@ describe("inline elements", () => {
     expect(renderText(document)).toContain("line one\nline two");
   });
 
-  it("renders non-breaking space as a single space", () => {
+  it("renders a non-breaking space as U+00A0", () => {
     const [document] = compile(markitWithContent("{#1}", "a~b"));
-    expect(renderText(document)).toContain("a b");
+    expect(renderText(document)).toContain("a\u00A0b");
   });
 
-  it("renders em space as two spaces", () => {
+  it("renders a tab as a tab character", () => {
     const [document] = compile(markitWithContent("{#1}", "a~~b"));
-    expect(renderText(document)).toContain("a  b");
+    expect(renderText(document)).toContain("a\tb");
   });
 
   it("renders illegible text as <illegible>", () => {
