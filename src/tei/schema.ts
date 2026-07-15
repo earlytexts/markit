@@ -6,6 +6,7 @@
 // features and reserves the generic <<tag>> escape hatch for the long tail.
 
 import { attr, localName, type XmlElement } from "./xml.ts";
+import type { WrapperType } from "../types.ts";
 
 // The TEI P5 namespace, re-emitted on the root element by toTei.
 export const TEI_NS = "http://www.tei-c.org/ns/1.0";
@@ -39,11 +40,11 @@ export const SEMANTIC_BLOCKS = new Set([
 
 // --- Inline mapping ------------------------------------------------------
 
-// The Markit wrapper types that have a single canonical TEI form. Used by toTei
-// to turn a Markit inline element back into TEI, and as the target vocabulary of
-// the forward rules below.
+// The canonical TEI form of every Markit wrapper type. Used by toTei to turn a
+// Markit inline element back into TEI, as the target vocabulary of the forward
+// rules below, and by fromTei's generic fallback for a self-nesting wrapper.
 export const WRAPPER_TEI: Record<
-  string,
+  WrapperType,
   { name: string; attrs?: [string, string][] }
 > = {
   quote: { name: "q" },
@@ -73,7 +74,7 @@ export type InlineRule = {
   tei: string;
   attr?: string;
   value?: string;
-  type: string;
+  type: WrapperType;
 };
 
 export const INLINE_RULES: InlineRule[] = [
@@ -108,7 +109,9 @@ export const INLINE_RULES: InlineRule[] = [
 ];
 
 // Find the Markit wrapper type for a TEI inline element, if any rule applies.
-export const matchInlineRule = (element: XmlElement): string | undefined => {
+export const matchInlineRule = (
+  element: XmlElement,
+): WrapperType | undefined => {
   const name = localName(element.name);
   for (const rule of INLINE_RULES) {
     if (rule.tei !== name) continue;

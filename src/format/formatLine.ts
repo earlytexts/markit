@@ -1,10 +1,15 @@
 import canonicaliseCharacterModes from "./canonicaliseCharacterModes.ts";
 import formatBlockTag from "./formatBlockTag.ts";
 import formatIdBlock from "./formatIdBlock.ts";
-import formatMetadata from "./formatMetadata.ts";
+import formatMetadata, {
+  handleMetadataArrayEnd,
+  handleMetadataArrayItem,
+  handleMetadataArrayStart,
+  handleMetadataHeader,
+} from "./formatMetadata.ts";
 import handleBlankLine from "./handleBlankLine.ts";
 import handleContentLine from "./handleContentLine.ts";
-import { emitBlank, emitLine } from "./helpers.ts";
+import { flushContent } from "./emit.ts";
 import type { State } from "./types.ts";
 
 export const initialState: State = {
@@ -22,39 +27,39 @@ export default (state: State, line: string): State => {
   }
 
   // Trim trailing whitespace and collapse internal whitespace to single spaces.
-  // Metadata lines keep their own handling; content lines route through a
-  // marker-aware normaliser so the indentation after a leading `>`/`:` prefix
-  // (which encodes nested-list depth) survives.
+  // Content lines route through a marker-aware normaliser so the indentation
+  // after a leading `>`/`:` prefix (which encodes nested-list depth) survives.
   const inMetadata = state.context === "inMetadata" ||
     state.context === "inMetadataArray";
   const normalized = inMetadata
-    ? line.trimEnd().replace(/(?<=\S)\s+/g, " ")
+    ? collapseWhitespace(line)
     : normalizeContentLine(line);
+  const trimmed = normalized.trim();
 
   // Divide...
-  const isBlank = normalized.trim() === "";
-  const isId = /^(#+)\s+(.+)$/.test(normalized.trim());
+  const isBlank = trimmed === "";
+  const isId = /^(#+)\s+(.+)$/.test(trimmed);
 
   // Bracket header: [metadata], [metadata.subkey], or any [header]
   const isMetadataHeader =
     (state.context === "afterId" || state.context === "inMetadata") &&
-    /^\[.+\]$/.test(normalized.trim());
+    /^\[.+\]$/.test(trimmed);
 
   // TOML key = value line (only in metadata context, after a header)
   const isMetadataKeyValue = state.context === "inMetadata" &&
     !isBlank &&
     !isMetadataHeader &&
     normalized.includes("=") &&
-    !normalized.trim().startsWith("[");
+    !trimmed.startsWith("[");
 
   // Multiline array start: key = [ with no closing ] on the same line
   const isMetadataArrayStart = state.context === "inMetadata" &&
     !isBlank &&
-    /^\w+\s*=\s*\[$/.test(normalized.trim());
+    /^\w+\s*=\s*\[$/.test(trimmed);
 
   // Inside a multiline array
   const isMetadataArrayEnd = state.context === "inMetadataArray" &&
-    (normalized.trim() === "]" || normalized.trim() === "],");
+    (trimmed === "]" || trimmed === "],");
 
   const isMetadataArrayItem = state.context === "inMetadataArray" && !isBlank &&
     !isMetadataArrayEnd;
@@ -83,6 +88,24 @@ export default (state: State, line: string): State => {
   );
 };
 
+/**
+ * Finish the run: flush any remaining buffered content and drop trailing
+ * blank lines, returning the final output lines.
+ */
+export const finish = (state: State): string[] => {
+  const { acc } = flushContent(state);
+  while (acc.length > 0 && acc.at(-1) === "") {
+    acc.pop();
+  }
+  return acc;
+};
+
+// Trim trailing whitespace and collapse interior whitespace runs to single
+// spaces; leading indentation (not preceded by a non-space) survives the
+// lookbehind.
+const collapseWhitespace = (line: string): string =>
+  line.trimEnd().replace(/(?<=\S)\s+/g, " ");
+
 // Normalise a content line, collapsing internal whitespace to single spaces.
 // A leading run of blockquote/stage markers (`>`/`:`, each followed by one
 // separator space) is peeled off first so that any indentation on the content
@@ -92,10 +115,9 @@ export default (state: State, line: string): State => {
 const normalizeContentLine = (line: string): string => {
   const trimmed = line.trimEnd();
 
-  // Non-marked lines: collapse interior whitespace; leading indentation (which
-  // is not preceded by a non-space) is preserved by the lookbehind as before.
+  // Non-marked lines: collapse interior whitespace, keeping leading indentation.
   if (!/^[>:]/.test(trimmed)) {
-    return trimmed.replace(/(?<=\S)\s+/g, " ");
+    return collapseWhitespace(trimmed);
   }
 
   // Peel stacked markers (`> > `, `> : `, …), normalising the whitespace
@@ -113,45 +135,8 @@ const normalizeContentLine = (line: string): string => {
   const marker = rest[0]!;
   const afterMarker = rest.slice(1);
   const hasSeparator = afterMarker.startsWith(" ");
-  const content = (hasSeparator ? afterMarker.slice(1) : afterMarker).replace(
-    /(?<=\S)\s+/g,
-    " ",
+  const content = collapseWhitespace(
+    hasSeparator ? afterMarker.slice(1) : afterMarker,
   );
   return `${prefix}${marker}${hasSeparator ? " " : ""}${content}`;
-};
-
-// Emit a [metadata] or [metadata.subkey] header line, transitioning to inMetadata context
-const handleMetadataHeader = (state: State, line: string): State => {
-  let newState: State = state;
-  if (state.context === "inMetadata") {
-    newState = emitBlank(newState);
-  }
-  newState = emitLine(newState, line.trim());
-  return { ...newState, context: "inMetadata" };
-};
-
-// Emit the opening `key = [` line and transition to array context
-const handleMetadataArrayStart = (state: State, line: string): State => {
-  const formatted = formatMetadataArrayKey(line);
-  const newState = emitLine(state, formatted);
-  return { ...newState, context: "inMetadataArray" };
-};
-
-// Emit a closing `]` or `],` line and transition back to inMetadata context
-const handleMetadataArrayEnd = (state: State, line: string): State => {
-  const newState = emitLine(state, line.trim());
-  return { ...newState, context: "inMetadata" };
-};
-
-// Emit an array item line (preserve indentation)
-const handleMetadataArrayItem = (state: State, line: string): State => {
-  return emitLine(state, line);
-};
-
-// Normalize the `key = [` line (spaces around `=`)
-const formatMetadataArrayKey = (line: string): string => {
-  const eqIndex = line.indexOf("=");
-  const key = line.slice(0, eqIndex).trim();
-  const rest = line.slice(eqIndex + 1).trim(); // should be "["
-  return `${key} = ${rest}`;
 };

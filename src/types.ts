@@ -315,6 +315,14 @@ export type CompileResult = {
 };
 
 /**
+ * Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
+ * (long-s and similar); by default the source is preserved faithfully.
+ */
+export type FromTEIOptions = {
+  modernize?: boolean;
+};
+
+/**
  * The two resolutions of a block's editorial markup: `edited` keeps insertions
  * and drops deletions (the curated reading text); `original` the reverse (the
  * printed text, character for character). Extraction and tokenisation are

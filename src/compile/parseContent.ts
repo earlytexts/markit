@@ -1,6 +1,7 @@
 import type {
   Block,
   BlockElement,
+  Blockquote,
   BlockType,
   Heading,
   HeadingLine,
@@ -10,6 +11,7 @@ import type {
   MarkitError,
   NestableBlockElement,
   Paragraph,
+  StageDirection,
   Table,
   TableCell,
   TableRow,
@@ -25,7 +27,7 @@ import classifyBlockLine from "../lib/classifyBlockLine.ts";
 import buildPositionMap from "./buildPositionMap.ts";
 import lineRange from "../lib/lineRange.ts";
 import makeError from "../lib/makeError.ts";
-import parseElements from "./parseElements.ts";
+import parseElements, { type ParseContext } from "./parseElements.ts";
 import type { Line } from "./splitIntoBlocks.ts";
 import type {
   BlockWithMetadata,
@@ -38,9 +40,7 @@ import type {
 export default (
   tree: TextTreeWithMetadata,
   positions: boolean,
-): [MarkitDocument, MarkitError[]] => {
-  return parseTextContent(tree, positions);
-};
+): [MarkitDocument, MarkitError[]] => parseTextContent(tree, positions);
 
 const parseTextContent = (
   text: TextTreeWithMetadata,
@@ -60,7 +60,7 @@ const parseTextContent = (
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
 
-  // Parse blocks for all internal children recursively, passing merged metadata down
+  // Parse blocks for all internal children recursively
   const childResults = text.children.map((child) =>
     parseTextContent(child, positions)
   );
@@ -91,6 +91,7 @@ const parseBlockContent = (
   positions: boolean,
 ): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
+  const ctx: ParseContext = { footnoteIds, errors, textId, positions };
 
   const blockType: BlockType = block.id === "title"
     ? "title"
@@ -104,12 +105,10 @@ const parseBlockContent = (
 
   const content = parseBlockLevelElements(
     block.lines,
-    footnoteIds,
-    errors,
-    allowHeadings,
-    "Headings are only allowed in title or subtitle blocks.",
-    textId,
-    positions,
+    allowHeadings
+      ? null
+      : "Headings are only allowed in title or subtitle blocks.",
+    ctx,
   );
 
   const parsedBlock: Block = {
@@ -134,7 +133,10 @@ type HeadingEntry = { level: number; line: Line };
 
 type ListItemEntry = {
   indent: number;
-  number: number; // Item number for ordered lists (ignored for unordered)
+  // The item number for ordered items; 0 for unordered/verse items, which also
+  // marks the item kind when a nested list's type is detected in buildListItems.
+  number: number;
+  markerLength: number;
   line: Line;
 };
 
@@ -154,77 +156,23 @@ type State =
   | { kind: "table"; rows: TableRowEntry[] };
 
 /**
- * Parse an array of lines into block-level elements (headings, paragraphs, blockquotes).
- * When `allowHeadings` is false, any heading markers are treated as paragraph text.
+ * Parse an array of lines into block-level elements (headings, paragraphs,
+ * blockquotes, stage directions, lists, tables). `headingError` is null when
+ * headings are allowed (title/subtitle blocks); otherwise it is the diagnostic
+ * to report for any heading line, whose content is then dropped.
  */
 const parseBlockLevelElements = (
   lines: Line[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  allowHeadings: boolean,
-  headingErrorMessage = "Headings are not allowed inside block quotations.",
-  textId: string,
-  positions: boolean,
+  headingError: string | null,
+  ctx: ParseContext,
 ): BlockElement[] => {
   const elements: BlockElement[] = [];
   let state: State = { kind: "none" };
 
   // Emit the block accumulated in the current state, then reset to none.
   const flush = (): void => {
-    if (state.kind === "paragraph") {
-      elements.push(
-        buildParagraph(state.lines, footnoteIds, errors, textId, positions),
-      );
-    } else if (state.kind === "blockquote") {
-      flushBlockquote(
-        state.lines,
-        elements,
-        footnoteIds,
-        errors,
-        textId,
-        positions,
-      );
-    } else if (state.kind === "stageDirection") {
-      flushStageDirection(
-        state.lines,
-        elements,
-        footnoteIds,
-        errors,
-        textId,
-        positions,
-      );
-    } else if (state.kind === "heading") {
-      flushHeading(
-        state.entries,
-        elements,
-        footnoteIds,
-        errors,
-        textId,
-        positions,
-      );
-    } else if (state.kind === "list") {
-      elements.push(
-        buildList(
-          state.ordered,
-          state.items,
-          footnoteIds,
-          errors,
-          textId,
-          positions,
-        ),
-      );
-    } else if (state.kind === "table") {
-      const table = buildTable(
-        state.rows,
-        footnoteIds,
-        errors,
-        textId,
-        positions,
-      );
-      if (table) {
-        elements.push(table);
-      }
-    }
+    const element = buildElement(state, ctx);
+    if (element) elements.push(element);
     state = { kind: "none" };
   };
 
@@ -241,7 +189,7 @@ const parseBlockLevelElements = (
     // Heading line with invalid level
     if (classification.kind === "invalidHeading") {
       flush();
-      errors.push(
+      ctx.errors.push(
         makeError({
           message: "Heading level must be between 1 and 6.",
           line: line.lineNumber,
@@ -255,7 +203,7 @@ const parseBlockLevelElements = (
     // Heading marker without a level digit
     if (classification.kind === "headingWithoutLevel") {
       flush();
-      errors.push(
+      ctx.errors.push(
         makeError({
           message: "Heading must be given a level between 1 and 6.",
           line: line.lineNumber,
@@ -268,11 +216,11 @@ const parseBlockLevelElements = (
 
     // Valid heading line
     if (classification.kind === "heading") {
-      if (!allowHeadings) {
+      if (headingError !== null) {
         flush();
-        errors.push(
+        ctx.errors.push(
           makeError({
-            message: headingErrorMessage,
+            message: headingError,
             line: line.lineNumber,
             column: line.charOffset,
             length: content.length,
@@ -312,13 +260,29 @@ const parseBlockLevelElements = (
       continue;
     }
 
-    // Unordered list item
-    if (classification.kind === "unorderedListItem") {
-      const { indent } = classification;
-      // Validate indent is a multiple of indentSize
+    // List item (ordered, unordered, or verse)
+    if (
+      classification.kind === "unorderedListItem" ||
+      classification.kind === "orderedListItem" ||
+      classification.kind === "verseListItem"
+    ) {
+      const ordered: "ordered" | "unordered" | "verse" =
+        classification.kind === "orderedListItem"
+          ? "ordered"
+          : classification.kind === "unorderedListItem"
+          ? "unordered"
+          : "verse";
+      const indent = classification.kind === "verseListItem"
+        ? 0
+        : classification.indent;
+      const number = classification.kind === "orderedListItem"
+        ? classification.number
+        : 0;
+
+      // Validate indent is a multiple of indentSize (verse is never indented)
       if (indent % listSpec.indentSize !== 0) {
         flush();
-        errors.push(
+        ctx.errors.push(
           makeError({
             message:
               `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
@@ -329,113 +293,46 @@ const parseBlockLevelElements = (
         );
         continue;
       }
-      // If we're in a list state and this item is at base indent (0),
-      // check if type matches. If not, flush and start new list.
-      if (state.kind === "list") {
-        if (indent === 0 && state.ordered !== "unordered") {
-          flush();
-          state = {
-            kind: "list",
-            ordered: "unordered",
-            items: [{ indent, number: 0, line }],
-          };
-        } else {
-          state.items.push({ indent, number: 0, line });
-        }
+
+      const entry: ListItemEntry = {
+        indent,
+        number,
+        markerLength: classification.markerLength,
+        line,
+      };
+      // A base-indent item of a different list kind starts a new list; anything
+      // else (same kind, or an indented item of either kind) joins the current
+      // one — nested list kinds are detected later, in buildListItems.
+      if (state.kind === "list" && (indent > 0 || state.ordered === ordered)) {
+        state.items.push(entry);
       } else {
         flush();
-        state = {
-          kind: "list",
-          ordered: "unordered",
-          items: [{ indent, number: 0, line }],
-        };
+        state = { kind: "list", ordered, items: [entry] };
       }
       continue;
     }
 
-    // Ordered list item
-    if (classification.kind === "orderedListItem") {
-      const { indent, number } = classification;
-      // Validate indent is a multiple of indentSize
-      if (indent % listSpec.indentSize !== 0) {
-        flush();
-        errors.push(
-          makeError({
-            message:
-              `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
-            line: line.lineNumber,
-            column: line.charOffset,
-            length: indent,
-          }),
-        );
-        continue;
-      }
-      // If we're in a list state and this item is at base indent (0),
-      // check if type matches. If not, flush and start new list.
-      if (state.kind === "list") {
-        if (indent === 0 && state.ordered !== "ordered") {
-          flush();
-          state = {
-            kind: "list",
-            ordered: "ordered",
-            items: [{ indent, number, line }],
-          };
-        } else {
-          state.items.push({ indent, number, line });
-        }
-      } else {
-        flush();
-        state = {
-          kind: "list",
-          ordered: "ordered",
-          items: [{ indent, number, line }],
-        };
-      }
-      continue;
-    }
-
-    // Verse line
-    if (classification.kind === "verseListItem") {
-      if (state.kind === "list" && state.ordered === "verse") {
-        state.items.push({ indent: 0, number: 0, line });
-      } else {
-        flush();
-        state = {
-          kind: "list",
-          ordered: "verse",
-          items: [{ indent: 0, number: 0, line }],
-        };
-      }
-      continue;
-    }
-
-    // Table separator row
-    if (classification.kind === "tableSeparator") {
+    // Table row or separator row
+    if (
+      classification.kind === "tableRow" ||
+      classification.kind === "tableSeparator"
+    ) {
+      const row: TableRowEntry = {
+        line,
+        isSeparator: classification.kind === "tableSeparator",
+      };
       if (state.kind === "table") {
-        state.rows.push({ line, isSeparator: true });
+        state.rows.push(row);
       } else {
         flush();
-        state = { kind: "table", rows: [{ line, isSeparator: true }] };
-      }
-      continue;
-    }
-
-    // Table row
-    if (classification.kind === "tableRow") {
-      if (state.kind === "table") {
-        state.rows.push({ line, isSeparator: false });
-      } else {
-        flush();
-        state = { kind: "table", rows: [{ line, isSeparator: false }] };
+        state = { kind: "table", rows: [row] };
       }
       continue;
     }
 
     // Regular content line → paragraph
-    if (state.kind !== "none" && state.kind !== "paragraph") {
-      flush();
-    }
     if (state.kind !== "paragraph") {
+      flush();
       state = { kind: "paragraph", lines: [line] };
     } else {
       state.lines.push(line);
@@ -448,16 +345,39 @@ const parseBlockLevelElements = (
 };
 
 /**
- * Emit a heading element built from consecutive heading lines.
+ * Build the block element for a finished state, or null when there is nothing
+ * to emit — the none state, an empty table, or a blockquote/stage direction
+ * whose content vanished (it contained only a heading).
  */
-const flushHeading = (
+const buildElement = (
+  state: State,
+  ctx: ParseContext,
+): BlockElement | null => {
+  switch (state.kind) {
+    case "none":
+      return null;
+    case "paragraph":
+      return buildParagraph(state.lines, ctx);
+    case "blockquote":
+      return buildNested("blockquote", state.lines, ctx);
+    case "stageDirection":
+      return buildNested("stageDirection", state.lines, ctx);
+    case "heading":
+      return buildHeading(state.entries, ctx);
+    case "list":
+      return buildList(state.ordered, state.items, ctx);
+    case "table":
+      return buildTable(state.rows, ctx);
+  }
+};
+
+/**
+ * Build a heading element from consecutive heading lines.
+ */
+const buildHeading = (
   entries: HeadingEntry[],
-  elements: BlockElement[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
-): void => {
+  ctx: ParseContext,
+): Heading => {
   const parsedLines: HeadingLine[] = entries.map(({ level, line }) => {
     const headingText = line.content.slice(3); // "^N " is always 3 chars
     const posMap = buildPositionMap([
@@ -467,41 +387,43 @@ const flushHeading = (
         content: headingText,
       },
     ]);
-    const [inlineContent, inlineErrors] = parseElements(
-      headingText,
-      posMap,
-      footnoteIds,
-      textId,
-      positions,
-    );
-    errors.push(...inlineErrors);
-    return { type: "headingLine", level, content: inlineContent };
+    const content = parseElements(headingText, posMap, ctx);
+    return { type: "headingLine", level, content };
   });
-  const heading: Heading = { type: "heading", content: parsedLines };
-  elements.push(heading);
+  return { type: "heading", content: parsedLines };
 };
 
+// What distinguishes the two marker-prefixed nested elements: the line marker
+// to strip, and the diagnostic for a heading found inside.
+const nestedSpecs = {
+  blockquote: {
+    marker: blockquoteSpec.marker,
+    headingError: "Headings are not allowed inside block quotations.",
+  },
+  stageDirection: {
+    marker: stageDirectionSpec.marker,
+    headingError: "Headings are not allowed inside stage directions.",
+  },
+} as const;
+
 /**
- * Emit a blockquote element by recursively parsing its inner (`>`-stripped)
- * lines as block-level content. Headings are disallowed (they only belong in
- * title/subtitle blocks); everything else — paragraphs, lists, verse, tables,
- * and nested quotations/stage directions — is kept. A blockquote that contained
- * only a heading ends up empty and produces no element.
+ * Build a blockquote or stage direction by recursively parsing its inner
+ * (marker-stripped) lines as block-level content. Headings are disallowed
+ * (they only belong in title/subtitle blocks); everything else — paragraphs,
+ * lists, verse, tables, and nested quotations/stage directions — is kept. An
+ * element that contained only a heading ends up empty and returns null.
  */
-const flushBlockquote = (
-  bqLines: Line[],
-  elements: BlockElement[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
-): void => {
-  // Strip > prefix from each line (including "blank" > lines which become blank)
-  const innerLines: Line[] = bqLines.map((line) => {
-    // Strip leading > (and optional single space after it)
-    const stripped = line.content
-      .slice(blockquoteSpec.marker.length)
-      .replace(/^ /, "");
+const buildNested = (
+  type: "blockquote" | "stageDirection",
+  lines: Line[],
+  ctx: ParseContext,
+): Blockquote | StageDirection | null => {
+  const { marker, headingError } = nestedSpecs[type];
+
+  // Strip the marker (and an optional single space after it) from each line;
+  // a bare marker line becomes a blank separator.
+  const innerLines: Line[] = lines.map((line) => {
+    const stripped = line.content.slice(marker.length).replace(/^ /, "");
     return {
       lineNumber: line.lineNumber,
       charOffset: line.charOffset + (line.content.length - stripped.length),
@@ -509,81 +431,21 @@ const flushBlockquote = (
     };
   });
 
-  const innerElements = parseBlockLevelElements(
-    innerLines,
-    footnoteIds,
-    errors,
-    false,
-    "Headings are not allowed inside block quotations.",
-    textId,
-    positions,
-  );
+  const innerElements = parseBlockLevelElements(innerLines, headingError, ctx);
 
-  // The allowHeadings=false guard means no heading ever reaches this list; the
-  // filter narrows the type from BlockElement to NestableBlockElement.
+  // The heading guard means no heading ever reaches this list; the filter
+  // narrows the type from BlockElement to NestableBlockElement.
   const content = innerElements.filter(
     (el): el is NestableBlockElement => el.type !== "heading",
   );
 
-  if (content.length > 0) {
-    elements.push({ type: "blockquote", content });
-  }
-};
-
-/**
- * Emit a stage-direction element by recursively parsing its inner (`:`-stripped)
- * lines as block-level content. As with blockquotes, headings are disallowed but
- * any other block element is kept, and an empty result produces no element.
- */
-const flushStageDirection = (
-  sdLines: Line[],
-  elements: BlockElement[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
-): void => {
-  // Strip the `:` prefix (and an optional single space) from each line.
-  const innerLines: Line[] = sdLines.map((line) => {
-    const stripped = line.content
-      .slice(stageDirectionSpec.marker.length)
-      .replace(/^ /, "");
-    return {
-      lineNumber: line.lineNumber,
-      charOffset: line.charOffset + (line.content.length - stripped.length),
-      content: stripped,
-    };
-  });
-
-  const innerElements = parseBlockLevelElements(
-    innerLines,
-    footnoteIds,
-    errors,
-    false,
-    "Headings are not allowed inside stage directions.",
-    textId,
-    positions,
-  );
-
-  const content = innerElements.filter(
-    (el): el is NestableBlockElement => el.type !== "heading",
-  );
-
-  if (content.length > 0) {
-    elements.push({ type: "stageDirection", content });
-  }
+  return content.length > 0 ? { type, content } : null;
 };
 
 /**
  * Build a paragraph from a list of non-blank content lines.
  */
-const buildParagraph = (
-  lines: Line[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
-): Paragraph => {
+const buildParagraph = (lines: Line[], ctx: ParseContext): Paragraph => {
   const nonBlank = lines.filter((l) => l.content !== "");
 
   const text = nonBlank
@@ -593,16 +455,9 @@ const buildParagraph = (
     .trim();
 
   const posMap = buildPositionMap(nonBlank);
-  const [inlineContent, inlineErrors] = parseElements(
-    text,
-    posMap,
-    footnoteIds,
-    textId,
-    positions,
-  );
-  errors.push(...inlineErrors);
+  const content = parseElements(text, posMap, ctx);
 
-  return { type: "paragraph", content: inlineContent };
+  return { type: "paragraph", content };
 };
 
 /**
@@ -612,10 +467,7 @@ const buildParagraph = (
 const buildList = (
   ordered: "ordered" | "unordered" | "verse",
   items: ListItemEntry[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
+  ctx: ParseContext,
 ): List => {
   // Find the minimum indent level (base level for this list)
   const baseIndent = Math.min(...items.map((item) => item.indent));
@@ -628,15 +480,7 @@ const buildList = (
       : undefined;
 
   // Build list items recursively, handling nesting
-  const listItems = buildListItems(
-    ordered,
-    items,
-    baseIndent,
-    footnoteIds,
-    errors,
-    textId,
-    positions,
-  );
+  const listItems = buildListItems(items, baseIndent, ctx);
 
   return {
     type: "list",
@@ -650,13 +494,9 @@ const buildList = (
  * Recursively build list items, handling nesting by indent level.
  */
 const buildListItems = (
-  ordered: "ordered" | "unordered" | "verse",
   items: ListItemEntry[],
   baseIndent: number,
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
+  ctx: ParseContext,
 ): ListItem[] => {
   const result: ListItem[] = [];
   let i = 0;
@@ -672,35 +512,21 @@ const buildListItems = (
 
     // Item at current indent level - parse its content
     const line = item.line;
-    // Strip the list marker prefix (e.g., "- ", "1. ", or "* ")
-    const markerMatch = ordered === "ordered"
-      ? /^\s*\d+\. /.exec(line.content)
-      : ordered === "verse"
-      ? /^\* /.exec(line.content)
-      : /^\s*- /.exec(line.content);
-    const markerLength = markerMatch![0].length;
-    const itemText = line.content.slice(markerLength);
+    const itemText = line.content.slice(item.markerLength);
 
     const posMap = buildPositionMap([
       {
         lineNumber: line.lineNumber,
-        charOffset: line.charOffset + markerLength,
+        charOffset: line.charOffset + item.markerLength,
         content: itemText,
       },
     ]);
 
-    const [inlineContent, inlineErrors] = parseElements(
-      itemText,
-      posMap,
-      footnoteIds,
-      textId,
-      positions,
-    );
-    errors.push(...inlineErrors);
+    const content = parseElements(itemText, posMap, ctx);
 
     const listItem: ListItem = {
       type: "listItem",
-      content: inlineContent,
+      content,
     };
 
     // Check if the next items are nested (deeper indent)
@@ -729,14 +555,7 @@ const buildListItems = (
         ? "ordered"
         : "unordered";
 
-      listItem.nestedList = buildList(
-        nestedOrdered,
-        nestedItems,
-        footnoteIds,
-        errors,
-        textId,
-        positions,
-      )!;
+      listItem.nestedList = buildList(nestedOrdered, nestedItems, ctx);
 
       // Skip past the nested items
       i = nestedEnd;
@@ -755,11 +574,8 @@ const buildListItems = (
  * Handles separator detection, cell parsing, and column normalization.
  */
 const buildTable = (
-  rowEntries: { line: Line; isSeparator: boolean }[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
+  rowEntries: TableRowEntry[],
+  ctx: ParseContext,
 ): Table | null => {
   // Find separator row index (if any)
   const separatorIndex = rowEntries.findIndex((entry) => entry.isSeparator);
@@ -772,7 +588,7 @@ const buildTable = (
 
   // Parse each row into cells
   const parsedRows: TableRow[] = dataRows.map((entry) =>
-    parseTableRow(entry.line, footnoteIds, errors, textId, positions)
+    parseTableRow(entry.line, ctx)
   );
 
   // Find maximum column count
@@ -784,7 +600,7 @@ const buildTable = (
     if (row.cells.length < maxColumns) {
       // Emit warning for inconsistent column count
       if (row.cells.length > 0) {
-        errors.push(
+        ctx.errors.push(
           makeError({
             message:
               `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
@@ -804,7 +620,7 @@ const buildTable = (
   // Warn if separator exists but not in correct position
   if (separatorIndex !== -1 && separatorIndex !== 1) {
     const sepLine = rowEntries[separatorIndex]!.line;
-    errors.push(
+    ctx.errors.push(
       makeError({
         message:
           "Table separator row should be the second row to define headers.",
@@ -825,13 +641,7 @@ const buildTable = (
 /**
  * Parse a single table row into cells.
  */
-const parseTableRow = (
-  line: Line,
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
-  textId: string,
-  positions: boolean,
-): TableRow => {
+const parseTableRow = (line: Line, ctx: ParseContext): TableRow => {
   const content = line.content.trim();
   const contentStart = line.content.indexOf(content);
 
@@ -878,16 +688,9 @@ const parseTableRow = (
       },
     ]);
 
-    const [inlineContent, inlineErrors] = parseElements(
-      trimmed,
-      posMap,
-      footnoteIds,
-      textId,
-      positions,
-    );
-    errors.push(...inlineErrors);
+    const content = parseElements(trimmed, posMap, ctx);
 
-    return { type: "tableCell", content: inlineContent };
+    return { type: "tableCell", content };
   });
 
   return { type: "tableRow", cells };

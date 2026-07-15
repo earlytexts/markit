@@ -128,6 +128,108 @@ const makeState = (version: Version, ranges: HighlightRange[]): State => ({
   sources: [],
 });
 
+const walkBlock = (block: Block, state: State): Block => ({
+  ...block,
+  content: block.content.map((element, i) => {
+    if (i > 0) joiner(state, "\n");
+    return walkElement(element, state);
+  }),
+});
+
+const walkElement = (
+  element: BlockElement,
+  state: State,
+): BlockElement =>
+  element.type === "heading"
+    ? {
+      ...element,
+      content: element.content.map((line, i) => {
+        if (i > 0) joiner(state, "\n");
+        return { ...line, content: walkInline(line.content, state) };
+      }),
+    }
+    : walkNestable(element, state);
+
+const walkNestable = (
+  element: NestableBlockElement,
+  state: State,
+): NestableBlockElement => {
+  switch (element.type) {
+    case "paragraph":
+      return { ...element, content: walkInline(element.content, state) };
+    case "blockquote":
+    case "stageDirection":
+      return {
+        ...element,
+        content: element.content.map((child, i) => {
+          if (i > 0) joiner(state, "\n");
+          return walkNestable(child, state);
+        }),
+      };
+    case "list":
+      return walkList(element, state);
+    case "table":
+      return {
+        ...element,
+        rows: element.rows.map((row, i) => {
+          if (i > 0) joiner(state, "\n");
+          return {
+            ...row,
+            cells: row.cells.map((cell, j) => {
+              if (j > 0) joiner(state, " | ");
+              return { ...cell, content: walkInline(cell.content, state) };
+            }),
+          };
+        }),
+      };
+  }
+};
+
+const walkList = (list: List, state: State): List => ({
+  ...list,
+  items: list.items.map((item, i) => {
+    if (i > 0) joiner(state, "\n");
+    const content = walkInline(item.content, state);
+    if (item.nestedList === undefined) return { ...item, content };
+    joiner(state, "\n");
+    return { ...item, content, nestedList: walkList(item.nestedList, state) };
+  }),
+});
+
+const walkInline = (
+  elements: InlineElement[],
+  state: State,
+): InlineElement[] =>
+  elements.flatMap((element): InlineElement[] => {
+    if (element.type === "plainText") {
+      const start = state.pos;
+      contribute(state, element.content, element.sources);
+      const marked = state.ranges.some((range) =>
+        range.start < state.pos && range.end > start
+      );
+      return marked
+        ? splitPlainText(element.content, start, state.ranges)
+        : [element];
+    }
+    if (element.type === "insertion" || element.type === "deletion") {
+      const dropped = element.type === "insertion"
+        ? state.version === "original"
+        : state.version === "edited";
+      if (dropped) return []; // contribute nothing; the side is gone
+      // The kept side is unwrapped to plain reading text, so editorial
+      // wrappers never appear in a context stack.
+      return walkInline(element.content, state);
+    }
+    if ("content" in element) {
+      state.context.push(frameOf(element));
+      const content = walkInline(element.content, state);
+      state.context.pop();
+      return [{ ...element, content }];
+    }
+    contribute(state, leafText(element));
+    return [element];
+  });
+
 /**
  * One source element's contribution: extend the text and record a span
  * carrying the current context. `charSources` — a plainText node's
@@ -256,105 +358,3 @@ const splitPlainText = (
   }
   return out;
 };
-
-const walkInline = (
-  elements: InlineElement[],
-  state: State,
-): InlineElement[] =>
-  elements.flatMap((element): InlineElement[] => {
-    if (element.type === "plainText") {
-      const start = state.pos;
-      contribute(state, element.content, element.sources);
-      const marked = state.ranges.some((range) =>
-        range.start < state.pos && range.end > start
-      );
-      return marked
-        ? splitPlainText(element.content, start, state.ranges)
-        : [element];
-    }
-    if (element.type === "insertion" || element.type === "deletion") {
-      const dropped = element.type === "insertion"
-        ? state.version === "original"
-        : state.version === "edited";
-      if (dropped) return []; // contribute nothing; the side is gone
-      // The kept side is unwrapped to plain reading text, so editorial
-      // wrappers never appear in a context stack.
-      return walkInline(element.content, state);
-    }
-    if ("content" in element) {
-      state.context.push(frameOf(element));
-      const content = walkInline(element.content, state);
-      state.context.pop();
-      return [{ ...element, content }];
-    }
-    contribute(state, leafText(element));
-    return [element];
-  });
-
-const walkList = (list: List, state: State): List => ({
-  ...list,
-  items: list.items.map((item, i) => {
-    if (i > 0) joiner(state, "\n");
-    const content = walkInline(item.content, state);
-    if (item.nestedList === undefined) return { ...item, content };
-    joiner(state, "\n");
-    return { ...item, content, nestedList: walkList(item.nestedList, state) };
-  }),
-});
-
-const walkNestable = (
-  element: NestableBlockElement,
-  state: State,
-): NestableBlockElement => {
-  switch (element.type) {
-    case "paragraph":
-      return { ...element, content: walkInline(element.content, state) };
-    case "blockquote":
-    case "stageDirection":
-      return {
-        ...element,
-        content: element.content.map((child, i) => {
-          if (i > 0) joiner(state, "\n");
-          return walkNestable(child, state);
-        }),
-      };
-    case "list":
-      return walkList(element, state);
-    case "table":
-      return {
-        ...element,
-        rows: element.rows.map((row, i) => {
-          if (i > 0) joiner(state, "\n");
-          return {
-            ...row,
-            cells: row.cells.map((cell, j) => {
-              if (j > 0) joiner(state, " | ");
-              return { ...cell, content: walkInline(cell.content, state) };
-            }),
-          };
-        }),
-      };
-  }
-};
-
-const walkElement = (
-  element: BlockElement,
-  state: State,
-): BlockElement =>
-  element.type === "heading"
-    ? {
-      ...element,
-      content: element.content.map((line, i) => {
-        if (i > 0) joiner(state, "\n");
-        return { ...line, content: walkInline(line.content, state) };
-      }),
-    }
-    : walkNestable(element, state);
-
-const walkBlock = (block: Block, state: State): Block => ({
-  ...block,
-  content: block.content.map((element, i) => {
-    if (i > 0) joiner(state, "\n");
-    return walkElement(element, state);
-  }),
-});

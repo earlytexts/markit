@@ -1,5 +1,5 @@
 import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
-import { emitBlank, emitLine, flushContent } from "./helpers.ts";
+import { emitBlank, emitLine, flushContent } from "./emit.ts";
 import type { State } from "./types.ts";
 
 // Context aware formatter for lines starting with block tags
@@ -21,18 +21,12 @@ export default (state: State, line: string): State => {
   const { tag, content } = formatBlockTag(line);
   newState = emitLine(newState, tag);
 
-  // If there's content after the tag, add it to buffer
-  if (content) {
-    newState = {
-      ...newState,
-      contentBuffer: [content],
-      context: "inContent",
-    };
-  } else {
-    newState = { ...newState, context: "inContent" };
-  }
-
-  return newState;
+  // Any content after the tag starts the block's content buffer
+  return {
+    ...newState,
+    contentBuffer: content ? [content] : [],
+    context: "inContent",
+  };
 };
 
 const formatBlockTag = (line: string): { tag: string; content: string } => {

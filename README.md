@@ -67,17 +67,20 @@ The `src/` directory separates the public API (the top-level modules, re-exporte
 
 ```
 src/
-├── compile.ts     # Public API: compile a Markit string → document (compileWithPositions adds source positions)
-├── format.ts      # Public API: autoformat a Markit string (orchestration only)
-├── renderText.ts  # Public API: render a compiled document to plain text (display projection)
-├── extract.ts     # Public API: extractText / highlight / resolve (block-level analysis projection)
-├── tokenize.ts    # Public API: tokenize a block into word tokens (over the extraction)
-├── types.ts       # Public API: the language's type definitions
-├── index.ts       # Public API entry point (re-exports)
-├── compile/       # Compiler pipeline stages
-├── format/        # Formatter state-machine handlers
-├── tei/           # Lossless TCP/TEI XML conversion (fromTEIXML / toTEIXML)
-└── lib/           # Shared internals, incl. grammar.ts (the markers/specs the parser matches)
+├── compile.ts         # Public API: compile a Markit string → document (compileWithPositions adds source positions)
+├── stripPositions.ts  # Public API: strip the source positions back out of a document
+├── format.ts          # Public API: autoformat a Markit string (orchestration only)
+├── renderText.ts      # Public API: render a compiled document to plain text (display projection)
+├── extract.ts         # Public API: extractText / highlight / resolve (block-level analysis projection)
+├── tokenize.ts        # Public API: tokenize a block into word tokens (over the extraction)
+├── fromTei.ts         # Public API: convert TCP/TEI XML → Markit source
+├── toTei.ts           # Public API: convert Markit source → canonical TEI P5 XML
+├── types.ts           # Public API: the language's type definitions
+├── index.ts           # Public API entry point (re-exports)
+├── compile/           # Compiler pipeline stages
+├── format/            # Formatter state-machine handlers
+├── tei/               # TEI conversion walkers, schema tables, and XML reader
+└── lib/               # Shared internals, incl. grammar.ts (the markers/specs the parser matches)
 ```
 
 The VS Code language-server extension lives alongside `src/` in [markit-language/](./markit-language/) (bundled with esbuild).
@@ -87,7 +90,7 @@ The VS Code language-server extension lives alongside `src/` in [markit-language
 - **TypeScript strict**: all options on; `noUncheckedIndexedAccess` means array access may be undefined
 - **ES modules**: imports must include `.js`/`.ts` extensions (`verbatimModuleSyntax`)
 - **Functional style**: pure functions, recursive tree traversal, minimal mutable state
-- **Formatting**: Prettier with default settings
+- **Formatting**: `deno fmt` with default settings
 
 ### Compiler design conventions
 
