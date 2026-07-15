@@ -41,6 +41,26 @@ describe("planFoldingRanges", () => {
     }
   });
 
+  it("folds a metadata block with no nested tables", () => {
+    const { document } = compileWithPositions(
+      [
+        "# Text", // line 0
+        "",
+        "[metadata]", // line 2
+        'title = "A Text"',
+        "",
+        "{#1}", // line 5
+        "Body.",
+        "",
+      ].join("\n"),
+    );
+
+    expect(planFoldingRanges(document)).toContainEqual({
+      startLine: 2,
+      endLine: 3,
+    });
+  });
+
   it("recurses into nested sections", () => {
     const { document } = compileWithPositions(
       [

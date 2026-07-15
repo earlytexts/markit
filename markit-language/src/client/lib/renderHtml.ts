@@ -225,7 +225,7 @@ const escapeAttr = (text: string): string =>
 // with the published pages.
 const lastSegment = (id: string): string => {
   const parts = id.split(/[./]/);
-  return parts[parts.length - 1] ?? id;
+  return parts[parts.length - 1];
 };
 
 const blockLabel = (id: string): string => {
