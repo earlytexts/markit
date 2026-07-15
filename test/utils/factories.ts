@@ -1,22 +1,20 @@
-import {
-  type Block,
-  type BlockElement,
-  type Blockquote,
-  endLine,
-  type Heading,
-  type HeadingLine,
-  type InlineElement,
-  type List,
-  type ListItem,
-  type MarkitDocument,
-  type NestableBlockElement,
-  type Paragraph,
-  type PlainText,
-  type StageDirection,
-  startLine,
-  type Table,
-  type TableCell,
-  type TableRow,
+import type {
+  Block,
+  BlockElement,
+  Blockquote,
+  Heading,
+  HeadingLine,
+  InlineElement,
+  List,
+  ListItem,
+  MarkitDocument,
+  NestableBlockElement,
+  Paragraph,
+  PlainText,
+  StageDirection,
+  Table,
+  TableCell,
+  TableRow,
 } from "../../src/types.ts";
 
 export const markit = (...lines: string[]): string => lines.join("\n");
@@ -98,14 +96,10 @@ export const paragraph = (id: string, content: BlockElement[]): Block => ({
   id,
   type: "paragraph",
   content,
-  [startLine]: 1,
-  [endLine]: 1,
 });
 
 export const document = (id: string, blocks: Block[]): MarkitDocument => ({
   id,
   blocks,
   children: [],
-  [startLine]: 1,
-  [endLine]: 1,
 });

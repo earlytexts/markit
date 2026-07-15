@@ -1,10 +1,11 @@
-// A small, dependency-free XML reader/writer, tuned to the needs of the TCP/TEI
+// A small, dependency-free XML reader, tuned to the needs of the TCP/TEI
 // converter. It is not a fully conformant XML processor: it handles the subset
 // the TCP "displayable XML" schema actually uses (elements, attributes, text,
 // comments, processing instructions, the doctype declaration, CDATA, and the
-// five predefined entities plus numeric character references). It aims for
-// information-lossless round-tripping, not byte-identical output: attribute
-// quoting is normalised to double quotes and entities are re-encoded canonically.
+// five predefined entities plus numeric character references). Parsing is
+// information-lossless (verified by the round-trip serializer in the tests):
+// attribute quoting is normalised to double quotes and entities are re-encoded
+// canonically.
 
 export type XmlNode = XmlElement | XmlText | XmlComment | XmlPI | XmlDoctype;
 
@@ -211,44 +212,28 @@ export const escapeText = (text: string): string =>
 export const escapeAttribute = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
-// --- Serialising ---------------------------------------------------------
-
-export const serializeNodes = (nodes: XmlNode[]): string =>
-  nodes.map(serializeNode).join("");
-
-export const serializeNode = (node: XmlNode): string => {
-  switch (node.kind) {
-    case "text":
-      return escapeText(node.content);
-    case "comment":
-      return `<!--${node.content}-->`;
-    case "pi":
-      return `<?${node.content}?>`;
-    case "doctype":
-      return `<!${node.content}>`;
-    case "element": {
-      const attrs = node.attributes
-        .map((a) => ` ${a.name}="${escapeAttribute(a.value)}"`)
-        .join("");
-      if (node.children.length === 0) {
-        return node.selfClosed
-          ? `<${node.name}${attrs}/>`
-          : `<${node.name}${attrs}></${node.name}>`;
-      }
-      return `<${node.name}${attrs}>${
-        serializeNodes(node.children)
-      }</${node.name}>`;
-    }
-  }
-};
-
 // --- Convenience accessors ----------------------------------------------
 
 export const attr = (element: XmlElement, name: string): string | undefined =>
   element.attributes.find((a) => a.name === name)?.value;
 
-export const childElements = (element: XmlElement): XmlElement[] =>
-  element.children.filter(isElement);
+// The first element child with the given local name, if any.
+export const childNamed = (
+  element: XmlElement,
+  name: string,
+): XmlElement | undefined =>
+  element.children.find(
+    (c): c is XmlElement => isElement(c) && localName(c.name) === name,
+  );
+
+// The element children with the given local name.
+export const childrenNamed = (
+  element: XmlElement,
+  name: string,
+): XmlElement[] =>
+  element.children.filter(
+    (c): c is XmlElement => isElement(c) && localName(c.name) === name,
+  );
 
 // Serialise the element name plus its attributes as the interior of a start tag
 // (e.g. `DIV1 TYPE="play" N="1"`). This is the canonical "provenance" string

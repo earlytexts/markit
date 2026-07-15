@@ -18,9 +18,14 @@ export type BlockLineKind =
   | { kind: "headingWithoutLevel" }
   | { kind: "blockquote" }
   | { kind: "stageDirection" }
-  | { kind: "verseListItem" }
-  | { kind: "unorderedListItem"; indent: number }
-  | { kind: "orderedListItem"; indent: number; number: number }
+  | { kind: "verseListItem"; markerLength: number }
+  | { kind: "unorderedListItem"; indent: number; markerLength: number }
+  | {
+    kind: "orderedListItem";
+    indent: number;
+    number: number;
+    markerLength: number;
+  }
   | { kind: "tableRow" }
   | { kind: "tableSeparator" }
   | { kind: "paragraph" };
@@ -36,6 +41,9 @@ const headingPattern = new RegExp(
 );
 const unorderedItemPattern = new RegExp(
   `^(\\s*)\\${listSpec.unorderedMarker} `,
+);
+const orderedItemPattern = new RegExp(
+  `^(\\s*)(\\d+)\\${listSpec.orderedMarker} `,
 );
 
 /**
@@ -77,24 +85,38 @@ export default (content: string): BlockLineKind => {
     return { kind: "stageDirection" };
   }
 
-  // Verse line: starts with verse marker and space (no indentation)
+  // Verse line: starts with verse marker and space (no indentation).
+  // markerLength counts the marker and its following space, so slicing it off
+  // a list line's content leaves exactly the item text.
   if (content.startsWith(`${listSpec.verseMarker} `)) {
-    return { kind: "verseListItem" };
+    return {
+      kind: "verseListItem",
+      markerLength: listSpec.verseMarker.length + 1,
+    };
   }
 
   // Unordered list item: starts with optional spaces, hyphen, and space
   const unorderedMatch = unorderedItemPattern.exec(content);
   if (unorderedMatch) {
     const indent = unorderedMatch[1]!.length;
-    return { kind: "unorderedListItem", indent };
+    return {
+      kind: "unorderedListItem",
+      indent,
+      markerLength: unorderedMatch[0].length,
+    };
   }
 
   // Ordered list item: starts with optional spaces, digit(s), period, and space
-  const orderedMatch = /^(\s*)(\d+)\. /.exec(content);
+  const orderedMatch = orderedItemPattern.exec(content);
   if (orderedMatch) {
     const indent = orderedMatch[1]!.length;
     const number = parseInt(orderedMatch[2]!, 10);
-    return { kind: "orderedListItem", indent, number };
+    return {
+      kind: "orderedListItem",
+      indent,
+      number,
+      markerLength: orderedMatch[0].length,
+    };
   }
 
   // Table separator row: contains only dashes and pipes

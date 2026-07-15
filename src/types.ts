@@ -4,36 +4,29 @@ import type { leafElements, wrapperElements } from "./lib/grammar.ts";
 
 /**
  * A compiler diagnostic: a syntax error or warning found while compiling a
- * Markit document. `line`/`column`/`endLine`/`endColumn` are 1-based, spanning
- * the offending text (`endColumn` exclusive). Diagnostics never stop
+ * Markit document. `source` spans the offending text. Diagnostics never stop
  * compilation — `compile` always returns a best-effort document alongside its
  * errors.
  */
 export type MarkitError = {
   message: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
   severity: "error" | "warning";
+  source: SourceRange;
 };
 
 /**
- * A source line range, keyed by the `startLine`/`endLine` symbols rather than
- * plain string keys so it stays out of `JSON.stringify` output. Attached to
- * every `MarkitDocument`, `Block`, and `Metadata` node for editor tooling (e.g.
- * code folding); not meaningful outside that use.
+ * The extent of a metadata node in the source, kept as a sibling of the
+ * `metadata` property (`Metadata` is an open record, so a range property
+ * inside it could collide with a metadata key). `source` covers the whole
+ * metadata extent — a block tag's metadata pairs, or a text's `[metadata]`
+ * block(s) from first to last; `nested` holds one range per
+ * `[metadata.<key>]` sub-block, keyed by that key. Populated only by
+ * `compileWithPositions`; whole-line ranges (see `MarkitDocument.source`).
  */
-export type Ranges = {
-  [startLine]: number;
-  [endLine]: number;
+export type MetadataSource = {
+  source: SourceRange;
+  nested?: Record<string, SourceRange>;
 };
-
-/** Symbol key for a node's first source line; see `Ranges`. */
-export const startLine: unique symbol = Symbol("startLine");
-
-/** Symbol key for a node's last source line; see `Ranges`. */
-export const endLine: unique symbol = Symbol("endLine");
 
 /**
  * A value permitted in a Markit metadata block: boolean, number, string, or a
@@ -53,25 +46,31 @@ export type MetadataValue =
  * `[metadata.<key>]` sub-block). There is no fixed schema — any keys are
  * preserved as given.
  */
-export type Metadata =
-  & Record<
-    string,
-    MetadataValue | (Record<string, MetadataValue> & Ranges)
-  >
-  & Ranges;
+export type Metadata = Record<
+  string,
+  MetadataValue | Record<string, MetadataValue>
+>;
 
 /**
  * A compiled text and its subtree, as produced by `compile`. `id` is the
  * text's own ID for the root, or the dot-joined path from the root for a
  * nested text (e.g. `Title.Chapter1.Section2`). `children` holds the texts one
  * heading level deeper (`##` inside a `#` text, and so on).
+ *
+ * `source` and `metadataSource` — present only on `compileWithPositions`
+ * output — locate the node in the source for editor tooling (code folding,
+ * error attribution). Node-level ranges are whole-line and end-exclusive: a
+ * node spanning source lines 2-3 has `start` `{ line: 2, column: 0 }` and
+ * `end` `{ line: 4, column: 0 }`.
  */
 export type MarkitDocument = {
   id: string;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   blocks: Block[];
   children: MarkitDocument[];
-} & Ranges;
+  source?: SourceRange;
+};
 
 /**
  * The kind of a content block, determined by its block ID (see
@@ -81,13 +80,19 @@ export type MarkitDocument = {
  */
 export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
 
-/** A single `{#id, ...}` content block and its parsed block-level content. */
+/**
+ * A single `{#id, ...}` content block and its parsed block-level content.
+ * `source`/`metadataSource` as on `MarkitDocument`: whole-line ranges,
+ * populated only by `compileWithPositions`.
+ */
 export type Block = {
   id: string;
   type: BlockType;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   content: BlockElement[];
-} & Ranges;
+  source?: SourceRange;
+};
 
 /** The block-level elements a `Block`'s `content` can contain. */
 export type BlockElement =
@@ -213,8 +218,10 @@ export type PlainText = {
   content: string;
   /**
    * Per-character source positions, one per `content` character. Populated only
-   * when compiling with `{ tokens: true }` (so `tokenize` can map a rendered
-   * offset back to source); absent otherwise, so ordinary compiles stay lean.
+   * by `compileWithPositions` (so extraction and tokenisation can map an
+   * extracted offset back to a source line/column); absent from plain
+   * `compile` output, so ordinary compiles stay lean and serialisable output
+   * stays small.
    */
   sources?: SourcePosition[];
 };
@@ -298,19 +305,86 @@ export type Highlight = {
 /** A source position: 0-based line and column, as `buildPositionMap` reports. */
 export type SourcePosition = { line: number; column: number };
 
+/** A span of source text: `start` inclusive, `end` exclusive. */
+export type SourceRange = { start: SourcePosition; end: SourcePosition };
+
+/** The result of compiling a Markit document string; see `compile`. */
+export type CompileResult = {
+  document: MarkitDocument;
+  errors: MarkitError[];
+};
+
 /**
- * One word token of a document's rendered text (see `tokenize`). `text` is the
+ * Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
+ * (long-s and similar); by default the source is preserved faithfully.
+ */
+export type FromTEIOptions = {
+  modernize?: boolean;
+};
+
+/**
+ * The two resolutions of a block's editorial markup: `edited` keeps insertions
+ * and drops deletions (the curated reading text); `original` the reverse (the
+ * printed text, character for character). Extraction and tokenisation are
+ * always relative to one version.
+ */
+export type Version = "edited" | "original";
+
+/**
+ * The analysis projection of a block (see `extractText`): its extracted plain
+ * text and, per contributing source element, the span it contributed with the
+ * wrapper context around it. Characters between spans are synthetic joiners
+ * (newlines between block elements, `" | "` between table cells).
+ */
+export type Extraction = { text: string; spans: Span[] };
+
+/**
+ * One source element's contribution to a block's extracted text: the
+ * `[start, end)` range it occupies (into `Extraction.text`), the wrapper
+ * context around it (outermost first), and — from `compileWithPositions` only —
+ * its source span (`end` exclusive).
+ */
+export type Span = {
+  start: number;
+  end: number;
+  source?: SourceRange;
+  context: Frame[];
+};
+
+/**
+ * One enclosing element in a span's or token's wrapper context: a plain
+ * wrapper (quote, strong, person, citation, …), a language run with its ISO
+ * code, a `[w:surface=word]` element with its disambiguated word, a generic
+ * raw element with its tag and attributes, or a synthetic highlight. Editorial
+ * insertions/deletions never appear — extraction resolves them to one version
+ * and unwraps the kept side.
+ */
+export type Frame =
+  | { type: WrapperType }
+  | { type: "language"; lang?: string }
+  | { type: "word"; word: string }
+  | { type: "element"; tag: string; attributes: ElementAttribute[] }
+  | { type: "highlight" };
+
+/**
+ * One word token of a block's extracted text (see `tokenize`). `text` is the
  * word with any non-breaking spaces normalised to a plain space (so `a~priori`
  * reads `"a priori"`); `start`/`end` are `[start, end)` offsets into
- * `renderText`'s output (which holds the raw U+00A0), for highlighting. `source`
- * — present only on tokens from `compile(text, { tokens: true })` — is the
- * token's span in the source, `end` exclusive.
+ * `extractText(block, { version }).text` (which holds the raw U+00A0). The
+ * `context` is the full wrapper stack around the token (outermost first);
+ * `word` and `lang` distil the common lookups from it — the nearest enclosing
+ * `[w:…=word]` value and language code. `source` — present only on tokens
+ * from a `compileWithPositions` document — is the token's span in the source,
+ * `end` exclusive.
  */
 export type Token = {
   text: string;
   start: number;
   end: number;
-  source?: { start: SourcePosition; end: SourcePosition };
+  source?: SourceRange;
+  context: Frame[];
+  word?: string;
+  lang?: string;
 };
 
 /**

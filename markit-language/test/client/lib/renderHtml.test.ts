@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { compile } from "@earlytexts/markit";
+import { compile, highlight } from "@earlytexts/markit";
+import type { MarkitDocument } from "@earlytexts/markit";
 import renderHtml from "../../../src/client/lib/renderHtml.ts";
 
 // Compile a whole Markit document (with the "# Id" header) so the renderer sees
 // real ids, sections and block ranges.
 const render = (...lines: string[]): string => {
-  const [document] = compile(lines.join("\n"));
+  const { document } = compile(lines.join("\n"));
   return renderHtml(document);
 };
 
@@ -101,6 +102,11 @@ describe("blocks", () => {
     expect(html).toContain('<div id="Text.n1" class="text-block-wrapper"');
     expect(html).toContain('href="#Text.n1"');
   });
+
+  it("renders a paragraph's subsection metadata as a marker", () => {
+    const html = render("# Text", "", '{#1, subsection="2.1"}', "Body.", "");
+    expect(html).toContain('<span class="subsection-marker">2.1</span>');
+  });
 });
 
 describe("block elements", () => {
@@ -120,6 +126,11 @@ describe("block elements", () => {
     const html = render("# Text", "", "{#1}", "3. third", "4. fourth", "");
     expect(html).toContain('<ol start="3">');
     expect(html).toContain("<li>third</li>");
+  });
+
+  it("renders ordered lists starting at one without a start attribute", () => {
+    const html = render("# Text", "", "{#1}", "1. one", "2. two", "");
+    expect(html).toContain("<ol><li>one</li><li>two</li></ol>");
   });
 
   it("renders unordered lists", () => {
@@ -157,6 +168,14 @@ describe("block elements", () => {
     );
     expect(html).toContain("<thead><tr><th>A</th><th>B</th></tr></thead>");
     expect(html).toContain("<tbody><tr><td>1</td><td>2</td></tr></tbody>");
+  });
+
+  it("renders headerless tables with every row in the body", () => {
+    const html = render("# Text", "", "{#1}", "| 1 | 2 |", "| 3 | 4 |", "");
+    expect(html).not.toContain("<thead>");
+    expect(html).toContain(
+      "<tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody>",
+    );
   });
 });
 
@@ -235,7 +254,66 @@ describe("inline elements", () => {
     );
   });
 
+  it("renders hard line breaks, tabs, and non-breaking spaces", () => {
+    expect(renderInline("one\\ two")).toContain("one<br />two");
+    expect(renderInline("col~~umn")).toContain("col&emsp;umn");
+    expect(renderInline("a~space")).toContain("a&nbsp;space");
+  });
+
+  it("renders asides, speakers, and inline stage directions", () => {
+    expect(renderInline("an #aside# here")).toContain(
+      '<span class="aside">aside</span>',
+    );
+    expect(renderInline("@Philo@ speaks")).toContain(
+      '<span class="speaker">Philo</span>',
+    );
+    expect(renderInline("then ::aloud:: he")).toContain(
+      '<span class="stage-direction">aloud</span>',
+    );
+  });
+
+  it("renders word disambiguations carrying the modern word", () => {
+    expect(renderInline("a [w:humane=human] word")).toContain(
+      '<span class="word" data-word="human">humane</span>',
+    );
+  });
+
+  it("renders search highlights produced by markit's highlight", () => {
+    const { document } = compile(
+      ["# Text", "", "{#1}", "Hello world.", ""].join("\n"),
+    );
+    const blocks = document.blocks.map((block) =>
+      highlight(block, [{ start: 0, end: 5 }]),
+    );
+    const html = renderHtml({ ...document, blocks });
+    expect(html).toContain("<mark>Hello</mark>");
+  });
+
   it("escapes HTML metacharacters in text", () => {
     expect(renderInline("a & b")).toContain("a &amp; b");
+  });
+});
+
+// The renderer accepts any MarkitDocument, not just compiler output — the
+// highlight workflow above assembles documents by hand, and so may other
+// tooling. Cover the shapes the type allows but the compiler never produces.
+describe("documents assembled outside the compiler", () => {
+  it("shows an unprefixed block id whole and keeps a rowless header table empty", () => {
+    const document: MarkitDocument = {
+      id: "Text",
+      blocks: [
+        {
+          id: "1",
+          type: "paragraph",
+          content: [{ type: "table", hasHeader: true, rows: [] }],
+        },
+      ],
+      children: [],
+    };
+    const html = renderHtml(document);
+    expect(html).toContain('<span class="block-id">1</span>');
+    expect(html).toContain(
+      "<table><thead><tr></tr></thead><tbody></tbody></table>",
+    );
   });
 });

@@ -5,7 +5,7 @@ import { markit } from "./utils/factories.ts";
 
 describe("document tree", () => {
   it("parses the document tree and text IDs", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Test.Document",
         "",
@@ -45,7 +45,7 @@ describe("document tree", () => {
   });
 
   it("parses a text with only an ID block and no metadata or content", () => {
-    const [document, errors] = compile(markit("# Text.Only"));
+    const { document, errors } = compile(markit("# Text.Only"));
 
     expect(errors).toHaveLength(0);
     expect(document.id).toBe("Text.Only");
@@ -56,56 +56,56 @@ describe("document tree", () => {
 
 describe("document headers", () => {
   it("returns empty document and error for empty document", () => {
-    const [, errors] = compile("");
+    const { errors } = compile("");
 
     expect(errors[0]).toMatchObject({
       message: "Document is empty",
-      line: 1,
-      column: 1,
-      endLine: 1,
-      endColumn: 1,
+      source: {
+        start: { line: 0, column: 0 },
+        end: { line: 0, column: 0 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for document with no root ID block", () => {
-    const [, errors] = compile(markit("{#0}", "Text", ""));
+    const { errors } = compile(markit("{#0}", "Text", ""));
 
     expect(errors[0]).toMatchObject({
       message: "Document must begin with a level 1 header (e.g. # Document.Id)",
-      line: 1,
-      column: 1,
-      endLine: 1,
-      endColumn: 5,
+      source: {
+        start: { line: 0, column: 0 },
+        end: { line: 0, column: 4 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for document with non-level-1 root header", () => {
-    const [, errors] = compile(markit("## Markit.Errors"));
+    const { errors } = compile(markit("## Markit.Errors"));
 
     expect(errors[0]).toMatchObject({
       message: "Expected level 1 header but found level 2",
-      line: 1,
-      column: 1,
-      endLine: 1,
-      endColumn: 17,
+      source: {
+        start: { line: 0, column: 0 },
+        end: { line: 0, column: 16 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for document with level jump", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Markit.Errors", "", "## BadTextMetadata", "", "#### TooDeep"),
     );
 
     expect(errors[0]).toMatchObject({
       message:
         "Level 4 header cannot follow level 2 header without an intermediate level",
-      line: 5,
-      column: 1,
-      endLine: 5,
-      endColumn: 13,
+      source: {
+        start: { line: 4, column: 0 },
+        end: { line: 4, column: 12 },
+      },
       severity: "error",
     });
   });

@@ -2,8 +2,8 @@ import { expect } from "@std/expect";
 import { describe, it } from "@std/testing/bdd";
 import compile from "../src/compile.ts";
 import format from "../src/format.ts";
-import fromTEIXML from "../src/tei/fromTei.ts";
-import toTEIXML from "../src/tei/toTei.ts";
+import fromTEIXML from "../src/fromTei.ts";
+import toTEIXML from "../src/toTei.ts";
 
 // Wrap body markup in a minimal, valid TEI P5 document (TEI namespace, header,
 // single text/body). Most fromTEIXML tests feed `tei(<div>…</div>)`.
@@ -16,7 +16,7 @@ const HEADER =
 // Convert, and assert the produced Markit compiles without diagnostics.
 const clean = (xml: string, opts?: { modernize?: boolean }): string => {
   const mit = fromTEIXML(xml, opts);
-  const [, errors] = compile(mit);
+  const { errors } = compile(mit);
   expect(errors).toEqual([]);
   return mit;
 };

@@ -6,9 +6,11 @@
 
 import {
   attr,
+  childNamed,
+  childrenNamed,
+  escapeAttribute,
   escapeText,
   isElement,
-  localName,
   type XmlElement,
 } from "./xml.ts";
 
@@ -21,51 +23,12 @@ export type MetaTree = {
 
 // --- TEI header → metadata -----------------------------------------------
 
-const child = (element: XmlElement, name: string): XmlElement | undefined =>
-  element.children.find(
-    (c): c is XmlElement => isElement(c) && localName(c.name) === name,
-  );
-
-const childrenNamed = (element: XmlElement, name: string): XmlElement[] =>
-  element.children.filter(
-    (c): c is XmlElement => isElement(c) && localName(c.name) === name,
-  );
-
-// All descendant text of an element, whitespace-collapsed and trimmed.
-const text = (element: XmlElement): string => {
-  const gather = (node: XmlElement): string =>
-    node.children
-      .map((c) => c.kind === "text" ? c.content : isElement(c) ? gather(c) : "")
-      .join("");
-  return gather(element).replace(/\s+/g, " ").trim();
-};
-
-// Collapse a list of elements to one scalar (single value) or array (several).
-const scalarOrArray = (values: string[]): string | string[] | undefined =>
-  values.length === 0 ? undefined : values.length === 1 ? values[0]! : values;
-
-// Pull publisher / pubPlace / date out of a <publicationStmt> (date prefers the
-// machine-readable @when).
-const pubPairs = (stmt: XmlElement): [string, string][] => {
-  const pairs: [string, string][] = [];
-  for (const name of ["publisher", "pubPlace"]) {
-    const el = child(stmt, name);
-    if (el && text(el)) pairs.push([name, text(el)]);
-  }
-  const date = child(stmt, "date");
-  if (date) {
-    const value = attr(date, "when") ?? text(date);
-    if (value) pairs.push(["date", value]);
-  }
-  return pairs;
-};
-
 export const headerToMetadata = (header: XmlElement): MetaTree => {
   const top: [string, string | string[]][] = [];
   const sections: [string, [string, string | string[]][]][] = [];
 
-  const fileDesc = child(header, "fileDesc");
-  const titleStmt = fileDesc && child(fileDesc, "titleStmt");
+  const fileDesc = childNamed(header, "fileDesc");
+  const titleStmt = fileDesc && childNamed(fileDesc, "titleStmt");
 
   if (titleStmt) {
     const titles = childrenNamed(titleStmt, "title").map(text).filter(Boolean);
@@ -88,16 +51,16 @@ export const headerToMetadata = (header: XmlElement): MetaTree => {
   const language = fileDesc && headerLanguage(header);
   if (language) top.push(["language", language]);
 
-  const extent = fileDesc && child(fileDesc, "extent");
+  const extent = fileDesc && childNamed(fileDesc, "extent");
   if (extent && text(extent)) top.push(["extent", text(extent)]);
 
-  const notesStmt = fileDesc && child(fileDesc, "notesStmt");
+  const notesStmt = fileDesc && childNamed(fileDesc, "notesStmt");
   if (notesStmt) {
     const notes = childrenNamed(notesStmt, "note").map(text).filter(Boolean);
     if (notes.length > 0) top.push(["notes", notes]);
   }
 
-  const publicationStmt = fileDesc && child(fileDesc, "publicationStmt");
+  const publicationStmt = fileDesc && childNamed(fileDesc, "publicationStmt");
   if (publicationStmt) {
     const pairs = pubPairs(publicationStmt);
     if (pairs.length > 0) sections.push(["publication", pairs]);
@@ -118,13 +81,12 @@ export const headerToMetadata = (header: XmlElement): MetaTree => {
     if (idnoPairs.length > 0) sections.push(["idno", idnoPairs]);
   }
 
-  const biblFull = fileDesc &&
-    child(fileDesc, "sourceDesc") &&
-    child(child(fileDesc, "sourceDesc")!, "biblFull");
+  const sourceDesc = fileDesc && childNamed(fileDesc, "sourceDesc");
+  const biblFull = sourceDesc && childNamed(sourceDesc, "biblFull");
   if (biblFull) {
-    const stmt = child(biblFull, "publicationStmt");
+    const stmt = childNamed(biblFull, "publicationStmt");
     const pairs: [string, string][] = stmt ? pubPairs(stmt) : [];
-    const srcExtent = child(biblFull, "extent");
+    const srcExtent = childNamed(biblFull, "extent");
     if (srcExtent && text(srcExtent)) pairs.push(["extent", text(srcExtent)]);
     if (pairs.length > 0) sections.push(["source", pairs]);
   }
@@ -133,13 +95,42 @@ export const headerToMetadata = (header: XmlElement): MetaTree => {
 };
 
 const headerLanguage = (header: XmlElement): string | undefined => {
-  const profileDesc = child(header, "profileDesc");
-  const langUsage = profileDesc && child(profileDesc, "langUsage");
-  const language = langUsage && child(langUsage, "language");
+  const profileDesc = childNamed(header, "profileDesc");
+  const langUsage = profileDesc && childNamed(profileDesc, "langUsage");
+  const language = langUsage && childNamed(langUsage, "language");
   return language
     ? (attr(language, "ident") ?? text(language)) || undefined
     : undefined;
 };
+
+// Pull publisher / pubPlace / date out of a <publicationStmt> (date prefers the
+// machine-readable @when).
+const pubPairs = (stmt: XmlElement): [string, string][] => {
+  const pairs: [string, string][] = [];
+  for (const name of ["publisher", "pubPlace"]) {
+    const el = childNamed(stmt, name);
+    if (el && text(el)) pairs.push([name, text(el)]);
+  }
+  const date = childNamed(stmt, "date");
+  if (date) {
+    const value = attr(date, "when") ?? text(date);
+    if (value) pairs.push(["date", value]);
+  }
+  return pairs;
+};
+
+// All descendant text of an element, whitespace-collapsed and trimmed.
+const text = (element: XmlElement): string => {
+  const gather = (node: XmlElement): string =>
+    node.children
+      .map((c) => c.kind === "text" ? c.content : isElement(c) ? gather(c) : "")
+      .join("");
+  return gather(element).replace(/\s+/g, " ").trim();
+};
+
+// Collapse a list of elements to one scalar (single value) or array (several).
+const scalarOrArray = (values: string[]): string | string[] | undefined =>
+  values.length === 0 ? undefined : values.length === 1 ? values[0]! : values;
 
 // --- Metadata → TEI header -----------------------------------------------
 
@@ -148,45 +139,31 @@ const headerLanguage = (header: XmlElement): string | undefined => {
 // the helpers below guard each access.
 export type MetaObject = Record<string, unknown>;
 
-// Callers only pass defined scalar values (guarded by the truthiness/`!==
-// undefined` checks at each call site).
-const str = (value: unknown): string => escapeText(String(value));
-
-const asArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.map(String)
-    : value === undefined
-    ? []
-    : [String(value)];
-
-const tag = (name: string, value: string): string =>
-  `<${name}>${value}</${name}>`;
-
 // Build a canonical, minimal-valid P5 <teiHeader> from a root text's metadata.
 export const metadataToHeader = (metadata: MetaObject | undefined): string => {
   const meta = metadata ?? {};
 
   const titles = asArray(meta["title"]);
   const titleTags = (titles.length > 0 ? titles : [""])
-    .map((t) => tag("title", escapeText(t)))
+    .map((t) => tag("title", t))
     .join("");
   const authorTags = asArray(meta["authors"] ?? meta["author"])
-    .map((a) => tag("author", escapeText(a)))
+    .map((a) => tag("author", a))
     .join("");
   const editorTags = asArray(meta["editors"] ?? meta["editor"])
-    .map((e) => tag("editor", escapeText(e)))
+    .map((e) => tag("editor", e))
     .join("");
   const titleStmt =
     `<titleStmt>${titleTags}${authorTags}${editorTags}</titleStmt>`;
 
-  const extent = meta["extent"] ? tag("extent", str(meta["extent"])) : "";
+  const extent = meta["extent"] ? tag("extent", String(meta["extent"])) : "";
 
   const publication = isObject(meta["publication"]) ? meta["publication"] : {};
   const idno = isObject(meta["idno"]) ? meta["idno"] : {};
   const idnoTags = Object.entries(idno)
     .flatMap(([type, value]) =>
       asArray(value).map(
-        (v) => `<idno type="${escapeText(type)}">${escapeText(v)}</idno>`,
+        (v) => `<idno type="${escapeAttribute(type)}">${escapeText(v)}</idno>`,
       )
     )
     .join("");
@@ -196,15 +173,13 @@ export const metadataToHeader = (metadata: MetaObject | undefined): string => {
 
   const notes = asArray(meta["notes"]);
   const notesStmt = notes.length > 0
-    ? `<notesStmt>${
-      notes.map((n) => tag("note", escapeText(n))).join("")
-    }</notesStmt>`
+    ? `<notesStmt>${notes.map((n) => tag("note", n)).join("")}</notesStmt>`
     : "";
 
   const source = isObject(meta["source"]) ? meta["source"] : {};
   const sourceBody = Object.keys(source).length > 0
     ? `<biblFull><publicationStmt>${pubBody(source)}</publicationStmt>${
-      source["extent"] ? tag("extent", str(source["extent"])) : ""
+      source["extent"] ? tag("extent", String(source["extent"])) : ""
     }</biblFull>`
     : "<p>Source description not available.</p>";
   const sourceDesc = `<sourceDesc>${sourceBody}</sourceDesc>`;
@@ -215,7 +190,7 @@ export const metadataToHeader = (metadata: MetaObject | undefined): string => {
   const language = meta["language"];
   const profileDesc = language
     ? `<profileDesc><langUsage><language ident="${
-      escapeText(String(language))
+      escapeAttribute(String(language))
     }">${escapeText(String(language))}</language></langUsage></profileDesc>`
     : "";
 
@@ -226,8 +201,19 @@ export const metadataToHeader = (metadata: MetaObject | undefined): string => {
 const pubBody = (obj: Record<string, unknown>): string =>
   ["publisher", "pubPlace", "date"]
     .filter((k) => obj[k] !== undefined)
-    .map((k) => tag(k, str(obj[k])))
+    .map((k) => tag(k, String(obj[k])))
     .join("");
+
+// A simple element holding text content (escaped here, so callers pass raw).
+const tag = (name: string, value: string): string =>
+  `<${name}>${escapeText(value)}</${name}>`;
+
+const asArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.map(String)
+    : value === undefined
+    ? []
+    : [String(value)];
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

@@ -34,6 +34,21 @@ export default (text: string): RawBlock[] => {
 
   const blocks: RawBlock[] = [];
 
+  // Start a new block whose first line is the trimmed content of `line`.
+  const startBlock = (index: number, line: string, trimmed: string): void => {
+    blocks.push({
+      startLine: index,
+      endLine: index,
+      lines: [
+        {
+          lineNumber: index,
+          charOffset: line.indexOf(trimmed),
+          content: trimmed,
+        },
+      ],
+    });
+  };
+
   lines.forEach((line, index) => {
     const trimmed = line.trim();
 
@@ -41,36 +56,15 @@ export default (text: string): RawBlock[] => {
     if (/^#+\s/.test(trimmed)) {
       insideContentBlock = false;
       blankBreak = false;
-      blocks.push({
-        startLine: index,
-        endLine: index,
-        lines: [
-          {
-            lineNumber: index,
-            charOffset: line.indexOf(trimmed),
-            content: trimmed,
-          },
-        ],
-      });
+      startBlock(index, line, trimmed);
       return;
     }
 
     // Bracket header line: [metadata], [metadata.subkey], etc.
     // Only outside content blocks — inside a block, [foo] is inline syntax.
     if (!insideContentBlock && /^\[.+\]$/.test(trimmed)) {
-      insideContentBlock = false;
       blankBreak = false;
-      blocks.push({
-        startLine: index,
-        endLine: index,
-        lines: [
-          {
-            lineNumber: index,
-            charOffset: line.indexOf(trimmed),
-            content: trimmed,
-          },
-        ],
-      });
+      startBlock(index, line, trimmed);
       return;
     }
 
@@ -78,17 +72,7 @@ export default (text: string): RawBlock[] => {
     if (trimmed.startsWith("{#")) {
       insideContentBlock = true;
       blankBreak = false;
-      blocks.push({
-        startLine: index,
-        endLine: index,
-        lines: [
-          {
-            lineNumber: index,
-            charOffset: line.indexOf(trimmed),
-            content: trimmed,
-          },
-        ],
-      });
+      startBlock(index, line, trimmed);
       return;
     }
 
@@ -125,17 +109,7 @@ export default (text: string): RawBlock[] => {
     } else {
       // Start a new block (either no block yet, or a blank break occurred)
       blankBreak = false;
-      blocks.push({
-        startLine: index,
-        endLine: index,
-        lines: [
-          {
-            lineNumber: index,
-            charOffset: line.indexOf(trimmed),
-            content: trimmed,
-          },
-        ],
-      });
+      startBlock(index, line, trimmed);
     }
   });
 

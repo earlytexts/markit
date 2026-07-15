@@ -2,6 +2,19 @@
 export default (input: string): string => {
   let result = "";
   let pos = 0;
+
+  // Collect any diacritic markers following the base character just emitted.
+  const collectDiacritics = (): void => {
+    while (
+      pos < input.length &&
+      input[pos] !== "\\" &&
+      greekDiacritics[input[pos]!] !== undefined
+    ) {
+      result += greekDiacritics[input[pos]!]!;
+      pos++;
+    }
+  };
+
   while (pos < input.length) {
     // Escape: \X → literal X
     if (input[pos] === "\\") {
@@ -19,14 +32,7 @@ export default (input: string): string => {
     if (digraph) {
       result += digraph[1];
       pos += digraph[0].length;
-      while (
-        pos < input.length &&
-        input[pos] !== "\\" &&
-        greekDiacritics[input[pos]!] !== undefined
-      ) {
-        result += greekDiacritics[input[pos]!]!;
-        pos++;
-      }
+      collectDiacritics();
       continue;
     }
     // Single character transliteration
@@ -47,15 +53,7 @@ export default (input: string): string => {
       result += char;
       pos++;
     }
-    // Collect diacritic markers after base char
-    while (
-      pos < input.length &&
-      input[pos] !== "\\" &&
-      greekDiacritics[input[pos]!] !== undefined
-    ) {
-      result += greekDiacritics[input[pos]!]!;
-      pos++;
-    }
+    collectDiacritics();
   }
   return result.normalize("NFC");
 };

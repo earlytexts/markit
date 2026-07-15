@@ -2,15 +2,15 @@ import { expect } from "@std/expect";
 import { describe, it } from "@std/testing/bdd";
 import {
   attr,
-  childElements,
+  childrenNamed,
   decodeEntities,
   isElement,
   localName,
   parseXml,
-  serializeNodes,
   startTagInner,
   type XmlElement,
 } from "../src/tei/xml.ts";
+import { serializeNodes } from "./utils/serializeXml.ts";
 
 const firstElement = (xml: string): XmlElement => {
   const node = parseXml(xml).find(isElement);
@@ -28,7 +28,7 @@ describe("xml reader", () => {
     ]);
     expect(attr(root, "TYPE")).toBe("play");
     expect(attr(root, "MISSING")).toBeUndefined();
-    const [p] = childElements(root);
+    const [p] = childrenNamed(root, "P");
     expect(p!.name).toBe("P");
     expect(p!.children).toEqual([{ kind: "text", content: "hi" }]);
   });

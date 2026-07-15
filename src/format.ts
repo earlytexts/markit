@@ -1,5 +1,4 @@
-import formatLine, { initialState } from "./format/formatLine.ts";
-import { flushContent } from "./format/helpers.ts";
+import formatLine, { finish, initialState } from "./format/formatLine.ts";
 
 /**
  * Format a Markit document string by normalizing whitespace and ensuring consistent line breaks.
@@ -12,14 +11,9 @@ export default (text: string): string => {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
 
   // Process lines with state machine to handle context-sensitive formatting
-  const penultimateState = lines.reduce(formatLine, initialState);
+  const finalState = lines.reduce(formatLine, initialState);
 
-  // Flush any remaining content and remove trailing blank lines
-  const { acc: finalLines } = flushContent(penultimateState);
-  while (finalLines.length > 0 && finalLines.at(-1) === "") {
-    finalLines.pop();
-  }
-
-  // Join lines with LF and ensure document ends with a single LF
-  return finalLines.join("\n") + "\n";
+  // Flush any remaining content, drop trailing blanks, and join with LF,
+  // ensuring the document ends with a single LF
+  return finish(finalState).join("\n") + "\n";
 };

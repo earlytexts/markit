@@ -1,9 +1,9 @@
-export { default as compile } from "./compile.ts";
+export { compileWithPositions, default as compile } from "./compile.ts";
+export { default as stripPositions } from "./stripPositions.ts";
 export { default as format } from "./format.ts";
 export { default as renderText } from "./renderText.ts";
-export { default as tokenize } from "./tokenize.ts";
-export { default as fromTEIXML } from "./tei/fromTei.ts";
-export type { FromTEIOptions } from "./tei/fromTei.ts";
-export { default as toTEIXML } from "./tei/toTei.ts";
+export { extractText, highlight, resolve } from "./extract.ts";
+export { default as tokenize, wordPattern } from "./tokenize.ts";
+export { default as fromTEIXML } from "./fromTei.ts";
+export { default as toTEIXML } from "./toTei.ts";
 export type * from "./types.ts";
-export { endLine, startLine } from "./types.ts";

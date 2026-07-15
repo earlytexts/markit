@@ -1,10 +1,11 @@
-import { emitBlank, flushContent } from "./helpers.ts";
+import { emitBlank } from "./emit.ts";
 import type { State } from "./types.ts";
 
 // Context-aware handler for blank lines.
 // Inside a content block, blank lines separate block-level elements and are
-// preserved in the content buffer. Outside content blocks, a blank line flushes
-// the buffer and emits one blank line.
+// preserved in the content buffer; everywhere else a single blank is emitted.
+// (The content buffer is only ever non-empty in the inContent context, so no
+// other branch needs to flush it.)
 export default (state: State): State => {
   // Don't emit blanks at the very start
   if (state.context === "start") {
@@ -22,12 +23,9 @@ export default (state: State): State => {
 
   // Inside a multiline array: blank line ends the array, transition back to metadata
   if (state.context === "inMetadataArray") {
-    let newState = flushContent(state);
-    newState = emitBlank(newState);
-    return { ...newState, context: "inMetadata" };
+    return { ...emitBlank(state), context: "inMetadata" };
   }
 
-  // Outside content blocks: flush any buffered content and emit a blank.
-  const newState = flushContent(state);
-  return emitBlank(newState);
+  // Between blocks: emit a blank
+  return emitBlank(state);
 };

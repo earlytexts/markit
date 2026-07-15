@@ -1,10 +1,9 @@
 /**
  * The pure core of the language server's diagnostics: translate Markit's
- * compile errors into position-only diagnostics. Markit reports 1-based line
- * and column positions; the LSP (and the editor) count from 0, so the whole of
- * the logic here is that impedance conversion, kept free of the LSP types so it
- * can be unit-tested. surface/diagnostics.ts maps the result onto the LSP's
- * Diagnostic shape.
+ * compile errors into position-only diagnostics. Markit's `source` ranges are
+ * 0-based like the LSP, so this is a flattening of shape only, kept free of
+ * the LSP types so it can be unit-tested. surface/diagnostics.ts maps the
+ * result onto the LSP's Diagnostic shape.
  */
 
 import type { MarkitError } from "@earlytexts/markit";
@@ -20,10 +19,10 @@ export type PlainDiagnostic = {
 
 export default (errors: MarkitError[]): PlainDiagnostic[] =>
   errors.map((error) => ({
-    startLine: error.line - 1,
-    startColumn: error.column - 1,
-    endLine: error.endLine - 1,
-    endColumn: error.endColumn - 1,
+    startLine: error.source.start.line,
+    startColumn: error.source.start.column,
+    endLine: error.source.end.line,
+    endColumn: error.source.end.column,
     message: error.message,
     severity: error.severity,
   }));

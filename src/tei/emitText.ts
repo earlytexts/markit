@@ -1,8 +1,8 @@
 import {
   attr,
+  childrenNamed,
   isElement,
   localName,
-  parseXml,
   startTagInner,
   type XmlElement,
   type XmlNode,
@@ -14,58 +14,20 @@ import {
   matchInlineRule,
   SEMANTIC_BLOCKS,
   STRUCTURAL,
+  WRAPPER_TEI,
 } from "./schema.ts";
-import { headerToMetadata, type MetaTree } from "./header.ts";
+import type { MetaTree } from "./header.ts";
 import classifyBlockLine from "../lib/classifyBlockLine.ts";
+import { wrapperElements } from "../lib/grammar.ts";
 import splitOnLineBreakMarker from "../lib/splitLineBreaks.ts";
+import type { FromTEIOptions, WrapperType } from "../types.ts";
 
 /**
- * Options for `fromTEIXML`. `modernize` opts in to letterform normalisation
- * (long-s and similar); by default the source is preserved faithfully.
+ * Emit a TEI text element (and, recursively, its structural sub-texts) as
+ * Markit source lines pushed onto `out` — the walker behind `fromTEIXML`.
+ * `header`, when given, provides the text's metadata; otherwise it derives
+ * from the element's own attributes.
  */
-export type FromTEIOptions = {
-  modernize?: boolean;
-};
-
-/**
- * Convert a TEI P5 XML document into clean Markit (`.mit`) source text. The
- * converter favours native Markit features (emphasis, quotes, lists, verse,
- * footnotes, page breaks, foreign-language runs, editorial marks) and only falls
- * back to the generic `<<tag>>` element for markup with no native equivalent.
- * Page layout is normalised to reading text: end-of-line hyphens are closed up,
- * `<g>` glyphs resolve to their Unicode content, and `<pb>` becomes a Markit
- * page break. See `toTEIXML` for the inverse.
- */
-export const fromTEIXML = (
-  xml: string,
-  options: FromTEIOptions = {},
-): string => {
-  const nodes = parseXml(xml);
-  const root = nodes.find(isElement);
-  if (!root) return "# document\n";
-
-  const out: string[] = [];
-  const header = findHeader(root);
-  emitText(root, 1, deriveRootId(header), header, options, out);
-  return out.join("\n").replace(/\n+$/, "") + "\n";
-};
-
-// A per-text walker: the conversion options plus the footnotes accumulated while
-// rendering this text's blocks (footnote ids run per text).
-type Walker = {
-  options: FromTEIOptions;
-  footnotes: Footnote[];
-  counter: { n: number };
-};
-
-type Footnote = { id: string; lines: string[] };
-
-// The sentinel left in place of an end-of-line hyphen; `finishInline` removes it
-// together with the following whitespace, closing the word up.
-const JOIN = "";
-
-// --- Structural texts ----------------------------------------------------
-
 const emitText = (
   element: XmlElement,
   level: number,
@@ -113,6 +75,24 @@ const emitText = (
   }
 };
 
+export default emitText;
+
+// A per-text walker: the conversion options plus the footnotes accumulated while
+// rendering this text's blocks (footnote ids run per text).
+type Walker = {
+  options: FromTEIOptions;
+  footnotes: Footnote[];
+  counter: { n: number };
+};
+
+type Footnote = { id: string; lines: string[] };
+
+// The sentinel left in place of an end-of-line hyphen (U+E000, a private-use
+// character that cannot occur in real text); `finishInline` removes it together
+// with the following whitespace, closing the word up.
+const JOIN = "\uE000";
+const JOIN_PATTERN = new RegExp(`${JOIN}\\s*`, "g");
+
 // --- Blocks --------------------------------------------------------------
 
 // Emit each block-level child as its own Markit content block, numbering
@@ -127,14 +107,21 @@ const emitBlocks = (
   let headSeen = false;
   let pendingPage: string | null = null;
 
+  // Consume the held page break, if any — the one place `pendingPage` is
+  // read and cleared, so every consumption site is visible as a call.
+  const takePage = (): string | null => {
+    const page = pendingPage;
+    pendingPage = null;
+    return page;
+  };
+
   // `guard` runs the first content line through `contentLine` so it is not
   // misread as a block construct; heading lines (which must start with `^N`)
   // opt out.
   const open = (tag: string, lines: string[], guard = true): void => {
     out.push("");
     out.push(`{#${tag}}`);
-    const first = prependPage(lines[0] ?? "", pendingPage);
-    pendingPage = null;
+    const first = prependPage(lines[0] ?? "", takePage());
     // Guard every prose line (a paragraph split at a hard line break can put a
     // block-marker-looking word at the start of a continuation line, not just
     // the first line) so none is misread as a heading/list/table/blockquote.
@@ -146,7 +133,7 @@ const emitBlocks = (
   for (const child of children) {
     if (!isElement(child)) {
       // Bare text runs reaching here are non-empty (emitText filters whitespace).
-      open(`${++blockN}`, [finishInline(escapeText(plainText(child, w)))]);
+      open(`${++blockN}`, [finishInline(escapeMarkit(plainText(child, w)))]);
       continue;
     }
 
@@ -166,8 +153,8 @@ const emitBlocks = (
       const level = Math.min(6, Math.max(1, depth));
       // A heading line must start with `^N`, so any pending page break goes
       // inside the heading content rather than before the marker.
-      const page = pendingPage ? `${pendingPage} ` : "";
-      pendingPage = null;
+      const held = takePage();
+      const page = held ? `${held} ` : "";
       open(
         tag,
         [
@@ -186,11 +173,8 @@ const emitBlocks = (
   }
 
   // A trailing page break with no following block becomes its own paragraph.
-  if (pendingPage) {
-    const page = pendingPage;
-    pendingPage = null;
-    open(`${++blockN}`, [page]);
-  }
+  const trailing = takePage();
+  if (trailing) open(`${++blockN}`, [trailing]);
 };
 
 // `guard` marks lines that are paragraph prose (and so need the contentLine
@@ -237,6 +221,29 @@ const renderBlockElement = (element: XmlElement, w: Walker): BlockOut => {
     ? `, element=${JSON.stringify(name)}`
     : "";
   return { lines: inner, meta, keep: meta !== "", guard: true };
+};
+
+// A <note> without a margin @place is a footnote (place="margin" becomes an
+// inline aside instead — see renderInlineNode).
+const isFootnote = (element: XmlElement): boolean =>
+  localName(element.name) === "note" &&
+  !MARGIN_PLACES.has((attr(element, "place") ?? "").toLowerCase());
+
+// Render block-level children as the inner content of a single block. Inline
+// runs become paragraphs, consecutive verse lines (`<l>`) become one verse list,
+// and recognised block elements render in place; groups are blank-line
+// separated. `asParagraph` forces the whole run to a single paragraph.
+const mixedContent = (
+  nodes: XmlNode[],
+  w: Walker,
+  asParagraph: boolean,
+): string[] => {
+  if (asParagraph) {
+    return paragraphLines(renderInline(nodes, w, new Set()));
+  }
+  return blockContentGroups(nodes, w).flatMap((group, i) =>
+    i === 0 ? group.lines : ["", ...group.lines]
+  );
 };
 
 // A run of source lines forming one block-level group, plus whether those lines
@@ -289,23 +296,6 @@ const blockContentGroups = (nodes: XmlNode[], w: Walker): BlockGroup[] => {
   flushInline();
   flushVerse();
   return groups;
-};
-
-// Render block-level children as the inner content of a single block. Inline
-// runs become paragraphs, consecutive verse lines (`<l>`) become one verse list,
-// and recognised block elements render in place; groups are blank-line
-// separated. `asParagraph` forces the whole run to a single paragraph.
-const mixedContent = (
-  nodes: XmlNode[],
-  w: Walker,
-  asParagraph: boolean,
-): string[] => {
-  if (asParagraph) {
-    return paragraphLines(renderInline(nodes, w, new Set()));
-  }
-  return blockContentGroups(nodes, w).flatMap((group, i) =>
-    i === 0 ? group.lines : ["", ...group.lines]
-  );
 };
 
 const isBlockNode = (node: XmlNode): boolean =>
@@ -361,7 +351,7 @@ const listLines = (
     if (name === "item") {
       n++;
       const marker = ordered ? `${n}.` : "-";
-      const nested = childElementsNamed(child, "list");
+      const nested = childrenNamed(child, "list");
       const inlineKids = child.children.filter(
         (c) => !(isElement(c) && localName(c.name) === "list"),
       );
@@ -386,7 +376,7 @@ const tableLines = (element: XmlElement, w: Walker): string[] => {
   let headerDone = false;
   for (const row of element.children) {
     if (!isElement(row) || localName(row.name) !== "row") continue;
-    const cells = childElementsNamed(row, "cell");
+    const cells = childrenNamed(row, "cell");
     const rendered = cells.map((cell) =>
       finishInline(renderInline(cell.children, w, new Set())).replace(
         /\|/g,
@@ -445,7 +435,7 @@ const renderInlineNode = (
   w: Walker,
   open: Set<string>,
 ): string => {
-  if (node.kind === "text") return escapeText(plainText(node, w));
+  if (node.kind === "text") return escapeMarkit(plainText(node, w));
   if (node.kind !== "element") return ""; // comments / PIs dropped
 
   const element = node;
@@ -455,7 +445,7 @@ const renderInlineNode = (
   if (name === "g") {
     return JOIN_GLYPHS.has(attr(element, "ref") ?? "")
       ? JOIN
-      : escapeText(plainText(element, w));
+      : escapeMarkit(plainText(element, w));
   }
   if (name === "pb") return pageBreak(element);
   if (name === "lb") return "\\ ";
@@ -482,8 +472,8 @@ const renderInlineNode = (
 
   // Abbreviation choices: prefer the expansion, dropping the abbreviated form.
   if (name === "choice") {
-    const target = childElementsNamed(element, "expan")[0] ??
-      childElementsNamed(element, "abbr")[0];
+    const target = childrenNamed(element, "expan")[0] ??
+      childrenNamed(element, "abbr")[0];
     return renderInline(target ? [target] : element.children, w, open);
   }
   if (name === "am") return ""; // abbreviation marker glyph: dropped
@@ -531,13 +521,13 @@ const hoistWhitespace = (
 // already open (which would re-parse flat), fall back to a generic element with
 // a fresh parse boundary instead.
 const wrapNative = (
-  type: string,
+  type: WrapperType,
   element: XmlElement,
   w: Walker,
   open: Set<string>,
 ): string => {
   if (open.has(type)) {
-    const tag = GENERIC_FOR.get(type)!;
+    const tag = WRAPPER_TEI[type].name;
     return hoistWhitespace(
       renderInline(element.children, w, new Set()),
       (core) => `<<${tag}>>${core}<</${tag}>>`,
@@ -552,61 +542,18 @@ const wrapNative = (
 const escapeWord = (text: string): string =>
   text.replace(/[\\=\]]/g, (char) => `\\${char}`);
 
-const delimit = (type: string, inner: string): string => {
-  switch (type) {
-    case "emphasis":
-      return `_${inner}_`;
-    case "strong":
-      return `*${inner}*`;
-    case "quote":
-      return `"${inner}"`;
-    case "superscript":
-      return `^${inner}^`;
-    case "subscript":
-      return `,,${inner},,`;
-    case "aside":
-      return `#${inner}#`;
-    case "speaker":
-      return `@${inner}@`;
-    case "insertion":
-      return `[+${inner}+]`;
-    case "deletion":
-      return `[-${inner}-]`;
-    case "uncertain":
-      return `[?${inner}?]`;
-    case "person":
-      return `[p:${inner}]`;
-    case "place":
-      return `[l:${inner}]`;
-    case "org":
-      return `[o:${inner}]`;
-    case "stageDirection":
-      return `::${inner}::`;
-    // citation is the only remaining wrapper type
-    default:
-      return `[${inner}]`;
-  }
-};
+// The parser's own delimiter table, so emission agrees with parsing by
+// construction. Every `WrapperType` is a key (the type is derived from
+// `wrapperElements`), so the lookup cannot miss.
+const delimiters = new Map<WrapperType, { open: string; close: string }>(
+  wrapperElements.map(({ type, open, close }) => [type, { open, close }]),
+);
 
-// The TEI tag used when a native wrapper must fall back to a generic element
-// because it would otherwise nest in itself.
-const GENERIC_FOR = new Map<string, string>([
-  ["emphasis", "hi"],
-  ["strong", "hi"],
-  ["quote", "q"],
-  ["superscript", "hi"],
-  ["subscript", "hi"],
-  ["aside", "note"],
-  ["speaker", "speaker"],
-  ["insertion", "add"],
-  ["deletion", "del"],
-  ["uncertain", "unclear"],
-  ["person", "persName"],
-  ["place", "placeName"],
-  ["org", "orgName"],
-  ["citation", "bibl"],
-  ["stageDirection", "stage"],
-]);
+// Wrap an inline run in the Markit delimiters for a wrapper type.
+const delimit = (type: WrapperType, inner: string): string => {
+  const { open, close } = delimiters.get(type)!;
+  return `${open}${inner}${close}`;
+};
 
 // --- Page breaks ---------------------------------------------------------
 
@@ -634,7 +581,7 @@ const modernize = (text: string): string => text.replace(/ſ/g, "s"); // long-s
 
 // Escape characters that would otherwise be parsed as Markit markup, collapsing
 // whitespace runs to single spaces. (The JOIN sentinel is added afterwards.)
-const escapeText = (text: string): string =>
+const escapeMarkit = (text: string): string =>
   text
     .replace(/\s+/g, " ")
     .replace(/[\\{~[<$"*_^#@]/g, "\\$&")
@@ -645,7 +592,7 @@ const escapeText = (text: string): string =>
 // Close up end-of-line hyphen joins (the JOIN sentinel and following whitespace)
 // and tidy spacing on a finished inline run.
 const finishInline = (text: string): string =>
-  text.replace(/\s*/g, "").replace(/ {2,}/g, " ").trim();
+  text.replace(JOIN_PATTERN, "").replace(/ {2,}/g, " ").trim();
 
 // Finish an inline run and lay it out as paragraph source lines, breaking at
 // each hard line-break marker so the output matches the formatter (which places
@@ -664,12 +611,6 @@ const contentLine = (line: string): string => {
   if (classifyBlockLine(result).kind !== "paragraph") result = `\\${result}`;
   return result;
 };
-
-// --- Notes / footnotes ---------------------------------------------------
-
-const isFootnote = (element: XmlElement): boolean =>
-  localName(element.name) === "note" &&
-  !MARGIN_PLACES.has((attr(element, "place") ?? "").toLowerCase());
 
 // --- Metadata serialisation ----------------------------------------------
 
@@ -703,12 +644,7 @@ const attrMeta = (element: XmlElement): MetaTree => {
   return { top, sections: [] };
 };
 
-// --- IDs -----------------------------------------------------------------
-
-const childElementsNamed = (element: XmlElement, name: string): XmlElement[] =>
-  element.children.filter(
-    (c): c is XmlElement => isElement(c) && localName(c.name) === name,
-  );
+// --- IDs -------------------------------------------------------------------
 
 const subTextId = (element: XmlElement, used: Set<string>): string => {
   const name = localName(element.name);
@@ -731,19 +667,3 @@ const uniqueId = (base: string, used: Set<string>): string => {
   used.add(id);
   return id;
 };
-
-const deriveRootId = (header: MetaTree | null): string => {
-  const idno = header?.sections.find(([s]) => s === "idno")?.[1];
-  const dlps = idno?.find(([k]) => k === "DLPS")?.[1];
-  const value = Array.isArray(dlps) ? dlps[0] : dlps;
-  return (value ?? "document").replace(/[\s#{}]+/g, "_");
-};
-
-// --- Header --------------------------------------------------------------
-
-const findHeader = (root: XmlElement): MetaTree | null => {
-  const header = childElementsNamed(root, "teiHeader")[0];
-  return header ? headerToMetadata(header) : null;
-};
-
-export default fromTEIXML;

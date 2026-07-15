@@ -5,7 +5,7 @@ import { markit, markitWithContent } from "./utils/factories.ts";
 
 describe("block IDs", () => {
   it("parses blocks with their ids", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#1}",
         "This is the first block.",
@@ -22,7 +22,7 @@ describe("block IDs", () => {
   });
 
   it("parses block tags on the same line as content", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#1} This is the first block.",
         "",
@@ -37,39 +37,39 @@ describe("block IDs", () => {
   });
 
   it("returns error for block with no tag", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "This block has no tag.", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Block is missing metadata tag '{#id}'",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 23,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 22 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for block with unclosed tag", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#1", "This block has a badly formed tag.", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Block tag is not properly closed with '}'",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 4,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 3 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for block with duplicate ID", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",
@@ -85,16 +85,16 @@ describe("block IDs", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Duplicate block ID: #2",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 5,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 4 },
+      },
       severity: "error",
     });
   });
 
   it("returns error for block ID with invalid characters", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#id#bad}", "Block content.", ""),
     );
 
@@ -102,10 +102,10 @@ describe("block IDs", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Block ID 'id#bad' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')",
-      line: 3,
-      column: 3,
-      endLine: 3,
-      endColumn: 9,
+      source: {
+        start: { line: 2, column: 2 },
+        end: { line: 2, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -113,7 +113,7 @@ describe("block IDs", () => {
 
 describe("title blocks", () => {
   it("assigns type 'title' to title blocks", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#title}", "Main Title"),
     );
 
@@ -122,23 +122,23 @@ describe("title blocks", () => {
   });
 
   it("returns error if there is more than one title block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent("{#title}", "Title 1", "", "{#title}", "Title 2", ""),
     );
 
     expect(errors).toHaveLength(1);
     expect(errors[0]!).toEqual({
       message: "Only one title block is allowed per text",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 9,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 8 },
+      },
       severity: "error",
     });
   });
 
   it("returns error if the title block is not the first block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent(
         "{#1}",
         "Paragraph first",
@@ -152,10 +152,10 @@ describe("title blocks", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!).toEqual({
       message: "Title block must be the first block in the text",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 9,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -163,7 +163,7 @@ describe("title blocks", () => {
 
 describe("subtitle blocks", () => {
   it("assigns type 'subtitle' to subtitle blocks", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#subtitle}", "Subtitle"),
     );
 
@@ -172,7 +172,7 @@ describe("subtitle blocks", () => {
   });
 
   it("auto-numbers subtitle blocks in compiled output", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#subtitle}",
         "Sub 1",
@@ -193,7 +193,7 @@ describe("subtitle blocks", () => {
   });
 
   it("ignores other ids beginning with 'subtitle' when auto-numbering", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#subtitles}",
         "Not a subtitle",
@@ -212,7 +212,7 @@ describe("subtitle blocks", () => {
 
 describe("paragraph blocks", () => {
   it("assigns type 'paragraph' to regular blocks", () => {
-    const [document] = compile(markitWithContent("{#1}", "Content"));
+    const { document } = compile(markitWithContent("{#1}", "Content"));
 
     expect(document.blocks[0]!.type).toBe("paragraph");
   });
@@ -220,13 +220,13 @@ describe("paragraph blocks", () => {
 
 describe("footnote blocks", () => {
   it("assigns type 'footnote' to footnote blocks", () => {
-    const [document] = compile(markitWithContent("{#n1}", "Footnote"));
+    const { document } = compile(markitWithContent("{#n1}", "Footnote"));
 
     expect(document.blocks[0]!.type).toBe("footnote");
   });
 
   it("returns error for footnote block appearing before a regular block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",
@@ -242,16 +242,16 @@ describe("footnote blocks", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Footnote blocks must appear after all paragraph blocks",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 6,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 5 },
+      },
       severity: "error",
     });
   });
 
   it("does not treat a citation on its own line as a metadata header", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit("# Text", "", "{#n1}", "[Citation]", ""),
     );
 
@@ -264,7 +264,7 @@ describe("footnote blocks", () => {
   });
 
   it("returns error for block ID of just 'n'", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#n}", "Block content.", ""),
     );
 
@@ -272,10 +272,10 @@ describe("footnote blocks", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Block ID 'n' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)",
-      line: 3,
-      column: 3,
-      endLine: 3,
-      endColumn: 4,
+      source: {
+        start: { line: 2, column: 2 },
+        end: { line: 2, column: 3 },
+      },
       severity: "error",
     });
   });

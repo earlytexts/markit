@@ -1,4 +1,4 @@
-import { emitBlank, emitLine, flushContent } from "./helpers.ts";
+import { emitBlank, emitLine, flushContent } from "./emit.ts";
 import type { State } from "./types.ts";
 
 // Context aware formatter for ID lines
@@ -21,8 +21,7 @@ export default (state: State, line: string): State => {
 };
 
 const formatIdBlock = (line: string): string => {
-  // This function is only called if the line matches the ID pattern
+  // Only called when the line matches this pattern (the dispatcher tested it)
   const match = line.trim().match(/^(#+)\s+(.+)$/)!;
-  const [, hashes, id] = match;
-  return `${hashes} ${id?.trim()}`;
+  return `${match[1]!} ${match[2]!.trim()}`;
 };

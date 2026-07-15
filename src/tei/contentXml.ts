@@ -1,4 +1,3 @@
-import compile from "../compile.ts";
 import type {
   Block,
   BlockElement,
@@ -10,28 +9,13 @@ import type {
   Table,
 } from "../types.ts";
 import { escapeAttribute, escapeText } from "./xml.ts";
-import { metadataToHeader, type MetaObject } from "./header.ts";
-import { TEI_NS, WRAPPER_TEI } from "./schema.ts";
+import { WRAPPER_TEI } from "./schema.ts";
 
 /**
- * Convert Markit (`.mit`) source into canonical TEI P5 XML — the inverse of
- * `fromTEIXML`. The root text becomes the `<TEI>` element (its metadata rebuilds
- * a `<teiHeader>`); structural sub-texts become `<text>`/`<front>`/`<body>`/
- * `<back>`/`<div>`; native Markit inline elements map back to their canonical TEI
- * tags; footnote references re-inline as `<note>`; and generic `<<tag>>` elements
- * are emitted verbatim. The output is standard P5, not a reproduction of any
- * particular source document's chrome.
+ * Render a compiled document's content as the body of its TEI element — the
+ * walker behind `toTEIXML`: a text's blocks (footnotes excluded — they
+ * re-inline at their references) followed by its structural sub-texts.
  */
-export const toTEIXML = (mit: string): string => {
-  const [document] = compile(mit);
-  const header = metadataToHeader(document.metadata as MetaObject | undefined);
-  return `<TEI xmlns="${TEI_NS}">${header}${contentXml(document)}</TEI>`;
-};
-
-// --- Structural texts ----------------------------------------------------
-
-// A text's blocks (footnotes excluded — they re-inline at their references)
-// followed by its structural sub-texts.
 const contentXml = (document: MarkitDocument): string => {
   const footnotes = new Map<string, Block>();
   for (const block of document.blocks) {
@@ -45,8 +29,10 @@ const contentXml = (document: MarkitDocument): string => {
   return blocks + children;
 };
 
+export default contentXml;
+
 const textXml = (document: MarkitDocument): string => {
-  const { name, attrs } = texElement(document);
+  const { name, attrs } = subTextElement(document);
   return `<${name}${attrs}>${contentXml(document)}</${name}>`;
 };
 
@@ -54,7 +40,7 @@ const textXml = (document: MarkitDocument): string => {
 // `<div>`; otherwise the text's own id names the element (front/body/back/
 // group/text); anything else defaults to `<div>`. An `xml:lang` is added from
 // `lang` metadata.
-const texElement = (
+const subTextElement = (
   document: MarkitDocument,
 ): { name: string; attrs: string } => {
   const lastId = document.id.split(".").pop()!;
@@ -89,14 +75,7 @@ const blockXml = (block: Block, footnotes: Map<string, Block>): string => {
   const element = metaStr(block.metadata, "element");
   if (element !== undefined) {
     if (block.content.length === 0) return `<${element}/>`;
-    const body = block.content
-      .map((e) =>
-        e.type === "paragraph" && block.content.length === 1
-          ? inlineXml(e.content, footnotes)
-          : blockElementXml(e, footnotes)
-      )
-      .join("");
-    return `<${element}>${body}</${element}>`;
+    return `<${element}>${bodyXml(block.content, footnotes)}</${element}>`;
   }
 
   // No wrapper: a lone paragraph becomes <p>; structural elements map natively.
@@ -150,6 +129,21 @@ const blockElementXml = (
       return tableXml(element, footnotes);
   }
 };
+
+// A block's content rendered as the body of a wrapping element (a generic
+// element or a footnote's <note>): a LONE bare paragraph unwraps to a
+// phrase-level run; anything else renders in its native TEI form.
+const bodyXml = (
+  content: BlockElement[],
+  footnotes: Map<string, Block>,
+): string =>
+  content
+    .map((e) =>
+      e.type === "paragraph" && content.length === 1
+        ? inlineXml(e.content, footnotes)
+        : blockElementXml(e, footnotes)
+    )
+    .join("");
 
 // Like blockElementXml but without the <p> wrapper for a bare paragraph — used
 // inside <head> and inside element-wrapped blocks.
@@ -234,7 +228,7 @@ const inlineElementXml = (
     case "org":
     case "stageDirection":
     case "citation": {
-      const { name, attrs } = WRAPPER_TEI[element.type]!;
+      const { name, attrs } = WRAPPER_TEI[element.type];
       const open = (attrs ?? []).map(([k, v]) => ` ${k}="${v}"`).join("");
       return `<${name}${open}>${
         inlineXml(element.content, footnotes)
@@ -265,7 +259,7 @@ const inlineElementXml = (
     case "footnoteReference": {
       const note = footnotes.get(element.id);
       return note
-        ? `<note place="bottom">${noteBody(note, footnotes)}</note>`
+        ? `<note place="bottom">${bodyXml(note.content, footnotes)}</note>`
         : `<ref>${escapeText(element.id)}</ref>`;
     }
     case "element": {
@@ -287,16 +281,6 @@ const inlineElementXml = (
   }
 };
 
-// A footnote block's content, rendered for inclusion inside its <note>.
-const noteBody = (note: Block, footnotes: Map<string, Block>): string =>
-  note.content
-    .map((e) =>
-      e.type === "paragraph" && note.content.length === 1
-        ? inlineXml(e.content, footnotes)
-        : blockElementXml(e, footnotes)
-    )
-    .join("");
-
 // --- Metadata helpers ----------------------------------------------------
 
 const metaStr = (
@@ -310,5 +294,3 @@ const metaStr = (
     ? String(value)
     : undefined;
 };
-
-export default toTEIXML;

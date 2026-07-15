@@ -1,4 +1,4 @@
-import { compile } from "@earlytexts/markit";
+import { compileWithPositions } from "@earlytexts/markit";
 import {
   ExtensionContext,
   TextEditor,
@@ -95,7 +95,7 @@ const updatePreview = (
   context: ExtensionContext,
   content: string,
 ): void => {
-  const [document] = compile(content);
+  const { document } = compileWithPositions(content);
   const html = renderHtml(document);
 
   // Get webview URIs for CSS and JS files

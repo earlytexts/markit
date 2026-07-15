@@ -14,10 +14,37 @@ import {
   wrapperElements,
 } from "../lib/grammar.ts";
 import type { PositionInfo } from "./buildPositionMap.ts";
-import { isRecording } from "./provenance.ts";
 import makeError from "../lib/makeError.ts";
 import processGreekMode from "./greekMode.ts";
 import processCharacterMode from "./characterMode.ts";
+import { extractInlineText } from "../extract.ts";
+import { wordPattern } from "../tokenize.ts";
+
+/**
+ * The invariants of one block's content parse, threaded through the block-level
+ * and inline parsers as a single argument: the text's footnote ids (for
+ * reference validation), its id (prefixed onto compiled ids), the shared error
+ * sink, and whether to record source positions.
+ */
+export type ParseContext = {
+  footnoteIds: ReadonlySet<string>;
+  errors: MarkitError[];
+  textId: string;
+  positions: boolean;
+};
+
+/**
+ * Parse a run of inline content into elements, reporting any diagnostics into
+ * `ctx.errors`. `positionMap` gives each input character's source position.
+ */
+export default (
+  input: string,
+  positionMap: PositionInfo[],
+  ctx: ParseContext,
+): InlineElement[] => {
+  const [elements] = parseElements(input, 0, null, false, positionMap, ctx);
+  return cleanupElements(elements);
+};
 
 // The grammar's leaf and wrapper specs, pre-sorted longest-trigger-first so the
 // parser always matches the most specific marker (e.g. `~~` before `~`).
@@ -40,27 +67,6 @@ for (const wrapper of wrapperElements) {
   specialChars[wrapper.open.charCodeAt(0)] = 1;
 }
 
-export default (
-  input: string,
-  positionMap: PositionInfo[],
-  footnoteIds: ReadonlySet<string>,
-  textId: string,
-): [InlineElement[], MarkitError[]] => {
-  const errors: MarkitError[] = [];
-  const [elements] = parseElements(
-    input,
-    0,
-    null,
-    positionMap,
-    footnoteIds,
-    errors,
-    false,
-    textId,
-  );
-  const cleanedElements = cleanupElements(elements);
-  return [cleanedElements, errors];
-};
-
 /**
  * Parse inline elements from `input` starting at `startPos`, stopping at
  * `closeMarker` (or the end of input). Returns the parsed elements, the
@@ -72,13 +78,10 @@ const parseElements = (
   input: string,
   startPos: number,
   closeMarker: string | null,
-  positionMap: PositionInfo[],
-  footnoteIds: ReadonlySet<string>,
-  errors: MarkitError[],
   suppressEscape: boolean,
-  textId: string,
+  positionMap: PositionInfo[],
+  ctx: ParseContext,
 ): [InlineElement[], number, boolean] => {
-  const rec = isRecording();
   const result: InlineElement[] = [];
   let pos = startPos;
   let plainTextBuffer = "";
@@ -90,7 +93,7 @@ const parseElements = (
       result.push({
         type: "plainText",
         content: plainTextBuffer,
-        ...(rec ? { sources: bufferPositions } : {}),
+        ...(ctx.positions ? { sources: bufferPositions } : {}),
       });
       plainTextBuffer = "";
       bufferPositions = [];
@@ -101,7 +104,7 @@ const parseElements = (
   // tracking each one's source position for provenance while recording.
   const appendSource = (from: number, to: number) => {
     plainTextBuffer += input.slice(from, to);
-    if (rec) {
+    if (ctx.positions) {
       for (let k = from; k < to; k++) bufferPositions.push(positionMap[k]!);
     }
   };
@@ -109,7 +112,7 @@ const parseElements = (
   // the single source index `at`.
   const appendChar = (char: string, at: number) => {
     plainTextBuffer += char;
-    if (rec) bufferPositions.push(positionMap[at]!);
+    if (ctx.positions) bufferPositions.push(positionMap[at]!);
   };
   // Positions for a transformed run (Greek/character mode) whose rendered length
   // may differ from its source: map each output char onto a source char, holding
@@ -123,6 +126,44 @@ const parseElements = (
       { length: outLen },
       (_, i) => positionMap[start + Math.min(i, sourceLen - 1)]!,
     );
+
+  // Consume a braced input-method span (`{{...}}` Greek mode, `{...}` character
+  // mode) at `pos`. The resolved text merges into the running plain-text
+  // buffer: the braces are an input method, not a document structure, so
+  // `x{{s}}y` and its resolved spelling compile to the identical single
+  // plainText node. An unclosed span reports a diagnostic and the open marker
+  // is kept as plain text.
+  const inputMode = (
+    open: string,
+    close: string,
+    label: string,
+    process: (content: string) => string,
+  ): void => {
+    const closePos = input.indexOf(close, pos + open.length);
+    if (closePos === -1) {
+      const position = positionMap[pos]!;
+      ctx.errors.push(
+        makeError({
+          message: `Unclosed ${label}`,
+          line: position.line,
+          column: position.column,
+          length: open.length,
+        }),
+      );
+      appendSource(pos, pos + open.length);
+      pos += open.length;
+      return;
+    }
+    const content = input.slice(pos + open.length, closePos);
+    const resolved = process(content);
+    plainTextBuffer += resolved;
+    if (ctx.positions) {
+      bufferPositions.push(
+        ...spanPositions(pos + open.length, content.length, resolved.length),
+      );
+    }
+    pos = closePos + close.length;
+  };
 
   while (pos < input.length) {
     // Fast path: consume a whole run of plain text, up to the next character
@@ -163,65 +204,13 @@ const parseElements = (
 
     // 2. Greek mode: {{...}}
     if (input.startsWith("{{", pos)) {
-      const closePos = input.indexOf("}}", pos + 2);
-      if (closePos === -1) {
-        const position = positionMap[pos]!;
-        errors.push(
-          makeError({
-            message: "Unclosed Greek mode",
-            line: position.line,
-            column: position.column,
-            length: 2,
-          }),
-        );
-        appendSource(pos, pos + 2);
-        pos += 2;
-        continue;
-      }
-      const content = input.slice(pos + 2, closePos);
-      flushPlainText();
-      const greek = processGreekMode(content);
-      result.push({
-        type: "plainText",
-        content: greek,
-        ...(rec
-          ? { sources: spanPositions(pos + 2, content.length, greek.length) }
-          : {}),
-      });
-      pos = closePos + 2;
+      inputMode("{{", "}}", "Greek mode", processGreekMode);
       continue;
     }
 
     // 3. Character mode: {...}
     if (input[pos] === "{") {
-      const closePos = input.indexOf("}", pos + 1);
-      if (closePos === -1) {
-        const position = positionMap[pos]!;
-        errors.push(
-          makeError({
-            message: "Unclosed character mode",
-            line: position.line,
-            column: position.column,
-            length: 1,
-          }),
-        );
-        appendSource(pos, pos + 1);
-        pos++;
-        continue;
-      }
-      const content = input.slice(pos + 1, closePos);
-      flushPlainText();
-      const characters = processCharacterMode(content);
-      result.push({
-        type: "plainText",
-        content: characters,
-        ...(rec
-          ? {
-            sources: spanPositions(pos + 1, content.length, characters.length),
-          }
-          : {}),
-      });
-      pos = closePos + 1;
+      inputMode("{", "}", "character mode", processCharacterMode);
       continue;
     }
 
@@ -296,16 +285,14 @@ const parseElements = (
             input,
             afterTag,
             endMarker,
-            positionMap,
-            footnoteIds,
-            errors,
             suppressEscape,
-            textId,
+            positionMap,
+            ctx,
           );
 
           if (!closed) {
             const position = positionMap[pos]!;
-            errors.push(
+            ctx.errors.push(
               makeError({
                 message: `Unclosed element: ${elementSpec.open}${tag}`,
                 line: position.line,
@@ -335,11 +322,14 @@ const parseElements = (
         const refId = input.slice(pos + 1, closeAnglePos);
         if (footnoteReferenceSpec.pattern.test(refId)) {
           flushPlainText();
-          result.push({ type: "footnoteReference", id: `${textId}.${refId}` });
+          result.push({
+            type: "footnoteReference",
+            id: `${ctx.textId}.${refId}`,
+          });
 
-          if (!footnoteIds.has(refId)) {
+          if (!ctx.footnoteIds.has(refId)) {
             const position = positionMap[pos]!;
-            errors.push(
+            ctx.errors.push(
               makeError({
                 message: `Footnote not found: ${refId}`,
                 line: position.line,
@@ -368,16 +358,14 @@ const parseElements = (
         input,
         startAfterOpen,
         "$",
-        positionMap,
-        footnoteIds,
-        errors,
         false,
-        textId,
+        positionMap,
+        ctx,
       );
 
       if (!closed) {
         const position = positionMap[pos]!;
-        errors.push(
+        ctx.errors.push(
           makeError({
             message: `Unclosed formatting: ${openMarker}`,
             line: position.line,
@@ -403,27 +391,49 @@ const parseElements = (
       const surfaceStart = pos + wordSpec.open.length;
       const [separator, close] = scanWordDelimiters(input, surfaceStart);
       if (separator !== -1) {
+        // The surface is parsed as an isolated substring (restarting at 0), so
+        // its position map is sliced to match.
         const [surface] = parseElements(
           input.slice(surfaceStart, separator),
           0,
           null,
-          positionMap.slice(surfaceStart, separator),
-          footnoteIds,
-          errors,
           suppressEscape,
-          textId,
+          positionMap.slice(surfaceStart, separator),
+          ctx,
         );
         const word = input
           .slice(separator + 1, close)
           .replace(/\\(.)/g, "$1")
           .trim();
+        // `w` assigns a disambiguated word to one token, so the surface must
+        // tokenize to exactly one token — in both versions, since editorial
+        // markup inside the surface could otherwise make the count
+        // version-dependent. (`[w:a~priori=x]` is legal: `~` extracts as
+        // U+00A0, which the word pattern joins across.)
+        const singleToken = (["edited", "original"] as const).every(
+          (version) =>
+            [...extractInlineText(surface, version).matchAll(wordPattern)]
+              .length === 1,
+        );
+        if (!singleToken) {
+          const position = positionMap[pos]!;
+          ctx.errors.push(
+            makeError({
+              message:
+                "Word surface must be exactly one token (mark a multi-word unit with ~).",
+              line: position.line,
+              column: position.column,
+              length: close + 1 - pos,
+            }),
+          );
+        }
         flushPlainText();
         result.push({ type: "word", word, content: surface });
         pos = close + 1;
         continue;
       }
       const position = positionMap[pos]!;
-      errors.push(
+      ctx.errors.push(
         makeError({
           message: "Malformed word element; expected [w:surface=word].",
           line: position.line,
@@ -444,16 +454,14 @@ const parseElements = (
           input,
           pos + wrapper.open.length,
           wrapper.close,
-          positionMap,
-          footnoteIds,
-          errors,
           suppressEscape,
-          textId,
+          positionMap,
+          ctx,
         );
 
         if (!closed) {
           const position = positionMap[pos]!;
-          errors.push(
+          ctx.errors.push(
             makeError({
               message: `Unclosed formatting: ${wrapper.open}`,
               line: position.line,
@@ -564,24 +572,9 @@ const isTightBreak = (
   !/\s/.test(after);
 
 /**
- * A `plainText` node holding `node.content[from..to)`, carrying the matching
- * slice of the original's source positions so trimming (below) keeps provenance
- * aligned. `node.sources` is present exactly when recording, so the spread is
- * exercised both ways.
- */
-const slicePlainText = (
-  node: PlainText,
-  from: number,
-  to: number,
-): PlainText => ({
-  type: "plainText",
-  content: node.content.slice(from, to),
-  ...(node.sources ? { sources: node.sources.slice(from, to) } : {}),
-});
-
-/**
  * Trim leading and trailing whitespace from the element list, trim whitespace
- * adjacent to lineBreak elements, and recursively clean wrapper element content.
+ * adjacent to lineBreak and pageBreak elements, and recursively clean wrapper
+ * element content.
  */
 const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   const result: InlineElement[] = [];
@@ -605,23 +598,17 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
   // Trim leading whitespace from the first plainText element
   const first = result[0];
   if (first && first.type === "plainText") {
-    const from = first.content.length - first.content.trimStart().length;
-    if (from === first.content.length) {
-      result.shift();
-    } else {
-      result[0] = slicePlainText(first, from, first.content.length);
-    }
+    const trimmed = trimPlainTextStart(first);
+    if (trimmed) result[0] = trimmed;
+    else result.shift();
   }
 
   // Trim trailing whitespace from the last plainText element
   const last = result[result.length - 1];
   if (last && last.type === "plainText") {
-    const to = last.content.trimEnd().length;
-    if (to === 0) {
-      result.pop();
-    } else {
-      result[result.length - 1] = slicePlainText(last, 0, to);
-    }
+    const trimmed = trimPlainTextEnd(last);
+    if (trimmed) result[result.length - 1] = trimmed;
+    else result.pop();
   }
 
   // Trim whitespace adjacent to lineBreak and pageBreak elements
@@ -629,25 +616,52 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
     if (result[i]?.type === "lineBreak" || result[i]?.type === "pageBreak") {
       const prev = result[i - 1];
       if (prev?.type === "plainText") {
-        const to = prev.content.trimEnd().length;
-        if (to === 0) {
+        const trimmed = trimPlainTextEnd(prev);
+        if (trimmed) {
+          result[i - 1] = trimmed;
+        } else {
           result.splice(i - 1, 1);
           i--;
-        } else {
-          result[i - 1] = slicePlainText(prev, 0, to);
         }
       }
       const next = result[i + 1];
       if (next?.type === "plainText") {
-        const from = next.content.length - next.content.trimStart().length;
-        if (from === next.content.length) {
-          result.splice(i + 1, 1);
-        } else {
-          result[i + 1] = slicePlainText(next, from, next.content.length);
-        }
+        const trimmed = trimPlainTextStart(next);
+        if (trimmed) result[i + 1] = trimmed;
+        else result.splice(i + 1, 1);
       }
     }
   }
 
   return result;
 };
+
+/** `node` with leading whitespace trimmed, or null when nothing remains. */
+const trimPlainTextStart = (node: PlainText): PlainText | null => {
+  const from = node.content.length - node.content.trimStart().length;
+  return from === node.content.length
+    ? null
+    : slicePlainText(node, from, node.content.length);
+};
+
+/** `node` with trailing whitespace trimmed, or null when nothing remains. */
+const trimPlainTextEnd = (node: PlainText): PlainText | null => {
+  const to = node.content.trimEnd().length;
+  return to === 0 ? null : slicePlainText(node, 0, to);
+};
+
+/**
+ * A `plainText` node holding `node.content[from..to)`, carrying the matching
+ * slice of the original's source positions so trimming keeps provenance
+ * aligned. `node.sources` is present exactly when recording, so the spread is
+ * exercised both ways.
+ */
+const slicePlainText = (
+  node: PlainText,
+  from: number,
+  to: number,
+): PlainText => ({
+  type: "plainText",
+  content: node.content.slice(from, to),
+  ...(node.sources ? { sources: node.sources.slice(from, to) } : {}),
+});

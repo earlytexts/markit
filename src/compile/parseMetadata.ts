@@ -1,17 +1,26 @@
 import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
-import type { MarkitError, Metadata, MetadataValue } from "../types.ts";
-import { endLine, startLine } from "../types.ts";
+import type {
+  MarkitError,
+  Metadata,
+  MetadataSource,
+  MetadataValue,
+  SourceRange,
+} from "../types.ts";
 import { footnoteReferenceSpec } from "../lib/grammar.ts";
 import type { TextTree } from "./generateTextTree.ts";
+import lineRange from "../lib/lineRange.ts";
 import makeError from "../lib/makeError.ts";
 import parseMetadataValue from "./parseMetadataValue.ts";
 import type { Line, RawBlock } from "./splitIntoBlocks.ts";
 
 /**
- * Parse the TextTree into a tree with metadata.
+ * Parse the TextTree into a tree with metadata. `metadataSource` is always
+ * computed here; parseContent attaches it to the output only when compiling
+ * with positions.
  */
 export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   blocks: BlockWithMetadata[];
   children: TextTreeWithMetadata[];
 };
@@ -19,12 +28,13 @@ export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   lines: Line[];
 };
 
-export default (textTree: TextTree): [TextTreeWithMetadata, MarkitError[]] => {
-  return parseTextMetadata(textTree);
-};
+export default (
+  textTree: TextTree,
+): [TextTreeWithMetadata, MarkitError[]] => parseTextMetadata(textTree);
 
 const parseTextMetadata = (
   text: TextTree,
@@ -40,48 +50,13 @@ const parseTextMetadata = (
       break;
     }
   }
-
-  // Parse all metadata blocks if any were found
   const metadataBlocks = text.blocks.slice(0, metadataBlockCount);
   const contentBlocks = text.blocks.slice(metadataBlockCount);
 
-  const allMetadataErrors: MarkitError[] = [];
-  const metadata: Metadata | undefined = metadataBlocks.length > 0
-    ? {
-      [startLine]: metadataBlocks[0]!.startLine,
-      [endLine]: metadataBlocks.at(-1)!.endLine,
-    }
-    : undefined;
-  let hasTopLevelBlock = false;
-
-  for (const block of metadataBlocks) {
-    const [subkey, parsedMetadata, errors] = parseMetadataBlock(block);
-    allMetadataErrors.push(...errors);
-
-    if (subkey === null) {
-      // Top-level [metadata] block
-      hasTopLevelBlock = true;
-      Object.assign(metadata!, parsedMetadata);
-    } else {
-      // Nested [metadata.subkey] block
-      if (!hasTopLevelBlock) {
-        const firstLine = block.lines[0]!;
-        allMetadataErrors.push(
-          makeError({
-            message:
-              `Nested metadata block '[metadata.${subkey}]' must appear after the top-level '[metadata]' block`,
-            line: block.startLine,
-            column: firstLine.charOffset,
-            length: firstLine.content.length,
-          }),
-        );
-      }
-      metadata![subkey] = Object.assign(
-        parsedMetadata as Record<string, MetadataValue>,
-        { [startLine]: block.startLine, [endLine]: block.endLine },
-      );
-    }
-  }
+  // Build the text's metadata from its leading metadata blocks
+  const [metadata, metadataSource, metadataErrors] = buildTextMetadata(
+    metadataBlocks,
+  );
 
   // Parse metadata for each block, tracking the ids seen so far for duplicate
   // checking, title placement, and subtitle auto-numbering
@@ -102,29 +77,10 @@ const parseTextMetadata = (
     if (/^subtitle\d+$/.test(blockWithMetadata.id)) subtitleCount++;
   }
 
-  // Validate footnote ordering: footnote blocks must appear after all paragraph blocks
-  const footnoteErrors: MarkitError[] = [];
-  let firstFootnoteIndex: number | null = null;
-  for (let i = 0; i < blocksWithMetadata.length; i++) {
-    const isFootnote = footnoteReferenceSpec.pattern.test(
-      blocksWithMetadata[i]!.id,
-    );
-    if (isFootnote && firstFootnoteIndex === null) {
-      firstFootnoteIndex = i;
-    } else if (!isFootnote && firstFootnoteIndex !== null) {
-      const footnoteBlock = blocksWithMetadata[firstFootnoteIndex]!;
-      const rawFootnoteBlock = contentBlocks[firstFootnoteIndex]!;
-      footnoteErrors.push(
-        makeError({
-          message: "Footnote blocks must appear after all paragraph blocks",
-          line: footnoteBlock.startLine,
-          column: rawFootnoteBlock.lines[0]!.charOffset,
-          length: footnoteBlock.id.length + 3, // {# + id + }
-        }),
-      );
-      break;
-    }
-  }
+  const footnoteErrors = validateFootnoteOrder(
+    blocksWithMetadata,
+    contentBlocks,
+  );
 
   // Parse metadata for children recursively
   const parseChildrenResult = text.children.map(parseTextMetadata);
@@ -135,16 +91,100 @@ const parseTextMetadata = (
   const textWithMetadata = {
     ...text,
     ...(metadata ? { metadata } : {}),
+    ...(metadataSource ? { metadataSource } : {}),
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
   };
   const errors = [
-    ...allMetadataErrors,
+    ...metadataErrors,
     ...blockErrors,
     ...footnoteErrors,
     ...childrenErrors,
   ];
   return [textWithMetadata, errors];
+};
+
+/**
+ * Build a text's metadata (and its source ranges) from its leading metadata
+ * blocks: top-level `[metadata]` pairs merged flat, each `[metadata.<key>]`
+ * block nested under its key. Returns undefined metadata when there are no
+ * metadata blocks at all.
+ */
+const buildTextMetadata = (
+  metadataBlocks: RawBlock[],
+): [Metadata | undefined, MetadataSource | undefined, MarkitError[]] => {
+  if (metadataBlocks.length === 0) return [undefined, undefined, []];
+
+  const errors: MarkitError[] = [];
+  const metadata: Metadata = {};
+  const nestedRanges: Record<string, SourceRange> = {};
+  let hasTopLevelBlock = false;
+
+  for (const block of metadataBlocks) {
+    const [subkey, parsedMetadata, blockErrors] = parseMetadataBlock(block);
+    errors.push(...blockErrors);
+
+    if (subkey === null) {
+      // Top-level [metadata] block
+      hasTopLevelBlock = true;
+      Object.assign(metadata, parsedMetadata);
+    } else {
+      // Nested [metadata.subkey] block
+      if (!hasTopLevelBlock) {
+        const firstLine = block.lines[0]!;
+        errors.push(
+          makeError({
+            message:
+              `Nested metadata block '[metadata.${subkey}]' must appear after the top-level '[metadata]' block`,
+            line: block.startLine,
+            column: firstLine.charOffset,
+            length: firstLine.content.length,
+          }),
+        );
+      }
+      metadata[subkey] = parsedMetadata;
+      nestedRanges[subkey] = lineRange(block.startLine, block.endLine);
+    }
+  }
+
+  const metadataSource: MetadataSource = {
+    source: lineRange(
+      metadataBlocks[0]!.startLine,
+      metadataBlocks.at(-1)!.endLine,
+    ),
+    ...(Object.keys(nestedRanges).length > 0 ? { nested: nestedRanges } : {}),
+  };
+
+  return [metadata, metadataSource, errors];
+};
+
+/**
+ * Validate footnote ordering: footnote blocks must appear after all paragraph
+ * blocks. Reports at most one error, on the first out-of-place footnote.
+ */
+const validateFootnoteOrder = (
+  blocks: BlockWithMetadata[],
+  rawBlocks: RawBlock[],
+): MarkitError[] => {
+  let firstFootnoteIndex: number | null = null;
+  for (let i = 0; i < blocks.length; i++) {
+    const isFootnote = footnoteReferenceSpec.pattern.test(blocks[i]!.id);
+    if (isFootnote && firstFootnoteIndex === null) {
+      firstFootnoteIndex = i;
+    } else if (!isFootnote && firstFootnoteIndex !== null) {
+      const footnoteBlock = blocks[firstFootnoteIndex]!;
+      const rawFootnoteBlock = rawBlocks[firstFootnoteIndex]!;
+      return [
+        makeError({
+          message: "Footnote blocks must appear after all paragraph blocks",
+          line: footnoteBlock.startLine,
+          column: rawFootnoteBlock.lines[0]!.charOffset,
+          length: footnoteBlock.id.length + 3, // {# + id + }
+        }),
+      ];
+    }
+  }
+  return [];
 };
 
 /**
@@ -160,7 +200,9 @@ const parseMetadataBlock = (
   const firstLine = block.lines[0]!;
   const headerMatch = firstLine.content.match(/^\[metadata(?:\.(\w+))?\]$/);
 
-  // Header must be valid — caller already checked, but guard anyway
+  // The caller consumes every leading `[...]` block as a metadata block, but
+  // only checks the bracket shape — a header that is not `[metadata]` or
+  // `[metadata.<key>]` is caught and reported here.
   if (!headerMatch) {
     errors.push(
       makeError({
@@ -182,81 +224,22 @@ const parseMetadataBlock = (
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!;
 
-    // Check if this is a multiline array key (key = [ with no closing ] on same line)
+    // A multiline array opener: `key = [` with nothing (or a bare comma) after
+    // the bracket. An opener with content or a closing `]` on the same line is
+    // an inline array, handled by the regular key=value parse below.
     const multilineArrayMatch = line.content.match(/^(\w+)\s*=\s*\[(.*)$/);
-    if (multilineArrayMatch) {
+    const rest = multilineArrayMatch ? multilineArrayMatch[2]!.trim() : null;
+    if (multilineArrayMatch && (rest === "" || rest === ",")) {
       const key = multilineArrayMatch[1]!;
-      const rest = multilineArrayMatch[2]!.trim();
-
-      // If the opening [ has content or a closing ], treat as inline — fall through to regular key=value
-      if (rest === "" || rest === ",") {
-        // Collect array items from subsequent lines until we hit ] or ],
-        const arrayItems: (number | boolean | string)[] = [];
-        let arrayIndex = index + 1;
-
-        while (arrayIndex < lines.length) {
-          const arrayLine = lines[arrayIndex]!;
-          const trimmed = arrayLine.content.trim();
-
-          // End of array
-          if (trimmed === "]" || trimmed === "],") {
-            arrayIndex++;
-            break;
-          }
-
-          // Strip trailing comma from item
-          const itemString = trimmed.replace(/,$/, "").trim();
-          const itemStartColumn = arrayLine.charOffset +
-            arrayLine.content.indexOf(itemString);
-
-          const { value: itemValue, diagnostics } = parseMetadataValue(
-            itemString,
-          );
-          if (diagnostics.includes("invalid-value")) {
-            errors.push(
-              makeError({
-                message: `Invalid metadata value: ${itemString}`,
-                line: block.startLine + 1 + arrayIndex,
-                column: itemStartColumn,
-                length: itemString.length,
-              }),
-            );
-          }
-
-          arrayItems.push(itemValue as number | boolean | string);
-          arrayIndex++;
-        }
-
-        if (arrayItems.length === 0) {
-          errors.push(
-            makeError({
-              message: "Multiline array must have at least one item",
-              line: block.startLine + 1 + index,
-              column: line.charOffset,
-              length: line.content.length,
-            }),
-          );
-        } else {
-          const types = new Set(arrayItems.map((item) => typeof item));
-          if (types.size > 1) {
-            errors.push(
-              makeError({
-                message:
-                  "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-                line: block.startLine + 1 + index,
-                column: line.charOffset,
-                length: line.content.length,
-              }),
-            );
-          } else {
-            result[key] = arrayItems as MetadataValue;
-          }
-        }
-
-        index = arrayIndex - 1;
-        continue;
-      }
-      // else fall through to regular key=value parsing (inline array on one line)
+      const [value, nextIndex] = parseMultilineArray(
+        lines,
+        index,
+        block.startLine,
+        errors,
+      );
+      if (value !== null) result[key] = value;
+      index = nextIndex - 1;
+      continue;
     }
 
     // Regular key = value line
@@ -277,32 +260,95 @@ const parseMetadataBlock = (
     const valueString = match[2]!.trim();
 
     const { value, diagnostics } = parseMetadataValue(valueString);
-    if (diagnostics.includes("invalid-value")) {
-      errors.push(
-        makeError({
-          message: `Invalid metadata value: ${valueString}`,
-          line: block.startLine + 1 + index,
-          column: line.charOffset + line.content.indexOf(valueString),
-          length: valueString.length,
-        }),
-      );
-    }
-    if (diagnostics.includes("mixed-array")) {
-      errors.push(
-        makeError({
-          message:
-            "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-          line: block.startLine + 1 + index,
-          column: line.charOffset,
-          length: line.content.length,
-        }),
-      );
-    }
+    errors.push(
+      ...valueErrors(diagnostics, valueString, {
+        line: block.startLine + 1 + index,
+        valueColumn: line.charOffset + line.content.indexOf(valueString),
+        lineColumn: line.charOffset,
+        lineLength: line.content.length,
+      }),
+    );
 
     result[key] = value;
   }
 
   return [subkey, result, errors];
+};
+
+/**
+ * Parse the items of a multiline array whose `key = [` opener is at
+ * `lines[index]`, consuming lines until the closing `]` (or `],`). Returns the
+ * array value — or null when it is empty or mixes types, which is reported —
+ * and the index of the first line after the array.
+ */
+const parseMultilineArray = (
+  lines: Line[],
+  index: number,
+  blockStartLine: number,
+  errors: MarkitError[],
+): [MetadataValue | null, number] => {
+  const opener = lines[index]!;
+  const items: (number | boolean | string)[] = [];
+  let arrayIndex = index + 1;
+
+  while (arrayIndex < lines.length) {
+    const line = lines[arrayIndex]!;
+    const trimmed = line.content.trim();
+
+    // End of array
+    if (trimmed === "]" || trimmed === "],") {
+      arrayIndex++;
+      break;
+    }
+
+    // Strip trailing comma from item
+    const itemString = trimmed.replace(/,$/, "").trim();
+    const itemStartColumn = line.charOffset +
+      line.content.indexOf(itemString);
+
+    const { value, diagnostics } = parseMetadataValue(itemString);
+    if (diagnostics.includes("invalid-value")) {
+      errors.push(
+        makeError({
+          message: `Invalid metadata value: ${itemString}`,
+          line: blockStartLine + 1 + arrayIndex,
+          column: itemStartColumn,
+          length: itemString.length,
+        }),
+      );
+    }
+
+    items.push(value as number | boolean | string);
+    arrayIndex++;
+  }
+
+  if (items.length === 0) {
+    errors.push(
+      makeError({
+        message: "Multiline array must have at least one item",
+        line: blockStartLine + 1 + index,
+        column: opener.charOffset,
+        length: opener.content.length,
+      }),
+    );
+    return [null, arrayIndex];
+  }
+
+  const types = new Set(items.map((item) => typeof item));
+  if (types.size > 1) {
+    errors.push(
+      makeError({
+        message:
+          "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+        line: blockStartLine + 1 + index,
+        column: opener.charOffset,
+        length: opener.content.length,
+      }),
+    );
+    return [null, arrayIndex];
+  }
+
+  return [items as MetadataValue, arrayIndex];
 };
 
 const parseBlockMetadata = (
@@ -397,27 +443,14 @@ const parseBlockMetadata = (
     const valueLocalOffset = chunk.content.length - valueString.length;
 
     const { value, diagnostics } = parseMetadataValue(valueString);
-    if (diagnostics.includes("invalid-value")) {
-      errors.push(
-        makeError({
-          message: `Invalid metadata value: ${valueString}`,
-          line: block.startLine,
-          column: chunkColumn + valueLocalOffset,
-          length: valueString.length,
-        }),
-      );
-    }
-    if (diagnostics.includes("mixed-array")) {
-      errors.push(
-        makeError({
-          message:
-            "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-          line: block.startLine,
-          column: chunkColumn,
-          length: chunk.content.length,
-        }),
-      );
-    }
+    errors.push(
+      ...valueErrors(diagnostics, valueString, {
+        line: block.startLine,
+        valueColumn: chunkColumn + valueLocalOffset,
+        lineColumn: chunkColumn,
+        lineLength: chunk.content.length,
+      }),
+    );
 
     metadata[key] = value;
   }
@@ -478,19 +511,58 @@ const parseBlockMetadata = (
 
   const lines = newFirstLine ? [newFirstLine, ...otherLines] : otherLines;
 
-  const metadataWithRanges = Object.keys(metadata).length > 0
-    ? Object.assign(metadata, {
-      [startLine]: block.startLine,
-      [endLine]: block.startLine,
-    })
-    : undefined;
+  const hasMetadata = Object.keys(metadata).length > 0;
 
   const blockWithMetadata: BlockWithMetadata = {
     ...block,
     id,
-    ...(metadataWithRanges ? { metadata: metadataWithRanges } : {}),
+    ...(hasMetadata
+      ? {
+        metadata,
+        metadataSource: {
+          source: lineRange(block.startLine, block.startLine),
+        },
+      }
+      : {}),
     lines,
   };
 
   return [blockWithMetadata, errors];
 };
+
+/**
+ * Map a parsed value's diagnostics to compiler errors: an invalid value is
+ * reported at the value itself, a mixed-type array at the whole line or pair.
+ */
+const valueErrors = (
+  diagnostics: string[],
+  valueString: string,
+  at: {
+    line: number;
+    valueColumn: number;
+    lineColumn: number;
+    lineLength: number;
+  },
+): MarkitError[] => [
+  ...(diagnostics.includes("invalid-value")
+    ? [
+      makeError({
+        message: `Invalid metadata value: ${valueString}`,
+        line: at.line,
+        column: at.valueColumn,
+        length: valueString.length,
+      }),
+    ]
+    : []),
+  ...(diagnostics.includes("mixed-array")
+    ? [
+      makeError({
+        message:
+          "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
+        line: at.line,
+        column: at.lineColumn,
+        length: at.lineLength,
+      }),
+    ]
+    : []),
+];
