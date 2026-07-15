@@ -1,7 +1,11 @@
 import { compile, type MarkitDocument } from "@earlytexts/markit";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { window } from "vscode";
+import {
+  guardMarkitDocument,
+  guardSavedDocument,
+} from "./lib/documentGuard.ts";
+import { describeCompileOutcome, outputPathFor } from "./lib/compileTarget.ts";
 
 export default async (
   extension: string,
@@ -16,13 +20,10 @@ export default async (
 
   const document = editor.document;
 
-  if (document.languageId !== "markit") {
-    window.showErrorMessage("Active file is not a Markit document");
-    return;
-  }
-
-  if (document.isUntitled) {
-    window.showErrorMessage("Please save the file before compiling");
+  const guardMessage =
+    guardMarkitDocument(document) ?? guardSavedDocument(document);
+  if (guardMessage) {
+    window.showErrorMessage(guardMessage);
     return;
   }
 
@@ -31,12 +32,7 @@ export default async (
     await document.save();
   }
 
-  const inputPath = document.uri.fsPath;
-  const parsedPath = path.parse(inputPath);
-  const outputPath = path.join(
-    parsedPath.dir,
-    `${parsedPath.name}.${extension}`,
-  );
+  const outputPath = outputPathFor(document.uri.fsPath, extension);
 
   try {
     const inputText = document.getText();
@@ -45,9 +41,10 @@ export default async (
 
     fs.writeFileSync(outputPath, outputText, "utf-8");
 
-    window.showInformationMessage(`Compiled to ${path.basename(outputPath)}`);
-    if (errors.length > 0) {
-      window.showWarningMessage(`Compilation logged ${errors.length} errors`);
+    const outcome = describeCompileOutcome(outputPath, errors.length);
+    window.showInformationMessage(outcome.info);
+    if (outcome.warning) {
+      window.showWarningMessage(outcome.warning);
     }
   } catch (error) {
     window.showErrorMessage(`Failed to write file: ${error}`);

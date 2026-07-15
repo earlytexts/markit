@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compile } from "@earlytexts/markit";
-import renderHtml from "../src/lib/renderHtml.ts";
+import renderHtml from "../../../src/client/lib/renderHtml.ts";
 
 // Compile a whole Markit document (with the "# Id" header) so the renderer sees
 // real ids, sections and block ranges.

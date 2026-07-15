@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compile, endLine, startLine } from "@earlytexts/markit";
-import planFoldingRanges from "../src/lib/foldingPlan.ts";
+import planFoldingRanges from "../../../src/server/lib/foldingPlan.ts";
 
 describe("planFoldingRanges", () => {
   it("folds the document, its metadata (and nested tables) and each block", () => {

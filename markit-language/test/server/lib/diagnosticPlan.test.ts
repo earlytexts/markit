@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarkitError } from "@earlytexts/markit";
-import planDiagnostics from "../src/lib/diagnosticPlan.ts";
+import planDiagnostics from "../../../src/server/lib/diagnosticPlan.ts";
 
 const error = (over: Partial<MarkitError> = {}): MarkitError => ({
   message: "boom",

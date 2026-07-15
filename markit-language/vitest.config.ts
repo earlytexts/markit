@@ -15,7 +15,7 @@ export default defineConfig({
   },
   test: {
     coverage: {
-      include: ["src/lib/**"],
+      include: ["src/client/lib/**", "src/server/lib/**"],
     },
   },
 });
