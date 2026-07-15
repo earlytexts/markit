@@ -106,10 +106,10 @@ describe("inline arrays", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 34,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 33 },
+      },
       severity: "error",
     });
   });
@@ -181,10 +181,10 @@ describe("multiline arrays", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 15,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 14 },
+      },
       severity: "error",
     });
   });
@@ -197,18 +197,18 @@ describe("multiline arrays", () => {
     expect(errors).toHaveLength(2);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: troo",
-      line: 5,
-      column: 5,
-      endLine: 5,
-      endColumn: 9,
+      source: {
+        start: { line: 4, column: 4 },
+        end: { line: 4, column: 8 },
+      },
       severity: "error",
     });
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "unclosed',
-      line: 6,
-      column: 5,
-      endLine: 6,
-      endColumn: 14,
+      source: {
+        start: { line: 5, column: 4 },
+        end: { line: 5, column: 13 },
+      },
       severity: "error",
     });
   });
@@ -219,10 +219,10 @@ describe("multiline arrays", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: null",
-      line: 5,
-      column: 5,
-      endLine: 5,
-      endColumn: 9,
+      source: {
+        start: { line: 4, column: 4 },
+        end: { line: 4, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -233,10 +233,10 @@ describe("multiline arrays", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Multiline array must have at least one item",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 15,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 14 },
+      },
       severity: "error",
     });
   });
@@ -415,18 +415,18 @@ describe("general errors", () => {
     expect(errors).toHaveLength(2);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: troo",
-      line: 4,
-      column: 14,
-      endLine: 4,
-      endColumn: 18,
+      source: {
+        start: { line: 3, column: 13 },
+        end: { line: 3, column: 17 },
+      },
       severity: "error",
     });
     expect(errors[1]).toEqual({
       message: 'Invalid metadata value: "no closing quote',
-      line: 5,
-      column: 13,
-      endLine: 5,
-      endColumn: 30,
+      source: {
+        start: { line: 4, column: 12 },
+        end: { line: 4, column: 29 },
+      },
       severity: "error",
     });
   });
@@ -437,10 +437,10 @@ describe("general errors", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: null",
-      line: 4,
-      column: 7,
-      endLine: 4,
-      endColumn: 11,
+      source: {
+        start: { line: 3, column: 6 },
+        end: { line: 3, column: 10 },
+      },
       severity: "error",
     });
   });
@@ -462,10 +462,10 @@ describe("general errors", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata line, expected 'key = value'",
-      line: 5,
-      column: 1,
-      endLine: 5,
-      endColumn: 17,
+      source: {
+        start: { line: 4, column: 0 },
+        end: { line: 4, column: 16 },
+      },
       severity: "error",
     });
   });

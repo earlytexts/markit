@@ -355,13 +355,11 @@ describe("Table compilation", () => {
       expect(errors).toHaveLength(2);
       expect(errors[0]).toMatchObject({
         message: "Unclosed formatting: *",
-        line: 4,
-        column: 3,
+        source: { start: { line: 3, column: 2 } },
       });
       expect(errors[1]).toMatchObject({
         message: "Unclosed formatting: *",
-        line: 4,
-        column: 8,
+        source: { start: { line: 3, column: 7 } },
       });
     });
 

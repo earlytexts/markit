@@ -14,7 +14,6 @@ import type {
   TableCell,
   TableRow,
 } from "../types.ts";
-import { endLine, startLine } from "../types.ts";
 import {
   blockquoteSpec,
   footnoteReferenceSpec,
@@ -24,6 +23,8 @@ import {
 } from "../lib/grammar.ts";
 import classifyBlockLine from "../lib/classifyBlockLine.ts";
 import buildPositionMap from "./buildPositionMap.ts";
+import lineRange from "../lib/lineRange.ts";
+import makeError from "../lib/makeError.ts";
 import parseElements from "./parseElements.ts";
 import type { Line } from "./splitIntoBlocks.ts";
 import type {
@@ -72,8 +73,12 @@ const parseTextContent = (
     ...(text.metadata ? { metadata: text.metadata } : {}),
     blocks,
     children,
-    [startLine]: text.startLine,
-    [endLine]: text.endLine,
+    ...(positions
+      ? {
+        source: lineRange(text.startLine, text.endLine),
+        ...(text.metadataSource ? { metadataSource: text.metadataSource } : {}),
+      }
+      : {}),
   };
 
   return [document, [...blockErrors, ...childErrors]];
@@ -112,8 +117,14 @@ const parseBlockContent = (
     type: blockType,
     ...(block.metadata ? { metadata: block.metadata } : {}),
     content,
-    [startLine]: block.startLine,
-    [endLine]: block.endLine,
+    ...(positions
+      ? {
+        source: lineRange(block.startLine, block.endLine),
+        ...(block.metadataSource
+          ? { metadataSource: block.metadataSource }
+          : {}),
+      }
+      : {}),
   };
 
   return [parsedBlock, errors];
@@ -230,28 +241,28 @@ const parseBlockLevelElements = (
     // Heading line with invalid level
     if (classification.kind === "invalidHeading") {
       flush();
-      errors.push({
-        message: "Heading level must be between 1 and 6.",
-        line: line.lineNumber + 1,
-        column: line.charOffset + 1,
-        endLine: line.lineNumber + 1,
-        endColumn: line.charOffset + 3,
-        severity: "error",
-      });
+      errors.push(
+        makeError({
+          message: "Heading level must be between 1 and 6.",
+          line: line.lineNumber,
+          column: line.charOffset,
+          length: 2,
+        }),
+      );
       continue;
     }
 
     // Heading marker without a level digit
     if (classification.kind === "headingWithoutLevel") {
       flush();
-      errors.push({
-        message: "Heading must be given a level between 1 and 6.",
-        line: line.lineNumber + 1,
-        column: line.charOffset + 1,
-        endLine: line.lineNumber + 1,
-        endColumn: line.charOffset + 2,
-        severity: "error",
-      });
+      errors.push(
+        makeError({
+          message: "Heading must be given a level between 1 and 6.",
+          line: line.lineNumber,
+          column: line.charOffset,
+          length: 1,
+        }),
+      );
       continue;
     }
 
@@ -259,14 +270,14 @@ const parseBlockLevelElements = (
     if (classification.kind === "heading") {
       if (!allowHeadings) {
         flush();
-        errors.push({
-          message: headingErrorMessage,
-          line: line.lineNumber + 1,
-          column: line.charOffset + 1,
-          endLine: line.lineNumber + 1,
-          endColumn: line.charOffset + content.length + 1,
-          severity: "error",
-        });
+        errors.push(
+          makeError({
+            message: headingErrorMessage,
+            line: line.lineNumber,
+            column: line.charOffset,
+            length: content.length,
+          }),
+        );
       } else {
         const level = classification.level;
         if (state.kind === "heading") {
@@ -307,15 +318,15 @@ const parseBlockLevelElements = (
       // Validate indent is a multiple of indentSize
       if (indent % listSpec.indentSize !== 0) {
         flush();
-        errors.push({
-          message:
-            `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
-          line: line.lineNumber + 1,
-          column: line.charOffset + 1,
-          endLine: line.lineNumber + 1,
-          endColumn: line.charOffset + indent + 1,
-          severity: "error",
-        });
+        errors.push(
+          makeError({
+            message:
+              `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+            line: line.lineNumber,
+            column: line.charOffset,
+            length: indent,
+          }),
+        );
         continue;
       }
       // If we're in a list state and this item is at base indent (0),
@@ -348,15 +359,15 @@ const parseBlockLevelElements = (
       // Validate indent is a multiple of indentSize
       if (indent % listSpec.indentSize !== 0) {
         flush();
-        errors.push({
-          message:
-            `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
-          line: line.lineNumber + 1,
-          column: line.charOffset + 1,
-          endLine: line.lineNumber + 1,
-          endColumn: line.charOffset + indent + 1,
-          severity: "error",
-        });
+        errors.push(
+          makeError({
+            message:
+              `List item indent must be a multiple of ${listSpec.indentSize} spaces.`,
+            line: line.lineNumber,
+            column: line.charOffset,
+            length: indent,
+          }),
+        );
         continue;
       }
       // If we're in a list state and this item is at base indent (0),
@@ -773,15 +784,15 @@ const buildTable = (
     if (row.cells.length < maxColumns) {
       // Emit warning for inconsistent column count
       if (row.cells.length > 0) {
-        errors.push({
-          message:
-            `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
-          line: rowLineNumber + 1,
-          column: 1,
-          endLine: rowLineNumber + 1,
-          endColumn: dataRows[rowIndex]!.line.content.length + 1,
-          severity: "warning",
-        });
+        errors.push(
+          makeError({
+            message:
+              `Table row has ${row.cells.length} cell(s) but expected ${maxColumns}.`,
+            line: rowLineNumber,
+            length: dataRows[rowIndex]!.line.content.length,
+            severity: "warning",
+          }),
+        );
       }
       // Add empty cells
       while (row.cells.length < maxColumns) {
@@ -793,15 +804,15 @@ const buildTable = (
   // Warn if separator exists but not in correct position
   if (separatorIndex !== -1 && separatorIndex !== 1) {
     const sepLine = rowEntries[separatorIndex]!.line;
-    errors.push({
-      message:
-        "Table separator row should be the second row to define headers.",
-      line: sepLine.lineNumber + 1,
-      column: 1,
-      endLine: sepLine.lineNumber + 1,
-      endColumn: sepLine.content.length + 1,
-      severity: "warning",
-    });
+    errors.push(
+      makeError({
+        message:
+          "Table separator row should be the second row to define headers.",
+        line: sepLine.lineNumber,
+        length: sepLine.content.length,
+        severity: "warning",
+      }),
+    );
   }
 
   return {

@@ -44,10 +44,10 @@ describe("block IDs", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Block is missing metadata tag '{#id}'",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 23,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 22 },
+      },
       severity: "error",
     });
   });
@@ -60,10 +60,10 @@ describe("block IDs", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Block tag is not properly closed with '}'",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 4,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 3 },
+      },
       severity: "error",
     });
   });
@@ -85,10 +85,10 @@ describe("block IDs", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Duplicate block ID: #2",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 5,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 4 },
+      },
       severity: "error",
     });
   });
@@ -102,10 +102,10 @@ describe("block IDs", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Block ID 'id#bad' contains invalid characters (IDs may not contain whitespace, '#', '{', or '}')",
-      line: 3,
-      column: 3,
-      endLine: 3,
-      endColumn: 9,
+      source: {
+        start: { line: 2, column: 2 },
+        end: { line: 2, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -129,10 +129,10 @@ describe("title blocks", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!).toEqual({
       message: "Only one title block is allowed per text",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 9,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -152,10 +152,10 @@ describe("title blocks", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]!).toEqual({
       message: "Title block must be the first block in the text",
-      line: 6,
-      column: 1,
-      endLine: 6,
-      endColumn: 9,
+      source: {
+        start: { line: 5, column: 0 },
+        end: { line: 5, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -242,10 +242,10 @@ describe("footnote blocks", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Footnote blocks must appear after all paragraph blocks",
-      line: 3,
-      column: 1,
-      endLine: 3,
-      endColumn: 6,
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 2, column: 5 },
+      },
       severity: "error",
     });
   });
@@ -272,10 +272,10 @@ describe("footnote blocks", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Block ID 'n' is not a valid footnote ID (footnote IDs must start with 'n' followed by at least one character)",
-      line: 3,
-      column: 3,
-      endLine: 3,
-      endColumn: 4,
+      source: {
+        start: { line: 2, column: 2 },
+        end: { line: 2, column: 3 },
+      },
       severity: "error",
     });
   });

@@ -1,7 +1,6 @@
 import { expect } from "@std/expect";
 import { describe, it } from "@std/testing/bdd";
-import compile from "../src/compile.ts";
-import { endLine, startLine } from "../src/types.ts";
+import compile, { compileWithPositions } from "../src/compile.ts";
 import { markit, markitWithContent } from "./utils/factories.ts";
 
 describe("null case", () => {
@@ -116,24 +115,32 @@ describe("inline arrays", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Array contains mixed types (arrays must contain only numbers, only booleans, or only strings)",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 26,
+      source: {
+        start: { line: 2, column: 5 },
+        end: { line: 2, column: 25 },
+      },
       severity: "error",
     });
   });
 });
 
 describe("positions and line ranges", () => {
-  it("records startLine and endLine for the block regardless of metadata", () => {
-    const { document, errors } = compile(
+  it("records block source and metadataSource with positions", () => {
+    const { document, errors } = compileWithPositions(
       markit("# Text", "", "{#1, foo=1}", "Content.", ""),
     );
 
     expect(errors).toHaveLength(0);
-    expect(document.blocks[0]![startLine]).toBe(2);
-    expect(document.blocks[0]![endLine]).toBe(3);
+    expect(document.blocks[0]!.source).toEqual({
+      start: { line: 2, column: 0 },
+      end: { line: 4, column: 0 },
+    });
+    expect(document.blocks[0]!.metadataSource).toEqual({
+      source: {
+        start: { line: 2, column: 0 },
+        end: { line: 3, column: 0 },
+      },
+    });
   });
 });
 
@@ -196,10 +203,10 @@ describe("malformed tags", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata pair, expected 'key=value'",
-      line: 3,
-      column: 6,
-      endLine: 3,
-      endColumn: 14,
+      source: {
+        start: { line: 2, column: 5 },
+        end: { line: 2, column: 13 },
+      },
       severity: "error",
     });
   });
@@ -210,10 +217,10 @@ describe("malformed tags", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Invalid metadata value: troo",
-      line: 3,
-      column: 10,
-      endLine: 3,
-      endColumn: 14,
+      source: {
+        start: { line: 2, column: 9 },
+        end: { line: 2, column: 13 },
+      },
       severity: "error",
     });
   });
@@ -225,8 +232,7 @@ describe("malformed tags", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Block tag is not properly closed with '}'",
-      line: 3,
-      column: 1,
+      source: { start: { line: 2, column: 0 } },
       severity: "error",
     });
   });

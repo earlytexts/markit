@@ -1,17 +1,26 @@
 import { findClosingBrace, splitTopLevelCommas } from "../lib/blockTagLexer.ts";
-import type { MarkitError, Metadata, MetadataValue } from "../types.ts";
-import { endLine, startLine } from "../types.ts";
+import type {
+  MarkitError,
+  Metadata,
+  MetadataSource,
+  MetadataValue,
+  SourceRange,
+} from "../types.ts";
 import { footnoteReferenceSpec } from "../lib/grammar.ts";
 import type { TextTree } from "./generateTextTree.ts";
+import lineRange from "../lib/lineRange.ts";
 import makeError from "../lib/makeError.ts";
 import parseMetadataValue from "./parseMetadataValue.ts";
 import type { Line, RawBlock } from "./splitIntoBlocks.ts";
 
 /**
- * Parse the TextTree into a tree with metadata.
+ * Parse the TextTree into a tree with metadata. `metadataSource` is always
+ * computed here; parseContent attaches it to the output only when compiling
+ * with positions.
  */
 export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   blocks: BlockWithMetadata[];
   children: TextTreeWithMetadata[];
 };
@@ -19,6 +28,7 @@ export type TextTreeWithMetadata = Omit<TextTree, "blocks" | "children"> & {
 export type BlockWithMetadata = Omit<RawBlock, "lines"> & {
   id: string;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   lines: Line[];
 };
 
@@ -47,11 +57,9 @@ const parseTextMetadata = (
 
   const allMetadataErrors: MarkitError[] = [];
   const metadata: Metadata | undefined = metadataBlocks.length > 0
-    ? {
-      [startLine]: metadataBlocks[0]!.startLine,
-      [endLine]: metadataBlocks.at(-1)!.endLine,
-    }
+    ? {}
     : undefined;
+  const nestedRanges: Record<string, SourceRange> = {};
   let hasTopLevelBlock = false;
 
   for (const block of metadataBlocks) {
@@ -76,12 +84,20 @@ const parseTextMetadata = (
           }),
         );
       }
-      metadata![subkey] = Object.assign(
-        parsedMetadata as Record<string, MetadataValue>,
-        { [startLine]: block.startLine, [endLine]: block.endLine },
-      );
+      metadata![subkey] = parsedMetadata;
+      nestedRanges[subkey] = lineRange(block.startLine, block.endLine);
     }
   }
+
+  const metadataSource: MetadataSource | undefined = metadataBlocks.length > 0
+    ? {
+      source: lineRange(
+        metadataBlocks[0]!.startLine,
+        metadataBlocks.at(-1)!.endLine,
+      ),
+      ...(Object.keys(nestedRanges).length > 0 ? { nested: nestedRanges } : {}),
+    }
+    : undefined;
 
   // Parse metadata for each block, tracking the ids seen so far for duplicate
   // checking, title placement, and subtitle auto-numbering
@@ -135,6 +151,7 @@ const parseTextMetadata = (
   const textWithMetadata = {
     ...text,
     ...(metadata ? { metadata } : {}),
+    ...(metadataSource ? { metadataSource } : {}),
     blocks: blocksWithMetadata,
     children: childrenWithMetadata,
   };
@@ -478,17 +495,19 @@ const parseBlockMetadata = (
 
   const lines = newFirstLine ? [newFirstLine, ...otherLines] : otherLines;
 
-  const metadataWithRanges = Object.keys(metadata).length > 0
-    ? Object.assign(metadata, {
-      [startLine]: block.startLine,
-      [endLine]: block.startLine,
-    })
-    : undefined;
+  const hasMetadata = Object.keys(metadata).length > 0;
 
   const blockWithMetadata: BlockWithMetadata = {
     ...block,
     id,
-    ...(metadataWithRanges ? { metadata: metadataWithRanges } : {}),
+    ...(hasMetadata
+      ? {
+        metadata,
+        metadataSource: {
+          source: lineRange(block.startLine, block.startLine),
+        },
+      }
+      : {}),
     lines,
   };
 

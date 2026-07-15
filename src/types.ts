@@ -4,36 +4,29 @@ import type { leafElements, wrapperElements } from "./lib/grammar.ts";
 
 /**
  * A compiler diagnostic: a syntax error or warning found while compiling a
- * Markit document. `line`/`column`/`endLine`/`endColumn` are 1-based, spanning
- * the offending text (`endColumn` exclusive). Diagnostics never stop
+ * Markit document. `source` spans the offending text. Diagnostics never stop
  * compilation — `compile` always returns a best-effort document alongside its
  * errors.
  */
 export type MarkitError = {
   message: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
   severity: "error" | "warning";
+  source: SourceRange;
 };
 
 /**
- * A source line range, keyed by the `startLine`/`endLine` symbols rather than
- * plain string keys so it stays out of `JSON.stringify` output. Attached to
- * every `MarkitDocument`, `Block`, and `Metadata` node for editor tooling (e.g.
- * code folding); not meaningful outside that use.
+ * The extent of a metadata node in the source, kept as a sibling of the
+ * `metadata` property (`Metadata` is an open record, so a range property
+ * inside it could collide with a metadata key). `source` covers the whole
+ * metadata extent — a block tag's metadata pairs, or a text's `[metadata]`
+ * block(s) from first to last; `nested` holds one range per
+ * `[metadata.<key>]` sub-block, keyed by that key. Populated only by
+ * `compileWithPositions`; whole-line ranges (see `MarkitDocument.source`).
  */
-export type Ranges = {
-  [startLine]: number;
-  [endLine]: number;
+export type MetadataSource = {
+  source: SourceRange;
+  nested?: Record<string, SourceRange>;
 };
-
-/** Symbol key for a node's first source line; see `Ranges`. */
-export const startLine: unique symbol = Symbol("startLine");
-
-/** Symbol key for a node's last source line; see `Ranges`. */
-export const endLine: unique symbol = Symbol("endLine");
 
 /**
  * A value permitted in a Markit metadata block: boolean, number, string, or a
@@ -53,25 +46,31 @@ export type MetadataValue =
  * `[metadata.<key>]` sub-block). There is no fixed schema — any keys are
  * preserved as given.
  */
-export type Metadata =
-  & Record<
-    string,
-    MetadataValue | (Record<string, MetadataValue> & Ranges)
-  >
-  & Ranges;
+export type Metadata = Record<
+  string,
+  MetadataValue | Record<string, MetadataValue>
+>;
 
 /**
  * A compiled text and its subtree, as produced by `compile`. `id` is the
  * text's own ID for the root, or the dot-joined path from the root for a
  * nested text (e.g. `Title.Chapter1.Section2`). `children` holds the texts one
  * heading level deeper (`##` inside a `#` text, and so on).
+ *
+ * `source` and `metadataSource` — present only on `compileWithPositions`
+ * output — locate the node in the source for editor tooling (code folding,
+ * error attribution). Node-level ranges are whole-line and end-exclusive: a
+ * node spanning source lines 2-3 has `start` `{ line: 2, column: 0 }` and
+ * `end` `{ line: 4, column: 0 }`.
  */
 export type MarkitDocument = {
   id: string;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   blocks: Block[];
   children: MarkitDocument[];
-} & Ranges;
+  source?: SourceRange;
+};
 
 /**
  * The kind of a content block, determined by its block ID (see
@@ -81,13 +80,19 @@ export type MarkitDocument = {
  */
 export type BlockType = "title" | "subtitle" | "footnote" | "paragraph";
 
-/** A single `{#id, ...}` content block and its parsed block-level content. */
+/**
+ * A single `{#id, ...}` content block and its parsed block-level content.
+ * `source`/`metadataSource` as on `MarkitDocument`: whole-line ranges,
+ * populated only by `compileWithPositions`.
+ */
 export type Block = {
   id: string;
   type: BlockType;
   metadata?: Metadata;
+  metadataSource?: MetadataSource;
   content: BlockElement[];
-} & Ranges;
+  source?: SourceRange;
+};
 
 /** The block-level elements a `Block`'s `content` can contain. */
 export type BlockElement =
@@ -300,6 +305,9 @@ export type Highlight = {
 /** A source position: 0-based line and column, as `buildPositionMap` reports. */
 export type SourcePosition = { line: number; column: number };
 
+/** A span of source text: `start` inclusive, `end` exclusive. */
+export type SourceRange = { start: SourcePosition; end: SourcePosition };
+
 /** The result of compiling a Markit document string; see `compile`. */
 export type CompileResult = {
   document: MarkitDocument;
@@ -331,7 +339,7 @@ export type Extraction = { text: string; spans: Span[] };
 export type Span = {
   start: number;
   end: number;
-  source?: { start: SourcePosition; end: SourcePosition };
+  source?: SourceRange;
   context: Frame[];
 };
 
@@ -365,7 +373,7 @@ export type Token = {
   text: string;
   start: number;
   end: number;
-  source?: { start: SourcePosition; end: SourcePosition };
+  source?: SourceRange;
   context: Frame[];
   word?: string;
   lang?: string;

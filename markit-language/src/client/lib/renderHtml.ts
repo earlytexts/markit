@@ -22,7 +22,6 @@ import type {
   MarkitDocument,
   Table,
 } from "@earlytexts/markit";
-import { startLine } from "@earlytexts/markit";
 
 export default (document: MarkitDocument): string =>
   `<!doctype html><html><head><meta charset="UTF-8"><title>${escapeText(
@@ -35,7 +34,7 @@ const documentToHtml = (document: MarkitDocument): string => {
   const blocks = document.blocks.map(blockToHtml).join("");
   const children = document.children.map(documentToHtml).join("");
   return `<section id="${escapeAttr(document.id)}" data-line="${
-    document[startLine]
+    document.source?.start.line ?? 0
   }">${blocks}${children}</section>`;
 };
 
@@ -45,7 +44,7 @@ const blockToHtml = (block: Block): string => {
   // so the two line up and footnote links resolve). The visible labels below
   // still show the short, reader-facing form.
   const id = escapeAttr(block.id);
-  const line = block[startLine];
+  const line = block.source?.start.line ?? 0;
   const content = block.content.map(blockElementToHtml).join("");
   switch (block.type) {
     case "title":

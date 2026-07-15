@@ -4,7 +4,6 @@ import parseContent from "./compile/parseContent.ts";
 import parseMetadata from "./compile/parseMetadata.ts";
 import splitIntoBlocks from "./compile/splitIntoBlocks.ts";
 import type { CompileResult } from "./types.ts";
-import { endLine, startLine } from "./types.ts";
 
 /**
  * Compile a Markit document string into a structured, JSON-ready document.
@@ -34,8 +33,14 @@ const compileDocument = (text: string, positions: boolean): CompileResult => {
       id: "empty-document",
       blocks: [],
       children: [],
-      [startLine]: 0,
-      [endLine]: 0,
+      ...(positions
+        ? {
+          source: {
+            start: { line: 0, column: 0 },
+            end: { line: 0, column: 0 },
+          },
+        }
+        : {}),
     };
 
     const emptyDocumentError = makeError({
@@ -59,7 +64,9 @@ const compileDocument = (text: string, positions: boolean): CompileResult => {
 
   // Merge and sort errors
   const errors = [...treeErrors, ...metaDataErrors, ...contentErrors].sort(
-    (a, b) => a.line - b.line || a.column - b.column,
+    (a, b) =>
+      a.source.start.line - b.source.start.line ||
+      a.source.start.column - b.source.start.column,
   );
 
   // return the document along with any errors

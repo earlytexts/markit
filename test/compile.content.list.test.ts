@@ -299,7 +299,7 @@ describe("List compilation", () => {
       const { errors } = compile(input);
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain("indent must be a multiple of 2");
-      expect(errors[0]!.line).toBe(5); // Line number in the full document
+      expect(errors[0]!.source.start.line).toBe(4); // Line number in the full document
       expect(errors[0]!.severity).toBe("error");
     });
 

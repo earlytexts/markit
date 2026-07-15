@@ -134,10 +134,10 @@ describe("headings", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Heading level must be between 1 and 6.",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 3,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 2 },
+      },
       severity: "error",
     });
   });
@@ -148,10 +148,10 @@ describe("headings", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Heading must be given a level between 1 and 6.",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 2,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 1 },
+      },
       severity: "error",
     });
   });
@@ -164,10 +164,10 @@ describe("headings", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Headings are not allowed inside block quotations.",
-      line: 4,
-      column: 3,
-      endLine: 4,
-      endColumn: 32,
+      source: {
+        start: { line: 3, column: 2 },
+        end: { line: 3, column: 31 },
+      },
       severity: "error",
     });
   });
@@ -180,10 +180,10 @@ describe("headings", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Headings are only allowed in title or subtitle blocks.",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 30,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 29 },
+      },
       severity: "error",
     });
   });
@@ -196,10 +196,10 @@ describe("headings", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
       message: "Headings are only allowed in title or subtitle blocks.",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 29,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 28 },
+      },
       severity: "error",
     });
   });

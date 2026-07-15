@@ -125,10 +125,10 @@ describe("character mode", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed character mode",
-      line: 4,
-      column: 13,
-      endLine: 4,
-      endColumn: 14,
+      source: {
+        start: { line: 3, column: 12 },
+        end: { line: 3, column: 13 },
+      },
       severity: "error",
     });
   });

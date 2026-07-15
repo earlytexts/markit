@@ -72,10 +72,10 @@ describe("inline formatting", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: *",
-      line: 4,
-      column: 10,
-      endLine: 4,
-      endColumn: 11,
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 10 },
+      },
       severity: "error",
     });
   });
@@ -87,10 +87,10 @@ describe("inline formatting", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: *",
-      line: 4,
-      column: 10,
-      endLine: 4,
-      endColumn: 11,
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 10 },
+      },
       severity: "error",
     });
   });
@@ -102,10 +102,10 @@ describe("inline formatting", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: *",
-      line: 4,
-      column: 1,
-      endLine: 4,
-      endColumn: 2,
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 1 },
+      },
       severity: "error",
     });
   });
@@ -443,10 +443,10 @@ describe("foreign text", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: $",
-      line: 4,
-      column: 6,
-      endLine: 4,
-      endColumn: 7,
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 6 },
+      },
       severity: "error",
     });
   });
@@ -458,10 +458,10 @@ describe("foreign text", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: $",
-      line: 4,
-      column: 6,
-      endLine: 4,
-      endColumn: 7,
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 6 },
+      },
       severity: "error",
     });
   });
@@ -473,10 +473,10 @@ describe("foreign text", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: $grc:",
-      line: 4,
-      column: 6,
-      endLine: 4,
-      endColumn: 11,
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 10 },
+      },
       severity: "error",
     });
   });
@@ -519,10 +519,10 @@ describe("named entities", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: [p:",
-      line: 4,
-      column: 6,
-      endLine: 4,
-      endColumn: 9,
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -534,10 +534,10 @@ describe("named entities", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed formatting: [l:",
-      line: 4,
-      column: 6,
-      endLine: 4,
-      endColumn: 9,
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 8 },
+      },
       severity: "error",
     });
   });
@@ -657,10 +657,10 @@ describe("footnote references", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Footnote not found: n99",
-      line: 4,
-      column: 19,
-      endLine: 4,
-      endColumn: 24,
+      source: {
+        start: { line: 3, column: 18 },
+        end: { line: 3, column: 23 },
+      },
       severity: "error",
     });
   });
@@ -821,8 +821,7 @@ describe("word disambiguation", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Malformed word element; expected [w:surface=word].",
-      line: 4,
-      column: 3,
+      source: { start: { line: 3, column: 2 } },
       severity: "error",
     });
     expect(document.blocks[0]!.content).toEqual([p([pt("a [w:humane] b")])]);
@@ -835,8 +834,7 @@ describe("word disambiguation", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Malformed word element; expected [w:surface=word].",
-      line: 4,
-      column: 3,
+      source: { start: { line: 3, column: 2 } },
       severity: "error",
     });
     expect(document.blocks[0]!.content).toEqual([
@@ -863,10 +861,10 @@ describe("word element — the surface must be exactly one token", () => {
     expect(errors[0]).toMatchObject({
       message:
         "Word surface must be exactly one token (mark a multi-word unit with ~).",
-      line: 4,
-      column: 4,
-      endLine: 4,
-      endColumn: 19,
+      source: {
+        start: { line: 3, column: 3 },
+        end: { line: 3, column: 18 },
+      },
       severity: "error",
     });
   });

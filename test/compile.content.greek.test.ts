@@ -173,10 +173,10 @@ describe("Greek mode", () => {
 
     expect(errors[0]).toMatchObject({
       message: "Unclosed Greek mode",
-      line: 4,
-      column: 10,
-      endLine: 4,
-      endColumn: 12,
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 11 },
+      },
       severity: "error",
     });
   });
