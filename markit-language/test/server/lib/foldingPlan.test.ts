@@ -4,7 +4,7 @@ import planFoldingRanges from "../../../src/server/lib/foldingPlan.ts";
 
 describe("planFoldingRanges", () => {
   it("folds the document, its metadata (and nested tables) and each block", () => {
-    const [document] = compile(
+    const { document } = compile(
       [
         "# Text",
         "",
@@ -49,7 +49,7 @@ describe("planFoldingRanges", () => {
   });
 
   it("recurses into nested sections", () => {
-    const [document] = compile(
+    const { document } = compile(
       [
         "# Parent",
         "",

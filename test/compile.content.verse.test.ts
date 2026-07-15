@@ -11,7 +11,7 @@ describe("Verse compilation", () => {
       "* Fear no more the heat o' the sun,",
       "* Nor the furious winter's rages;",
     );
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       list("verse", [
@@ -30,7 +30,7 @@ describe("Verse compilation", () => {
       "* Third line,",
       "* Fourth line.",
     );
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       list("verse", [li([pt("First line,")]), li([pt("Second line.")])]),
@@ -40,7 +40,7 @@ describe("Verse compilation", () => {
 
   it("preserves inline formatting in verse lines", () => {
     const input = markitWithContent("{#1}", "* Line with *strong* text");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     const verse = result.blocks[0]!.content[0] as any;
     expect(verse.ordered).toBe("verse");
@@ -52,7 +52,7 @@ describe("Verse compilation", () => {
 
   it("preserves line break within a verse line", () => {
     const input = markitWithContent("{#1}", "* First half \\ second half");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     const verse = result.blocks[0]!.content[0] as any;
     expect(verse.ordered).toBe("verse");
@@ -61,7 +61,7 @@ describe("Verse compilation", () => {
 
   it("compiles a single verse line", () => {
     const input = markitWithContent("{#1}", "* Only line");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       list("verse", [li([pt("Only line")])]),
@@ -77,7 +77,7 @@ describe("Verse compilation", () => {
       "",
       "More prose.",
     );
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       p([pt("Prose paragraph.")]),
@@ -88,7 +88,7 @@ describe("Verse compilation", () => {
 
   it("separates verse from adjacent unordered list", () => {
     const input = markitWithContent("{#1}", "- List item", "", "* Verse line");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       list("unordered", [li([pt("List item")])]),
@@ -98,7 +98,7 @@ describe("Verse compilation", () => {
 
   it("separates verse from adjacent ordered list", () => {
     const input = markitWithContent("{#1}", "1. List item", "", "* Verse line");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     expect(result.blocks[0]!.content).toEqual([
       list("ordered", [li([pt("List item")])]),
@@ -108,7 +108,7 @@ describe("Verse compilation", () => {
 
   it("verse does not set start property", () => {
     const input = markitWithContent("{#1}", "* Line one", "* Line two");
-    const [result, errors] = compile(input);
+    const { document: result, errors } = compile(input);
     expect(errors).toEqual([]);
     const verse = result.blocks[0]!.content[0] as any;
     expect(verse.start).toBeUndefined();

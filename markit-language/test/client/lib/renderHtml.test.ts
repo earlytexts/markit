@@ -5,7 +5,7 @@ import renderHtml from "../../../src/client/lib/renderHtml.ts";
 // Compile a whole Markit document (with the "# Id" header) so the renderer sees
 // real ids, sections and block ranges.
 const render = (...lines: string[]): string => {
-  const [document] = compile(lines.join("\n"));
+  const { document } = compile(lines.join("\n"));
   return renderHtml(document);
 };
 

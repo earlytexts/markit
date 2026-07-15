@@ -14,10 +14,11 @@ import {
   wrapperElements,
 } from "../lib/grammar.ts";
 import type { PositionInfo } from "./buildPositionMap.ts";
-import { isRecording } from "./provenance.ts";
 import makeError from "../lib/makeError.ts";
 import processGreekMode from "./greekMode.ts";
 import processCharacterMode from "./characterMode.ts";
+import { extractInlineText } from "../extract.ts";
+import { wordPattern } from "../tokenize.ts";
 
 // The grammar's leaf and wrapper specs, pre-sorted longest-trigger-first so the
 // parser always matches the most specific marker (e.g. `~~` before `~`).
@@ -45,6 +46,7 @@ export default (
   positionMap: PositionInfo[],
   footnoteIds: ReadonlySet<string>,
   textId: string,
+  positions: boolean,
 ): [InlineElement[], MarkitError[]] => {
   const errors: MarkitError[] = [];
   const [elements] = parseElements(
@@ -56,6 +58,7 @@ export default (
     errors,
     false,
     textId,
+    positions,
   );
   const cleanedElements = cleanupElements(elements);
   return [cleanedElements, errors];
@@ -77,8 +80,8 @@ const parseElements = (
   errors: MarkitError[],
   suppressEscape: boolean,
   textId: string,
+  rec: boolean,
 ): [InlineElement[], number, boolean] => {
-  const rec = isRecording();
   const result: InlineElement[] = [];
   let pos = startPos;
   let plainTextBuffer = "";
@@ -179,15 +182,16 @@ const parseElements = (
         continue;
       }
       const content = input.slice(pos + 2, closePos);
-      flushPlainText();
+      // The resolved Greek merges into the running plain-text buffer: `{{…}}`
+      // is an input method, not a document structure, so `x{{s}}y` and its
+      // resolved spelling compile to the identical single plainText node.
       const greek = processGreekMode(content);
-      result.push({
-        type: "plainText",
-        content: greek,
-        ...(rec
-          ? { sources: spanPositions(pos + 2, content.length, greek.length) }
-          : {}),
-      });
+      plainTextBuffer += greek;
+      if (rec) {
+        bufferPositions.push(
+          ...spanPositions(pos + 2, content.length, greek.length),
+        );
+      }
       pos = closePos + 2;
       continue;
     }
@@ -210,17 +214,15 @@ const parseElements = (
         continue;
       }
       const content = input.slice(pos + 1, closePos);
-      flushPlainText();
+      // As with Greek mode: character mode resolves into the buffer, so the
+      // braced and literal spellings compile identically.
       const characters = processCharacterMode(content);
-      result.push({
-        type: "plainText",
-        content: characters,
-        ...(rec
-          ? {
-            sources: spanPositions(pos + 1, content.length, characters.length),
-          }
-          : {}),
-      });
+      plainTextBuffer += characters;
+      if (rec) {
+        bufferPositions.push(
+          ...spanPositions(pos + 1, content.length, characters.length),
+        );
+      }
       pos = closePos + 1;
       continue;
     }
@@ -301,6 +303,7 @@ const parseElements = (
             errors,
             suppressEscape,
             textId,
+            rec,
           );
 
           if (!closed) {
@@ -373,6 +376,7 @@ const parseElements = (
         errors,
         false,
         textId,
+        rec,
       );
 
       if (!closed) {
@@ -412,11 +416,34 @@ const parseElements = (
           errors,
           suppressEscape,
           textId,
+          rec,
         );
         const word = input
           .slice(separator + 1, close)
           .replace(/\\(.)/g, "$1")
           .trim();
+        // `w` assigns a disambiguated word to one token, so the surface must
+        // tokenize to exactly one token — in both versions, since editorial
+        // markup inside the surface could otherwise make the count
+        // version-dependent. (`[w:a~priori=x]` is legal: `~` extracts as
+        // U+00A0, which the word pattern joins across.)
+        const singleToken = (["edited", "original"] as const).every(
+          (version) =>
+            [...extractInlineText(surface, version).matchAll(wordPattern)]
+              .length === 1,
+        );
+        if (!singleToken) {
+          const position = positionMap[pos]!;
+          errors.push(
+            makeError({
+              message:
+                "Word surface must be exactly one token (mark a multi-word unit with ~).",
+              line: position.line,
+              column: position.column,
+              length: close + 1 - pos,
+            }),
+          );
+        }
         flushPlainText();
         result.push({ type: "word", word, content: surface });
         pos = close + 1;
@@ -449,6 +476,7 @@ const parseElements = (
           errors,
           suppressEscape,
           textId,
+          rec,
         );
 
         if (!closed) {

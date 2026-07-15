@@ -4,23 +4,8 @@ import type {
   InlineElement,
   List,
   MarkitDocument,
-  SourcePosition,
   Table,
 } from "./types.ts";
-
-/**
- * Rendered text paired with, per character, the source position it came from (or
- * `null` for synthetic characters — separators, wrapper furniture, and the
- * spaces/tabs leaf elements render to). `sources` always has one entry per
- * character of `text`. Source positions are present only when the document was
- * compiled with `{ tokens: true }` (so its `plainText` nodes carry `sources`);
- * otherwise every entry is `null`. Consumed by `tokenize`.
- */
-export type Sourced = { text: string; sources: (SourcePosition | null)[] };
-
-/** Like the default export, but each character of the result carries its source position; see `Sourced`. */
-export const renderSourced = (document: MarkitDocument): Sourced =>
-  concat([documentToText(document), raw("\n")]);
 
 /**
  * Render a compiled document to its plain-text projection: block-level
@@ -28,50 +13,50 @@ export const renderSourced = (document: MarkitDocument): Sourced =>
  * elements render to the text a reader would see (wrapper furniture such as
  * emphasis markers is dropped; quotes keep their `"..."`, citations their
  * `[...]`).
+ *
+ * This is the DISPLAY projection, and is not for analysis: string furniture
+ * (quote marks, citation brackets, `<illegible>` markers, footnote anchors)
+ * stays in the output. Extraction and tokenisation go through `extractText`
+ * and `tokenize`, which drop all furniture and carry provenance.
  */
 export default (document: MarkitDocument): string =>
-  renderSourced(document).text;
+  documentToText(document) + "\n";
 
-const documentToText = (document: MarkitDocument): Sourced => {
-  const blocks = join(document.blocks.map(blockToText), "\n\n");
-  const children = join(document.children.map(documentToText), "\n\n");
-  return children.text ? concat([blocks, raw("\n\n"), children]) : blocks;
+const documentToText = (document: MarkitDocument): string => {
+  const blocks = document.blocks.map(blockToText).join("\n\n");
+  const children = document.children.map(documentToText).join("\n\n");
+  return children ? `${blocks}\n\n${children}` : blocks;
 };
 
-const blockToText = (block: Block): Sourced => {
+const blockToText = (block: Block): string => {
   const footnoteId = block.type === "footnote" ? block.id : null;
-  const parts = block.content.map((el) => blockElementToText(el, footnoteId));
-  return trim(join(parts, "\n\n"));
+  return block.content
+    .map((el) => blockElementToText(el, footnoteId))
+    .join("\n\n")
+    .trim();
 };
 
 const blockElementToText = (
   element: BlockElement,
   footnoteId: string | null,
-): Sourced => {
+): string => {
   switch (element.type) {
     case "paragraph": {
       const text = inlineElementsToText(element.content);
-      return footnoteId !== null
-        ? concat([raw(`[^${footnoteId}]: `), text])
-        : text;
+      return footnoteId !== null ? `[^${footnoteId}]: ${text}` : text;
     }
     case "heading":
-      return join(
-        element.content.map((l) => inlineElementsToText(l.content)),
-        "\n",
-      );
+      return element.content
+        .map((l) => inlineElementsToText(l.content))
+        .join("\n");
     case "blockquote":
-      return join(
-        element.content.map((el) =>
-          indentLines(blockElementToText(el, null), "    ")
-        ),
-        "\n\n",
-      );
+      return element.content
+        .map((el) => indentLines(blockElementToText(el, null), "    "))
+        .join("\n\n");
     case "stageDirection":
-      return join(
-        element.content.map((el) => blockElementToText(el, null)),
-        "\n\n",
-      );
+      return element.content
+        .map((el) => blockElementToText(el, null))
+        .join("\n\n");
     case "list":
       return listToText(element, 0, element.start ?? 1);
     case "table":
@@ -83,71 +68,57 @@ const listToText = (
   list: List,
   indentLevel: number,
   startNumber: number,
-): Sourced => {
+): string => {
   if (list.ordered === "verse") {
-    return join(
-      list.items.map((item) =>
-        concat([raw("* "), inlineElementsToText(item.content)])
-      ),
-      "\n",
-    );
+    return list.items
+      .map((item) => `* ${inlineElementsToText(item.content)}`)
+      .join("\n");
   }
   const indent = "  ".repeat(indentLevel);
   let currentNumber = startNumber;
-  return join(
-    list.items.map((item) => {
+  return list.items
+    .map((item) => {
       const marker = list.ordered === "ordered" ? `${currentNumber++}. ` : "- ";
       const content = inlineElementsToText(item.content);
       const nested = item.nestedList
-        ? concat([
-          raw("\n"),
+        ? "\n" +
           listToText(
             item.nestedList,
             indentLevel + 1,
             item.nestedList.start ?? 1,
-          ),
-        ])
-        : raw("");
-      return concat([raw(`${indent}${marker}`), content, nested]);
-    }),
-    "\n",
-  );
+          )
+        : "";
+      return `${indent}${marker}${content}${nested}`;
+    })
+    .join("\n");
 };
 
-const tableToText = (table: Table): Sourced =>
-  join(
-    table.rows.map((row) =>
-      join(row.cells.map((cell) => inlineElementsToText(cell.content)), " | ")
-    ),
-    "\n",
-  );
+const tableToText = (table: Table): string =>
+  table.rows
+    .map((row) =>
+      row.cells.map((cell) => inlineElementsToText(cell.content)).join(" | ")
+    )
+    .join("\n");
 
-const inlineElementsToText = (content: InlineElement[]): Sourced =>
-  concat(content.map(inlineElementToText));
+const inlineElementsToText = (content: InlineElement[]): string =>
+  content.map(inlineElementToText).join("");
 
-const inlineElementToText = (element: InlineElement): Sourced => {
+const inlineElementToText = (element: InlineElement): string => {
   switch (element.type) {
-    case "plainText": {
-      const sources = element.sources ??
-        new Array<SourcePosition | null>(element.content.length).fill(null);
-      return { text: element.content, sources };
-    }
+    case "plainText":
+      return element.content;
     case "nbSpace":
-      return raw(" ");
+      return "\u00A0";
     case "tab":
-      return raw("\t");
+      return "\t";
     case "lineBreak":
-      return raw("\n");
+      return "\n";
     case "illegible":
-      return raw("<illegible>");
+      return "<illegible>";
     case "footnoteReference":
-      return raw(`<${element.id}>`);
+      return `<${element.id}>`;
     case "quote":
-      return concat([
-        raw('"'),
-        inlineElementsToText(element.content),
-        raw('"'),
-      ]);
+      return `"${inlineElementsToText(element.content)}"`;
     case "strong":
       return inlineElementsToText(element.content);
     case "emphasis":
@@ -157,7 +128,7 @@ const inlineElementToText = (element: InlineElement): Sourced => {
     case "subscript":
       return inlineElementsToText(element.content);
     case "aside":
-      return raw("");
+      return "";
     case "speaker":
       return inlineElementsToText(element.content);
     case "stageDirection":
@@ -165,7 +136,7 @@ const inlineElementToText = (element: InlineElement): Sourced => {
     case "insertion":
       return inlineElementsToText(element.content);
     case "deletion":
-      return raw("");
+      return "";
     case "uncertain":
       return inlineElementsToText(element.content);
     case "person":
@@ -175,11 +146,7 @@ const inlineElementToText = (element: InlineElement): Sourced => {
     case "org":
       return inlineElementsToText(element.content);
     case "citation":
-      return concat([
-        raw("["),
-        inlineElementsToText(element.content),
-        raw("]"),
-      ]);
+      return `[${inlineElementsToText(element.content)}]`;
     case "word":
       return inlineElementsToText(element.content);
     case "language":
@@ -187,7 +154,7 @@ const inlineElementToText = (element: InlineElement): Sourced => {
     case "pageBreak":
       // A tight break falls inside a word (renders to nothing, joining its two
       // sides); a loose break is a word boundary, so it renders a space.
-      return raw(element.tight ? "" : " ");
+      return element.tight ? "" : " ";
     case "highlight":
       return inlineElementsToText(element.content);
     case "element":
@@ -195,70 +162,13 @@ const inlineElementToText = (element: InlineElement): Sourced => {
     // deno-coverage-ignore
     default:
       // deno-coverage-ignore
-      return raw(element satisfies never);
+      return element satisfies never;
   }
 };
 
-/* -------------------------- sourced-string helpers ------------------------- */
-
-/** Literal text with no source (synthetic characters). */
-const raw = (text: string): Sourced => ({
-  text,
-  sources: new Array<SourcePosition | null>(text.length).fill(null),
-});
-
-/** Concatenate sourced parts, keeping every character's source aligned. */
-const concat = (parts: Sourced[]): Sourced => {
-  let text = "";
-  const sources: (SourcePosition | null)[] = [];
-  for (const part of parts) {
-    text += part.text;
-    for (const source of part.sources) sources.push(source);
-  }
-  return { text, sources };
-};
-
-/** Join sourced parts with a synthetic separator. */
-const join = (parts: Sourced[], separator: string): Sourced => {
-  const withSeparators: Sourced[] = [];
-  parts.forEach((part, index) => {
-    if (index > 0) withSeparators.push(raw(separator));
-    withSeparators.push(part);
-  });
-  return concat(withSeparators);
-};
-
-/** Trim leading and trailing whitespace, keeping sources aligned. */
-const trim = (sourced: Sourced): Sourced => {
-  const leading = sourced.text.length - sourced.text.trimStart().length;
-  const end = sourced.text.trimEnd().length;
-  return {
-    text: sourced.text.slice(leading, end),
-    sources: sourced.sources.slice(leading, end),
-  };
-};
-
-/** Prefix every non-empty line with `prefix`, keeping sources aligned. */
-const indentLines = (sourced: Sourced, prefix: string): Sourced =>
-  join(
-    splitLines(sourced).map((line) =>
-      line.text === "" ? line : concat([raw(prefix), line])
-    ),
-    "\n",
-  );
-
-/** Split on newlines, keeping each line's sources. */
-const splitLines = (sourced: Sourced): Sourced[] => {
-  const lines: Sourced[] = [];
-  let start = 0;
-  for (let i = 0; i <= sourced.text.length; i++) {
-    if (i === sourced.text.length || sourced.text[i] === "\n") {
-      lines.push({
-        text: sourced.text.slice(start, i),
-        sources: sourced.sources.slice(start, i),
-      });
-      start = i + 1;
-    }
-  }
-  return lines;
-};
+/** Prefix every non-empty line with `prefix`. */
+const indentLines = (text: string, prefix: string): string =>
+  text
+    .split("\n")
+    .map((line) => (line === "" ? line : `${prefix}${line}`))
+    .join("\n");

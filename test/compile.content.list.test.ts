@@ -13,7 +13,7 @@ describe("List compilation", () => {
         "- Second item",
         "- Third item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         list("unordered", [
@@ -26,7 +26,7 @@ describe("List compilation", () => {
 
     it("compiles a single-item unordered list", () => {
       const input = markitWithContent("{#1}", "- Only item");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         list("unordered", [li([pt("Only item")])]),
@@ -35,7 +35,7 @@ describe("List compilation", () => {
 
     it("preserves inline formatting in list items", () => {
       const input = markitWithContent("{#1}", "- Item with *strong* text");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
       const listElement = result.blocks[0]!.content[0] as any;
@@ -54,7 +54,7 @@ describe("List compilation", () => {
         "2. Second item",
         "3. Third item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         list("ordered", [
@@ -72,7 +72,7 @@ describe("List compilation", () => {
         "6. Sixth item",
         "7. Seventh item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         list(
@@ -89,7 +89,7 @@ describe("List compilation", () => {
 
     it("does not set start property for lists starting at 1", () => {
       const input = markitWithContent("{#1}", "1. First", "2. Second");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.type).toBe("list");
@@ -98,7 +98,7 @@ describe("List compilation", () => {
 
     it("sets start property for lists not starting at 1", () => {
       const input = markitWithContent("{#1}", "3. Third", "4. Fourth");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.type).toBe("list");
@@ -115,7 +115,7 @@ describe("List compilation", () => {
         "  - Second level again",
         "- Back to first level",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.type).toBe("list");
@@ -138,7 +138,7 @@ describe("List compilation", () => {
         "  2. Second level again",
         "2. Back to first level",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.type).toBe("list");
@@ -157,7 +157,7 @@ describe("List compilation", () => {
         "  - Another nested",
         "2. Another ordered",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.ordered).toBe("ordered");
@@ -172,7 +172,7 @@ describe("List compilation", () => {
         "  2. Another nested",
         "- Another unordered",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const outerList = result.blocks[0]!.content[0] as any;
       expect(outerList.ordered).toBe("unordered");
@@ -187,7 +187,7 @@ describe("List compilation", () => {
         "    - Level 3",
         "      - Level 4",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const l1 = result.blocks[0]!.content[0] as any;
       expect(l1.items[0]!.nestedList).toBeDefined();
@@ -208,7 +208,7 @@ describe("List compilation", () => {
         "",
         "- List item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("paragraph");
@@ -222,7 +222,7 @@ describe("List compilation", () => {
         "",
         "This is a paragraph.",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
@@ -236,7 +236,7 @@ describe("List compilation", () => {
         "",
         "- List item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("blockquote");
@@ -254,7 +254,7 @@ describe("List compilation", () => {
         "- Second list item 1",
         "- Second list item 2",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
@@ -270,7 +270,7 @@ describe("List compilation", () => {
         "1. Second list item 1",
         "2. Second list item 2",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
@@ -283,7 +283,7 @@ describe("List compilation", () => {
         "1. Ordered item",
         "- Unordered item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
@@ -296,7 +296,7 @@ describe("List compilation", () => {
   describe("Error handling", () => {
     it("reports error for invalid list item indentation", () => {
       const input = markitWithContent("{#1}", "- Item", " - Bad indent");
-      const [, errors] = compile(input);
+      const { errors } = compile(input);
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain("indent must be a multiple of 2");
       expect(errors[0]!.line).toBe(5); // Line number in the full document
@@ -305,7 +305,7 @@ describe("List compilation", () => {
 
     it("reports error for odd indentation in ordered list", () => {
       const input = markitWithContent("{#1}", "1. Item", "   2. Bad indent");
-      const [, errors] = compile(input);
+      const { errors } = compile(input);
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain("indent must be a multiple of 2");
       expect(errors[0]!.severity).toBe("error");
@@ -315,7 +315,7 @@ describe("List compilation", () => {
   describe("Edge cases", () => {
     it("handles empty list item content", () => {
       const input = markitWithContent("{#1}", "- ");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.items[0]!.content).toEqual([]);
@@ -323,7 +323,7 @@ describe("List compilation", () => {
 
     it("handles list items with only whitespace after marker", () => {
       const input = markitWithContent("{#1}", "-   ");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.items[0]!.content).toEqual([]);
@@ -331,7 +331,7 @@ describe("List compilation", () => {
 
     it("handles large item numbers in ordered lists", () => {
       const input = markitWithContent("{#1}", "100. Item one hundred");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.start).toBe(100);
@@ -343,7 +343,7 @@ describe("List compilation", () => {
         "- Unordered item",
         "1. Ordered item",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("list");
@@ -360,7 +360,7 @@ describe("List compilation", () => {
         "      - Deep nested (6 spaces)",
         "  - Medium nested (2 spaces)",
       );
-      const [result] = compile(input);
+      const { document: result } = compile(input);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.type).toBe("list");
       // All nested items should be in a nested list
@@ -375,7 +375,7 @@ describe("List compilation", () => {
         "    - Deeply nested",
         "- Base 2",
       );
-      const [result] = compile(input);
+      const { document: result } = compile(input);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.items).toHaveLength(2);
       expect(listElement.items[0]!.content).toEqual([pt("Base 1")]);

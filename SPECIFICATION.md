@@ -237,11 +237,15 @@ The surface (`humane`, before the `=`) is what renders; the disambiguated word (
 
 Because `=` separates the two parts and `]` closes the element, both are structural inside `[w:…]`. To use either literally, escape it: `[w:a\=b=equals]` gives the surface `a=b`. A `[w:…]` with no `=` before its closing `]`, or with no closing `]` at all, is a malformed word element: the compiler reports a diagnostic and leaves the text literal.
 
+A word element assigns a disambiguated word to one token, so the surface must be exactly **one** word token; a surface with more tokens (`[w:two words=x]`) or none is a compile error. A multi-word unit is marked with non-breaking spaces first, which makes it one token: `[w:a~priori=a priori]` is legal.
+
 ## 4. Transliteration Modes
 
 ### 4.1. Character Mode `{...}`
 
 You can wrap plain text in curly braces `{...}` to apply character-level transformations, such as digraphs and diacritics. This is useful for inputting accented and other special characters not easily typed on a keyboard.
+
+Transliteration modes are an input method, not document structure: the compiled output holds the final Unicode characters, and the braced and literal spellings compile to the identical document. The formatter canonicalises the source accordingly, rewriting each braced span to the characters it compiles to (type `{e/}`, save, the formatter writes `é`). A span is left braced only when rewriting it could change how the source re-parses (e.g. an escape like `{\$}` whose output is a Markit syntax character).
 
 **Digraphs** (matched first):
 

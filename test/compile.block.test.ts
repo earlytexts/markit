@@ -5,7 +5,7 @@ import { markit, markitWithContent } from "./utils/factories.ts";
 
 describe("block IDs", () => {
   it("parses blocks with their ids", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#1}",
         "This is the first block.",
@@ -22,7 +22,7 @@ describe("block IDs", () => {
   });
 
   it("parses block tags on the same line as content", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#1} This is the first block.",
         "",
@@ -37,7 +37,7 @@ describe("block IDs", () => {
   });
 
   it("returns error for block with no tag", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "This block has no tag.", ""),
     );
 
@@ -53,7 +53,7 @@ describe("block IDs", () => {
   });
 
   it("returns error for block with unclosed tag", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#1", "This block has a badly formed tag.", ""),
     );
 
@@ -69,7 +69,7 @@ describe("block IDs", () => {
   });
 
   it("returns error for block with duplicate ID", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",
@@ -94,7 +94,7 @@ describe("block IDs", () => {
   });
 
   it("returns error for block ID with invalid characters", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#id#bad}", "Block content.", ""),
     );
 
@@ -113,7 +113,7 @@ describe("block IDs", () => {
 
 describe("title blocks", () => {
   it("assigns type 'title' to title blocks", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#title}", "Main Title"),
     );
 
@@ -122,7 +122,7 @@ describe("title blocks", () => {
   });
 
   it("returns error if there is more than one title block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent("{#title}", "Title 1", "", "{#title}", "Title 2", ""),
     );
 
@@ -138,7 +138,7 @@ describe("title blocks", () => {
   });
 
   it("returns error if the title block is not the first block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent(
         "{#1}",
         "Paragraph first",
@@ -163,7 +163,7 @@ describe("title blocks", () => {
 
 describe("subtitle blocks", () => {
   it("assigns type 'subtitle' to subtitle blocks", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#subtitle}", "Subtitle"),
     );
 
@@ -172,7 +172,7 @@ describe("subtitle blocks", () => {
   });
 
   it("auto-numbers subtitle blocks in compiled output", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#subtitle}",
         "Sub 1",
@@ -193,7 +193,7 @@ describe("subtitle blocks", () => {
   });
 
   it("ignores other ids beginning with 'subtitle' when auto-numbering", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         "{#subtitles}",
         "Not a subtitle",
@@ -212,7 +212,7 @@ describe("subtitle blocks", () => {
 
 describe("paragraph blocks", () => {
   it("assigns type 'paragraph' to regular blocks", () => {
-    const [document] = compile(markitWithContent("{#1}", "Content"));
+    const { document } = compile(markitWithContent("{#1}", "Content"));
 
     expect(document.blocks[0]!.type).toBe("paragraph");
   });
@@ -220,13 +220,13 @@ describe("paragraph blocks", () => {
 
 describe("footnote blocks", () => {
   it("assigns type 'footnote' to footnote blocks", () => {
-    const [document] = compile(markitWithContent("{#n1}", "Footnote"));
+    const { document } = compile(markitWithContent("{#n1}", "Footnote"));
 
     expect(document.blocks[0]!.type).toBe("footnote");
   });
 
   it("returns error for footnote block appearing before a regular block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",
@@ -251,7 +251,7 @@ describe("footnote blocks", () => {
   });
 
   it("does not treat a citation on its own line as a metadata header", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit("# Text", "", "{#n1}", "[Citation]", ""),
     );
 
@@ -264,7 +264,7 @@ describe("footnote blocks", () => {
   });
 
   it("returns error for block ID of just 'n'", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#n}", "Block content.", ""),
     );
 

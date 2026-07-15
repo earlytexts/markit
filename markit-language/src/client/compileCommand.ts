@@ -36,7 +36,7 @@ export default async (
 
   try {
     const inputText = document.getText();
-    const [markit, errors] = compile(inputText);
+    const { document: markit, errors } = compile(inputText);
     const outputText = compileFn(markit);
 
     fs.writeFileSync(outputPath, outputText, "utf-8");

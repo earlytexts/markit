@@ -1,3 +1,4 @@
+import canonicaliseCharacterModes from "./canonicaliseCharacterModes.ts";
 import formatBlockTag from "./formatBlockTag.ts";
 import formatIdBlock from "./formatIdBlock.ts";
 import formatMetadata from "./formatMetadata.ts";
@@ -66,15 +67,19 @@ export default (state: State, line: string): State => {
   if (isMetadataArrayEnd) return handleMetadataArrayEnd(state, normalized);
   if (isMetadataArrayItem) return handleMetadataArrayItem(state, normalized);
   if (isMetadataKeyValue) return formatMetadata(state, normalized);
+  // Content lines (only) get their character/Greek-mode spans canonicalised
+  // to the final Unicode they compile to; metadata, IDs, and block tags keep
+  // their braces literal.
+  const canonical = canonicaliseCharacterModes(normalized);
   // An empty list/verse item — a marker holding only a nested list — carries a
   // significant trailing space (`- `, `N. `, `* `) that the trimming above
   // strips, leaving a bare marker the classifier would misread (a lone `-`
   // becomes a table separator). Re-attach the marker's space so it stays a
   // list item through the rest of the pipeline.
-  const emptyItem = /^(\s*)(-|\d+\.|\*)$/.exec(normalized);
+  const emptyItem = /^(\s*)(-|\d+\.|\*)$/.exec(canonical);
   return handleContentLine(
     state,
-    emptyItem ? `${emptyItem[1]}${emptyItem[2]} ` : normalized,
+    emptyItem ? `${emptyItem[1]}${emptyItem[2]} ` : canonical,
   );
 };
 

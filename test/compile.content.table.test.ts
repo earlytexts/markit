@@ -12,7 +12,7 @@ describe("Table compilation", () => {
         "| Cell 1 | Cell 2 |",
         "| Cell 3 | Cell 4 |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -31,7 +31,7 @@ describe("Table compilation", () => {
         "|  Cell 1  |  Cell 2  |",
         "|  Cell 3  |  Cell 4  |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -50,7 +50,7 @@ describe("Table compilation", () => {
         "Cell 1 | Cell 2 |",
         "Cell 3 | Cell 4 |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -69,7 +69,7 @@ describe("Table compilation", () => {
         "| Cell 1 | Cell 2",
         "| Cell 3 | Cell 4",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -84,7 +84,7 @@ describe("Table compilation", () => {
 
     it("compiles a single-row table", () => {
       const input = markitWithContent("{#1}", "| Cell 1 | Cell 2 | Cell 3 |");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -96,7 +96,7 @@ describe("Table compilation", () => {
 
     it("compiles a single-column table", () => {
       const input = markitWithContent("{#1}", "| Cell 1 |", "| Cell 2 |");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table([tr([tc([pt("Cell 1")])]), tr([tc([pt("Cell 2")])])], false),
@@ -112,7 +112,7 @@ describe("Table compilation", () => {
         "|----------|----------|",
         "| Cell 1   | Cell 2   |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -132,7 +132,7 @@ describe("Table compilation", () => {
         "----------|----------|",
         "| Cell 1   | Cell 2   |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -152,7 +152,7 @@ describe("Table compilation", () => {
         "|----------|----------",
         "| Cell 1   | Cell 2   |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -172,7 +172,7 @@ describe("Table compilation", () => {
         "| - | - |",
         "| Cell 1   | Cell 2   |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -191,7 +191,7 @@ describe("Table compilation", () => {
         "| Header 1 | Header 2 |",
         "|----------|----------|",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table([tr([tc([pt("Header 1")]), tc([pt("Header 2")])])], true),
@@ -200,7 +200,7 @@ describe("Table compilation", () => {
 
     it("compiles multiple tables in one block", () => {
       const input = markitWithContent("{#1}", "| A | B |", "", "| C | D |");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table([tr([tc([pt("A")]), tc([pt("B")])])], false),
@@ -216,7 +216,7 @@ describe("Table compilation", () => {
         "| Cell 1 |  |",
         "|        | Cell 4 |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -228,7 +228,7 @@ describe("Table compilation", () => {
 
     it("compiles a table with all empty cells", () => {
       const input = markitWithContent("{#1}", "| | |", "| | |");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toEqual([
         table([tr([tc([]), tc([])]), tr([tc([]), tc([])])], false),
@@ -242,7 +242,7 @@ describe("Table compilation", () => {
         "{#1}",
         "| *Bold* text | _Italic_ text |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const tableElement = result.blocks[0]!.content[0] as any;
       expect(tableElement.type).toBe("table");
@@ -256,7 +256,7 @@ describe("Table compilation", () => {
 
     it("preserves quotes and citations in table cells", () => {
       const input = markitWithContent("{#1}", '| "Quoted" text | [Citation] |');
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const tableElement = result.blocks[0]!.content[0] as any;
       expect(tableElement.type).toBe("table");
@@ -276,7 +276,7 @@ describe("Table compilation", () => {
         "| D | E |",
         "| F |",
       );
-      const [result] = compile(input);
+      const { document: result } = compile(input);
       // Should emit warnings but still produce output
       expect(result.blocks[0]!.content).toEqual([
         table(
@@ -297,7 +297,7 @@ describe("Table compilation", () => {
         "|---|---|",
         "| D | E | F |",
       );
-      const [result] = compile(input);
+      const { document: result } = compile(input);
       // Should still recognize as header and normalize
       expect(result.blocks[0]!.content[0]!.type).toBe("table");
       const tableElement = result.blocks[0]!.content[0] as any;
@@ -314,7 +314,7 @@ describe("Table compilation", () => {
         "",
         "| Cell 1 | Cell 2 |",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("paragraph");
@@ -328,7 +328,7 @@ describe("Table compilation", () => {
         "",
         "This is a paragraph.",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       expect(result.blocks[0]!.content).toHaveLength(2);
       expect(result.blocks[0]!.content[0]!.type).toBe("table");
@@ -337,21 +337,21 @@ describe("Table compilation", () => {
 
     it("handles standalone separator row", () => {
       const input = markitWithContent("{#1}", "|---|---|");
-      const [result] = compile(input);
+      const { document: result } = compile(input);
       // Standalone separator creates an empty table
       expect(result.blocks[0]!.content).toHaveLength(0);
     });
 
     it("handles a row with no cells alongside rows with cells", () => {
       const input = markitWithContent("{#1}", "| A | B |", "|");
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       expect(errors).toHaveLength(0);
       expect(result.blocks[0]!.content[0]!.type).toBe("table");
     });
 
     it("positions cell errors correctly when two cells have identical text", () => {
       const input = markitWithContent("{#1}", "| *a | *a |");
-      const [, errors] = compile(input);
+      const { errors } = compile(input);
       expect(errors).toHaveLength(2);
       expect(errors[0]).toMatchObject({
         message: "Unclosed formatting: *",
@@ -372,7 +372,7 @@ describe("Table compilation", () => {
         "| C | D |",
         "|---|---|",
       );
-      const [result, errors] = compile(input);
+      const { document: result, errors } = compile(input);
       // Should compile but emit warning
       expect(errors).toHaveLength(1);
       expect(errors[0]!.message).toContain(

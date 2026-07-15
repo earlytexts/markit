@@ -6,7 +6,7 @@ import { markit, markitWithContent } from "./utils/factories.ts";
 
 describe("null case", () => {
   it("omits metadata when a block tag has no metadata pairs", () => {
-    const [document, errors] = compile(markitWithContent("{#1}", "Content."));
+    const { document, errors } = compile(markitWithContent("{#1}", "Content."));
 
     expect(errors).toHaveLength(0);
     expect(document.blocks[0]!.metadata).toBeUndefined();
@@ -15,7 +15,7 @@ describe("null case", () => {
 
 describe("scalar values", () => {
   it("parses boolean, number, and string metadata on a block", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         '{#1, modified=true, subsection=4, speaker="Philo"}',
         "Content.",
@@ -33,7 +33,7 @@ describe("scalar values", () => {
   });
 
   it("parses negative numbers", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#1, offset=-3}", "Content."),
     );
 
@@ -44,7 +44,7 @@ describe("scalar values", () => {
   });
 
   it("handles escaped quotes in string metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#1, q="She said \\"hi\\"."}', "Content."),
     );
 
@@ -55,7 +55,7 @@ describe("scalar values", () => {
   });
 
   it("preserves commas inside strings", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#1, s="a, b, c"}', "Content."),
     );
 
@@ -66,7 +66,7 @@ describe("scalar values", () => {
   });
 
   it("preserves braces inside strings", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#1, s="close}brace"}', "Content."),
     );
 
@@ -79,7 +79,7 @@ describe("scalar values", () => {
 
 describe("inline arrays", () => {
   it("parses homogeneous arrays of each scalar type", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent(
         '{#1, bools=[true, false], nums=[1, 2, 3], strs=["a", "b"]}',
         "Content.",
@@ -97,7 +97,7 @@ describe("inline arrays", () => {
   });
 
   it("parses strings containing commas and braces inside arrays", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#1, edits=["2014-10-12", "2014-11-01"]}', "Content."),
     );
 
@@ -108,7 +108,7 @@ describe("inline arrays", () => {
   });
 
   it("returns error for mixed-type arrays", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent('{#1, mixed=[true, 1, "a"]}', "Content."),
     );
 
@@ -127,7 +127,7 @@ describe("inline arrays", () => {
 
 describe("positions and line ranges", () => {
   it("records startLine and endLine for the block regardless of metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit("# Text", "", "{#1, foo=1}", "Content.", ""),
     );
 
@@ -139,7 +139,7 @@ describe("positions and line ranges", () => {
 
 describe("interaction with special block IDs", () => {
   it("allows metadata on a title block", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#title, lang="en"}', "^1 The Title"),
     );
 
@@ -151,7 +151,7 @@ describe("interaction with special block IDs", () => {
   });
 
   it("allows metadata on a subtitle block", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#subtitle, level=2}", "^2 Heading"),
     );
 
@@ -163,7 +163,7 @@ describe("interaction with special block IDs", () => {
   });
 
   it("allows metadata on a footnote block", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent('{#n1, source="A"}', "A footnote."),
     );
 
@@ -177,7 +177,7 @@ describe("interaction with special block IDs", () => {
 
 describe("block tag on the same line as content", () => {
   it("separates metadata from trailing content", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#1, foo=1} Some content."),
     );
 
@@ -191,7 +191,7 @@ describe("block tag on the same line as content", () => {
 
 describe("malformed tags", () => {
   it("returns error for block tag with a trailing pair that is not key=value", () => {
-    const [, errors] = compile(markitWithContent("{#1, notvalid}", "Content."));
+    const { errors } = compile(markitWithContent("{#1, notvalid}", "Content."));
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
@@ -205,7 +205,7 @@ describe("malformed tags", () => {
   });
 
   it("returns error for invalid scalar values inside a block tag", () => {
-    const [, errors] = compile(markitWithContent("{#1, key=troo}", "Content."));
+    const { errors } = compile(markitWithContent("{#1, key=troo}", "Content."));
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
@@ -219,7 +219,7 @@ describe("malformed tags", () => {
   });
 
   it("still reports the unclosed-tag error when } is missing", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "{#1, foo=1", "Content.", ""),
     );
 
@@ -232,7 +232,7 @@ describe("malformed tags", () => {
   });
 
   it("ignores trailing commas in block metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithContent("{#1, foo=1,}", "Content."),
     );
 
@@ -243,7 +243,7 @@ describe("malformed tags", () => {
   });
 
   it("keeps splitting on commas after a spurious ]", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithContent("{#1, foo=], bar=2}", "Content."),
     );
 

@@ -11,7 +11,7 @@ import { compileDocument } from "./compileCache.ts";
 import planDiagnostics, { type PlainDiagnostic } from "./lib/diagnosticPlan.ts";
 
 export default (textDocument: TextDocument): Diagnostic[] => {
-  const [, errors] = compileDocument(textDocument);
+  const { errors } = compileDocument(textDocument);
   return planDiagnostics(errors).map(toDiagnostic);
 };
 

@@ -10,7 +10,7 @@ import { compileDocument } from "./compileCache.ts";
 import planFoldingRanges from "./lib/foldingPlan.ts";
 
 export default (textDocument: TextDocument): FoldingRange[] => {
-  const [document] = compileDocument(textDocument);
+  const { document } = compileDocument(textDocument);
   return planFoldingRanges(document).map((range) => ({
     startLine: range.startLine,
     endLine: range.endLine,

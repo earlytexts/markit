@@ -94,5 +94,5 @@ Deno.bench("stage: parseMetadata", () => {
 });
 
 Deno.bench("stage: parseContent", () => {
-  parseContent(treeWithMetadata);
+  parseContent(treeWithMetadata, false);
 });

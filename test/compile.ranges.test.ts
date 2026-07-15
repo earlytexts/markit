@@ -14,7 +14,7 @@ describe("text ranges", () => {
     // line 1: (blank)
     // line 2: {#1}
     // line 3: Content.
-    const [document] = compile(markitWithContent("{#1}", "Content."));
+    const { document } = compile(markitWithContent("{#1}", "Content."));
 
     expect(document[startLine]).toBe(0);
     expect(document[endLine]).toBe(3);
@@ -27,7 +27,7 @@ describe("text ranges", () => {
     // line 3: (blank)
     // line 4: {#1}
     // line 5: Content.
-    const [document] = compile(
+    const { document } = compile(
       markit("# Root", "", "## Child", "", "{#1}", "Content."),
     );
 
@@ -49,7 +49,7 @@ describe("metadata block ranges", () => {
     // line 4: (blank)
     // line 5: {#0}
     // line 6: Title
-    const [document] = compile(markitWithMetadata('key = "value"'));
+    const { document } = compile(markitWithMetadata('key = "value"'));
 
     expect(document.metadata![startLine]).toBe(2);
     expect(document.metadata![endLine]).toBe(3);
@@ -66,7 +66,7 @@ describe("metadata block ranges", () => {
     // line 7: (blank)
     // line 8: {#0}
     // line 9: Title
-    const [document] = compile(
+    const { document } = compile(
       markit(
         "# Text",
         "",
@@ -99,7 +99,7 @@ describe("metadata block ranges", () => {
     // line 3: (blank)
     // line 4: [metadata]
     // line 5: key = "val"
-    const [document] = compile(
+    const { document } = compile(
       markit("# Root", "", "## Child", "", "[metadata]", 'key = "val"'),
     );
 
@@ -117,7 +117,7 @@ describe("content block ranges", () => {
     // line 1: (blank)
     // line 2: {#1}
     // line 3: Content.
-    const [document] = compile(markitWithContent("{#1}", "Content."));
+    const { document } = compile(markitWithContent("{#1}", "Content."));
 
     expect(document.blocks[0]![startLine]).toBe(2);
     expect(document.blocks[0]![endLine]).toBe(3);
@@ -131,7 +131,7 @@ describe("content block ranges", () => {
     // line 4: (blank)
     // line 5: {#2}
     // line 6: Second.
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "First.", "", "{#2}", "Second."),
     );
 
@@ -148,7 +148,7 @@ describe("content block ranges", () => {
     // line 3: Paragraph 1.
     // line 4: (blank, inside content block)
     // line 5: Paragraph 2.
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "Paragraph 1.", "", "Paragraph 2."),
     );
 

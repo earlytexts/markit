@@ -11,14 +11,14 @@ import {
 
 describe("document structure", () => {
   it("joins multiple blocks with double newlines", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "First.", "", "{#2}", "Second."),
     );
     expect(renderText(document)).toContain("First.\n\nSecond.");
   });
 
   it("appends child document text after parent blocks", () => {
-    const [document] = compile(
+    const { document } = compile(
       markit(
         "# Parent",
         "",
@@ -41,19 +41,19 @@ describe("document structure", () => {
   });
 
   it("ends with a trailing newline", () => {
-    const [document] = compile(markitWithContent("{#1}", "Hello"));
+    const { document } = compile(markitWithContent("{#1}", "Hello"));
     expect(renderText(document)).toMatch(/\n$/);
   });
 });
 
 describe("block elements", () => {
   it("renders paragraph as plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "Hello world"));
+    const { document } = compile(markitWithContent("{#1}", "Hello world"));
     expect(renderText(document)).toContain("Hello world");
   });
 
   it("renders heading lines as plain text joined by newlines", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#title}", "^1 First line", "^2 Second line"),
     );
     expect(renderText(document)).toContain("First line\nSecond line");
@@ -61,14 +61,14 @@ describe("block elements", () => {
 
   it("renders blockquote indented with 4 spaces", () => {
     // blockquote must not be the sole element in the block (blockToText trims the result)
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "intro.", "", "> A quote.", "", "outro."),
     );
     expect(renderText(document)).toContain("    A quote.");
   });
 
   it("renders a list inside a blockquote", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "intro.", "", "> Items:", "> - one", "> - two"),
     );
     const text = renderText(document);
@@ -78,7 +78,7 @@ describe("block elements", () => {
   });
 
   it("indents every line of a nested blockquote without padding blank lines", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent(
         "{#1}",
         "intro.",
@@ -96,21 +96,21 @@ describe("block elements", () => {
   });
 
   it("renders a block stage direction's text", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "intro.", "", ": He bows.", "", "outro."),
     );
     expect(renderText(document)).toContain("He bows.");
   });
 
   it("renders an inline stage direction's text", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "He speaks ::softly:: now."),
     );
     expect(renderText(document)).toContain("He speaks softly now.");
   });
 
   it("renders unordered list with hyphen markers", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "- First", "- Second"),
     );
     const text = renderText(document);
@@ -118,7 +118,7 @@ describe("block elements", () => {
   });
 
   it("renders ordered list with numbered markers", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "1. First", "2. Second"),
     );
     const text = renderText(document);
@@ -126,7 +126,7 @@ describe("block elements", () => {
   });
 
   it("renders ordered list with custom start number", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "5. Fifth", "6. Sixth"),
     );
     const text = renderText(document);
@@ -134,7 +134,7 @@ describe("block elements", () => {
   });
 
   it("renders verse with asterisk markers", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "* First line", "* Second line"),
     );
     const text = renderText(document);
@@ -142,7 +142,7 @@ describe("block elements", () => {
   });
 
   it("renders nested lists with 2-space indentation", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "- First", "  - Nested", "- Second"),
     );
     const text = renderText(document);
@@ -150,7 +150,7 @@ describe("block elements", () => {
   });
 
   it("renders mixed nested lists", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "1. Item", "  - Nested unordered"),
     );
     const text = renderText(document);
@@ -158,7 +158,7 @@ describe("block elements", () => {
   });
 
   it("renders table rows with pipe separators", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "| A | B |", "| C | D |"),
     );
     const text = renderText(document);
@@ -167,7 +167,7 @@ describe("block elements", () => {
   });
 
   it("renders table with header", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent(
         "{#1}",
         "| Header 1 | Header 2 |",
@@ -181,7 +181,7 @@ describe("block elements", () => {
   });
 
   it("renders footnote block as [^id]: text", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "The footnote."),
     );
     expect(renderText(document)).toContain("[^Text.n1]: The footnote.");
@@ -190,50 +190,50 @@ describe("block elements", () => {
 
 describe("inline elements", () => {
   it("renders plain text as-is", () => {
-    const [document] = compile(markitWithContent("{#1}", "Just text"));
+    const { document } = compile(markitWithContent("{#1}", "Just text"));
     expect(renderText(document)).toContain("Just text");
   });
 
   it("renders strong as inner text without markup", () => {
-    const [document] = compile(markitWithContent("{#1}", "*bold*"));
+    const { document } = compile(markitWithContent("{#1}", "*bold*"));
     const text = renderText(document);
     expect(text).toContain("bold");
     expect(text).not.toContain("*");
   });
 
   it("renders emphasis as inner text without markup", () => {
-    const [document] = compile(markitWithContent("{#1}", "_italic_"));
+    const { document } = compile(markitWithContent("{#1}", "_italic_"));
     const text = renderText(document);
     expect(text).toContain("italic");
     expect(text).not.toContain("_");
   });
 
   it("renders quote wrapped in double quotes", () => {
-    const [document] = compile(markitWithContent("{#1}", '"a quote"'));
+    const { document } = compile(markitWithContent("{#1}", '"a quote"'));
     expect(renderText(document)).toContain('"a quote"');
   });
 
   it("renders citation wrapped in brackets", () => {
-    const [document] = compile(markitWithContent("{#1}", "[cited]"));
+    const { document } = compile(markitWithContent("{#1}", "[cited]"));
     expect(renderText(document)).toContain("[cited]");
   });
 
   it("renders insertion as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "[+added+]"));
+    const { document } = compile(markitWithContent("{#1}", "[+added+]"));
     const text = renderText(document);
     expect(text).toContain("added");
     expect(text).not.toContain("++");
   });
 
   it("renders deletion as empty string", () => {
-    const [document] = compile(markitWithContent("{#1}", "a [-gone-] b"));
+    const { document } = compile(markitWithContent("{#1}", "a [-gone-] b"));
     const text = renderText(document);
     expect(text).not.toContain("gone");
     expect(text).toContain("a  b");
   });
 
   it("renders uncertain text as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "[?uncertain?]"));
+    const { document } = compile(markitWithContent("{#1}", "[?uncertain?]"));
     const text = renderText(document);
     expect(text).toContain("uncertain");
     expect(text).not.toContain("??");
@@ -263,7 +263,7 @@ describe("inline elements", () => {
   });
 
   it("renders speaker as inner text", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "@Speaker.@ This is dialogue."),
     );
     const text = renderText(document);
@@ -273,102 +273,102 @@ describe("inline elements", () => {
   });
 
   it("renders aside as empty string", () => {
-    const [document] = compile(markitWithContent("{#1}", "text #aside# end"));
+    const { document } = compile(markitWithContent("{#1}", "text #aside# end"));
     expect(renderText(document)).not.toContain("aside");
   });
 
   it("renders foreign text as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$foreign$"));
+    const { document } = compile(markitWithContent("{#1}", "$foreign$"));
     expect(renderText(document)).toContain("foreign");
   });
 
   it("renders Latin text as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$la:Roma$"));
+    const { document } = compile(markitWithContent("{#1}", "$la:Roma$"));
     expect(renderText(document)).toContain("Roma");
   });
 
   it("renders French text as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "$fr:Paris$"));
+    const { document } = compile(markitWithContent("{#1}", "$fr:Paris$"));
     expect(renderText(document)).toContain("Paris");
   });
 
   it("renders Greek mode text as transliterated plain text", () => {
-    const [document] = compile(markitWithContent("{#1}", "{{logos}}"));
+    const { document } = compile(markitWithContent("{#1}", "{{logos}}"));
     expect(renderText(document)).toContain("λογος");
   });
 
   it("renders person name as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "[p:Locke]"));
+    const { document } = compile(markitWithContent("{#1}", "[p:Locke]"));
     expect(renderText(document)).toContain("Locke");
   });
 
   it("renders place name as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "[l:London]"));
+    const { document } = compile(markitWithContent("{#1}", "[l:London]"));
     expect(renderText(document)).toContain("London");
   });
 
   it("renders a disambiguated word as its surface form", () => {
-    const [document] = compile(markitWithContent("{#1}", "[w:humane=human]"));
+    const { document } = compile(markitWithContent("{#1}", "[w:humane=human]"));
     const text = renderText(document);
     expect(text).toContain("humane");
     expect(text).not.toContain("human]");
   });
 
   it("renders org name as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "[o:Acme]"));
+    const { document } = compile(markitWithContent("{#1}", "[o:Acme]"));
     expect(renderText(document)).toContain("Acme");
   });
 
   it("renders superscript as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", "^raised^"));
+    const { document } = compile(markitWithContent("{#1}", "^raised^"));
     expect(renderText(document)).toContain("raised");
   });
 
   it("renders subscript as inner text", () => {
-    const [document] = compile(markitWithContent("{#1}", ",,lower,,"));
+    const { document } = compile(markitWithContent("{#1}", ",,lower,,"));
     expect(renderText(document)).toContain("lower");
   });
 
   it("renders a loose page break as a space (word boundary)", () => {
-    const [document] = compile(markitWithContent("{#1}", "before /// after"));
+    const { document } = compile(markitWithContent("{#1}", "before /// after"));
     const text = renderText(document);
     expect(text).toContain("before after");
     expect(text).not.toContain("beforeafter");
   });
 
   it("renders a tight page break as nothing (mid-word)", () => {
-    const [document] = compile(markitWithContent("{#1}", "be///ginning"));
+    const { document } = compile(markitWithContent("{#1}", "be///ginning"));
     const text = renderText(document);
     expect(text).toContain("beginning");
     expect(text).not.toContain("be ginning");
   });
 
   it("renders footnote reference as <id>", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "See <n1>.", "", "{#n1}", "Footnote."),
     );
     expect(renderText(document)).toContain("<Text.n1>");
   });
 
   it("renders line break as newline", () => {
-    const [document] = compile(
+    const { document } = compile(
       markitWithContent("{#1}", "line one \\", "line two"),
     );
     expect(renderText(document)).toContain("line one\nline two");
   });
 
   it("renders a non-breaking space as U+00A0", () => {
-    const [document] = compile(markitWithContent("{#1}", "a~b"));
+    const { document } = compile(markitWithContent("{#1}", "a~b"));
     expect(renderText(document)).toContain("a\u00A0b");
   });
 
   it("renders a tab as a tab character", () => {
-    const [document] = compile(markitWithContent("{#1}", "a~~b"));
+    const { document } = compile(markitWithContent("{#1}", "a~~b"));
     expect(renderText(document)).toContain("a\tb");
   });
 
   it("renders illegible text as <illegible>", () => {
-    const [document] = compile(markitWithContent("{#1}", "[...]"));
+    const { document } = compile(markitWithContent("{#1}", "[...]"));
     expect(renderText(document)).toContain("<illegible>");
   });
 });

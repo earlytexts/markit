@@ -5,7 +5,7 @@ import { markit } from "./utils/factories.ts";
 
 describe("document tree", () => {
   it("parses the document tree and text IDs", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Test.Document",
         "",
@@ -45,7 +45,7 @@ describe("document tree", () => {
   });
 
   it("parses a text with only an ID block and no metadata or content", () => {
-    const [document, errors] = compile(markit("# Text.Only"));
+    const { document, errors } = compile(markit("# Text.Only"));
 
     expect(errors).toHaveLength(0);
     expect(document.id).toBe("Text.Only");
@@ -56,7 +56,7 @@ describe("document tree", () => {
 
 describe("document headers", () => {
   it("returns empty document and error for empty document", () => {
-    const [, errors] = compile("");
+    const { errors } = compile("");
 
     expect(errors[0]).toMatchObject({
       message: "Document is empty",
@@ -69,7 +69,7 @@ describe("document headers", () => {
   });
 
   it("returns error for document with no root ID block", () => {
-    const [, errors] = compile(markit("{#0}", "Text", ""));
+    const { errors } = compile(markit("{#0}", "Text", ""));
 
     expect(errors[0]).toMatchObject({
       message: "Document must begin with a level 1 header (e.g. # Document.Id)",
@@ -82,7 +82,7 @@ describe("document headers", () => {
   });
 
   it("returns error for document with non-level-1 root header", () => {
-    const [, errors] = compile(markit("## Markit.Errors"));
+    const { errors } = compile(markit("## Markit.Errors"));
 
     expect(errors[0]).toMatchObject({
       message: "Expected level 1 header but found level 2",
@@ -95,7 +95,7 @@ describe("document headers", () => {
   });
 
   it("returns error for document with level jump", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Markit.Errors", "", "## BadTextMetadata", "", "#### TooDeep"),
     );
 

@@ -36,12 +36,14 @@ import type {
  */
 export default (
   tree: TextTreeWithMetadata,
+  positions: boolean,
 ): [MarkitDocument, MarkitError[]] => {
-  return parseTextContent(tree);
+  return parseTextContent(tree, positions);
 };
 
 const parseTextContent = (
   text: TextTreeWithMetadata,
+  positions: boolean,
 ): [MarkitDocument, MarkitError[]] => {
   // Get footnote reference ids to validate footnote references
   const footnoteIds = new Set(
@@ -52,13 +54,15 @@ const parseTextContent = (
 
   // Parse content for each block
   const blockResults = text.blocks.map((block) =>
-    parseBlockContent(block, footnoteIds, text.id)
+    parseBlockContent(block, footnoteIds, text.id, positions)
   );
   const blocks = blockResults.map((result) => result[0]);
   const blockErrors = blockResults.flatMap((result) => result[1]);
 
   // Parse blocks for all internal children recursively, passing merged metadata down
-  const childResults = text.children.map((child) => parseTextContent(child));
+  const childResults = text.children.map((child) =>
+    parseTextContent(child, positions)
+  );
   const children = childResults.map((result) => result[0]);
   const childErrors = childResults.flatMap((result) => result[1]);
 
@@ -79,6 +83,7 @@ const parseBlockContent = (
   block: BlockWithMetadata,
   footnoteIds: ReadonlySet<string>,
   textId: string,
+  positions: boolean,
 ): [Block, MarkitError[]] => {
   const errors: MarkitError[] = [];
 
@@ -99,6 +104,7 @@ const parseBlockContent = (
     allowHeadings,
     "Headings are only allowed in title or subtitle blocks.",
     textId,
+    positions,
   );
 
   const parsedBlock: Block = {
@@ -147,6 +153,7 @@ const parseBlockLevelElements = (
   allowHeadings: boolean,
   headingErrorMessage = "Headings are not allowed inside block quotations.",
   textId: string,
+  positions: boolean,
 ): BlockElement[] => {
   const elements: BlockElement[] = [];
   let state: State = { kind: "none" };
@@ -154,19 +161,55 @@ const parseBlockLevelElements = (
   // Emit the block accumulated in the current state, then reset to none.
   const flush = (): void => {
     if (state.kind === "paragraph") {
-      elements.push(buildParagraph(state.lines, footnoteIds, errors, textId));
+      elements.push(
+        buildParagraph(state.lines, footnoteIds, errors, textId, positions),
+      );
     } else if (state.kind === "blockquote") {
-      flushBlockquote(state.lines, elements, footnoteIds, errors, textId);
+      flushBlockquote(
+        state.lines,
+        elements,
+        footnoteIds,
+        errors,
+        textId,
+        positions,
+      );
     } else if (state.kind === "stageDirection") {
-      flushStageDirection(state.lines, elements, footnoteIds, errors, textId);
+      flushStageDirection(
+        state.lines,
+        elements,
+        footnoteIds,
+        errors,
+        textId,
+        positions,
+      );
     } else if (state.kind === "heading") {
-      flushHeading(state.entries, elements, footnoteIds, errors, textId);
+      flushHeading(
+        state.entries,
+        elements,
+        footnoteIds,
+        errors,
+        textId,
+        positions,
+      );
     } else if (state.kind === "list") {
       elements.push(
-        buildList(state.ordered, state.items, footnoteIds, errors, textId),
+        buildList(
+          state.ordered,
+          state.items,
+          footnoteIds,
+          errors,
+          textId,
+          positions,
+        ),
       );
     } else if (state.kind === "table") {
-      const table = buildTable(state.rows, footnoteIds, errors, textId);
+      const table = buildTable(
+        state.rows,
+        footnoteIds,
+        errors,
+        textId,
+        positions,
+      );
       if (table) {
         elements.push(table);
       }
@@ -402,6 +445,7 @@ const flushHeading = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): void => {
   const parsedLines: HeadingLine[] = entries.map(({ level, line }) => {
     const headingText = line.content.slice(3); // "^N " is always 3 chars
@@ -417,6 +461,7 @@ const flushHeading = (
       posMap,
       footnoteIds,
       textId,
+      positions,
     );
     errors.push(...inlineErrors);
     return { type: "headingLine", level, content: inlineContent };
@@ -438,6 +483,7 @@ const flushBlockquote = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): void => {
   // Strip > prefix from each line (including "blank" > lines which become blank)
   const innerLines: Line[] = bqLines.map((line) => {
@@ -459,6 +505,7 @@ const flushBlockquote = (
     false,
     "Headings are not allowed inside block quotations.",
     textId,
+    positions,
   );
 
   // The allowHeadings=false guard means no heading ever reaches this list; the
@@ -483,6 +530,7 @@ const flushStageDirection = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): void => {
   // Strip the `:` prefix (and an optional single space) from each line.
   const innerLines: Line[] = sdLines.map((line) => {
@@ -503,6 +551,7 @@ const flushStageDirection = (
     false,
     "Headings are not allowed inside stage directions.",
     textId,
+    positions,
   );
 
   const content = innerElements.filter(
@@ -522,6 +571,7 @@ const buildParagraph = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): Paragraph => {
   const nonBlank = lines.filter((l) => l.content !== "");
 
@@ -537,6 +587,7 @@ const buildParagraph = (
     posMap,
     footnoteIds,
     textId,
+    positions,
   );
   errors.push(...inlineErrors);
 
@@ -553,6 +604,7 @@ const buildList = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): List => {
   // Find the minimum indent level (base level for this list)
   const baseIndent = Math.min(...items.map((item) => item.indent));
@@ -572,6 +624,7 @@ const buildList = (
     footnoteIds,
     errors,
     textId,
+    positions,
   );
 
   return {
@@ -592,6 +645,7 @@ const buildListItems = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): ListItem[] => {
   const result: ListItem[] = [];
   let i = 0;
@@ -629,6 +683,7 @@ const buildListItems = (
       posMap,
       footnoteIds,
       textId,
+      positions,
     );
     errors.push(...inlineErrors);
 
@@ -669,6 +724,7 @@ const buildListItems = (
         footnoteIds,
         errors,
         textId,
+        positions,
       )!;
 
       // Skip past the nested items
@@ -692,6 +748,7 @@ const buildTable = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): Table | null => {
   // Find separator row index (if any)
   const separatorIndex = rowEntries.findIndex((entry) => entry.isSeparator);
@@ -704,7 +761,7 @@ const buildTable = (
 
   // Parse each row into cells
   const parsedRows: TableRow[] = dataRows.map((entry) =>
-    parseTableRow(entry.line, footnoteIds, errors, textId)
+    parseTableRow(entry.line, footnoteIds, errors, textId, positions)
   );
 
   // Find maximum column count
@@ -762,6 +819,7 @@ const parseTableRow = (
   footnoteIds: ReadonlySet<string>,
   errors: MarkitError[],
   textId: string,
+  positions: boolean,
 ): TableRow => {
   const content = line.content.trim();
   const contentStart = line.content.indexOf(content);
@@ -814,6 +872,7 @@ const parseTableRow = (
       posMap,
       footnoteIds,
       textId,
+      positions,
     );
     errors.push(...inlineErrors);
 

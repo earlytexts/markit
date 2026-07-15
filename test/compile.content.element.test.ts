@@ -5,7 +5,7 @@ import renderText from "../src/renderText.ts";
 import { markitWithContent, pt } from "./utils/factories.ts";
 
 const inlineOf = (source: string) => {
-  const [document, errors] = compile(markitWithContent("{#1}", source));
+  const { document, errors } = compile(markitWithContent("{#1}", source));
   const block = document.blocks[0]!;
   const paragraph = block.content[0]!;
   if (paragraph.type !== "paragraph") {

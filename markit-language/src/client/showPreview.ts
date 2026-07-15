@@ -95,7 +95,7 @@ const updatePreview = (
   context: ExtensionContext,
   content: string,
 ): void => {
-  const [document] = compile(content);
+  const { document } = compile(content);
   const html = renderHtml(document);
 
   // Get webview URIs for CSS and JS files

@@ -213,8 +213,10 @@ export type PlainText = {
   content: string;
   /**
    * Per-character source positions, one per `content` character. Populated only
-   * when compiling with `{ tokens: true }` (so `tokenize` can map a rendered
-   * offset back to source); absent otherwise, so ordinary compiles stay lean.
+   * by `compileWithPositions` (so extraction and tokenisation can map an
+   * extracted offset back to a source line/column); absent from plain
+   * `compile` output, so ordinary compiles stay lean and serialisable output
+   * stays small.
    */
   sources?: SourcePosition[];
 };
@@ -298,19 +300,75 @@ export type Highlight = {
 /** A source position: 0-based line and column, as `buildPositionMap` reports. */
 export type SourcePosition = { line: number; column: number };
 
+/** The result of compiling a Markit document string; see `compile`. */
+export type CompileResult = {
+  document: MarkitDocument;
+  errors: MarkitError[];
+};
+
 /**
- * One word token of a document's rendered text (see `tokenize`). `text` is the
+ * The two resolutions of a block's editorial markup: `edited` keeps insertions
+ * and drops deletions (the curated reading text); `original` the reverse (the
+ * printed text, character for character). Extraction and tokenisation are
+ * always relative to one version.
+ */
+export type Version = "edited" | "original";
+
+/**
+ * The analysis projection of a block (see `extractText`): its extracted plain
+ * text and, per contributing source element, the span it contributed with the
+ * wrapper context around it. Characters between spans are synthetic joiners
+ * (newlines between block elements, `" | "` between table cells).
+ */
+export type Extraction = { text: string; spans: Span[] };
+
+/**
+ * One source element's contribution to a block's extracted text: the
+ * `[start, end)` range it occupies (into `Extraction.text`), the wrapper
+ * context around it (outermost first), and — from `compileWithPositions` only —
+ * its source span (`end` exclusive).
+ */
+export type Span = {
+  start: number;
+  end: number;
+  source?: { start: SourcePosition; end: SourcePosition };
+  context: Frame[];
+};
+
+/**
+ * One enclosing element in a span's or token's wrapper context: a plain
+ * wrapper (quote, strong, person, citation, …), a language run with its ISO
+ * code, a `[w:surface=word]` element with its disambiguated word, a generic
+ * raw element with its tag and attributes, or a synthetic highlight. Editorial
+ * insertions/deletions never appear — extraction resolves them to one version
+ * and unwraps the kept side.
+ */
+export type Frame =
+  | { type: WrapperType }
+  | { type: "language"; lang?: string }
+  | { type: "word"; word: string }
+  | { type: "element"; tag: string; attributes: ElementAttribute[] }
+  | { type: "highlight" };
+
+/**
+ * One word token of a block's extracted text (see `tokenize`). `text` is the
  * word with any non-breaking spaces normalised to a plain space (so `a~priori`
  * reads `"a priori"`); `start`/`end` are `[start, end)` offsets into
- * `renderText`'s output (which holds the raw U+00A0), for highlighting. `source`
- * — present only on tokens from `compile(text, { tokens: true })` — is the
- * token's span in the source, `end` exclusive.
+ * `extractText(block, { version }).text` (which holds the raw U+00A0). The
+ * `context` is the full wrapper stack around the token (outermost first);
+ * `word` and `lang` distil the common lookups from it — the nearest enclosing
+ * `[w:…=word]` value and language code. `source` — present only on tokens
+ * from a `compileWithPositions` document — is the token's span in the source,
+ * `end` exclusive.
  */
 export type Token = {
   text: string;
   start: number;
   end: number;
   source?: { start: SourcePosition; end: SourcePosition };
+  context: Frame[];
+  word?: string;
+  lang?: string;
 };
 
 /**

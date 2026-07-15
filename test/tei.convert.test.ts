@@ -16,7 +16,7 @@ const HEADER =
 // Convert, and assert the produced Markit compiles without diagnostics.
 const clean = (xml: string, opts?: { modernize?: boolean }): string => {
   const mit = fromTEIXML(xml, opts);
-  const [, errors] = compile(mit);
+  const { errors } = compile(mit);
   expect(errors).toEqual([]);
   return mit;
 };

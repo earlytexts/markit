@@ -5,7 +5,7 @@ import { markit, markitWithMetadata } from "./utils/factories.ts";
 
 describe("null case", () => {
   it("returns no metadata for a document with no metadata blocks", () => {
-    const [document] = compile(markit("# Text", "", "{#0}", "Content"));
+    const { document } = compile(markit("# Text", "", "{#0}", "Content"));
 
     expect(document.metadata).toBeUndefined();
   });
@@ -13,7 +13,7 @@ describe("null case", () => {
 
 describe("boolean values", () => {
   it("parses boolean metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata("metadataBoolean1 = true", "metadataBoolean2 = false"),
     );
 
@@ -29,7 +29,7 @@ describe("boolean values", () => {
 
 describe("numeric values", () => {
   it("parses numeric metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata("metadataNumber = 42"),
     );
 
@@ -42,7 +42,7 @@ describe("numeric values", () => {
   });
 
   it("parses negative number metadata", () => {
-    const [document, errors] = compile(markitWithMetadata("offset = -1"));
+    const { document, errors } = compile(markitWithMetadata("offset = -1"));
 
     expect(errors).toHaveLength(0);
     expect(document.metadata).toEqual(expect.objectContaining({ offset: -1 }));
@@ -51,7 +51,7 @@ describe("numeric values", () => {
 
 describe("string values", () => {
   it("parses string metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata('metadataString = "the answer"'),
     );
 
@@ -64,7 +64,7 @@ describe("string values", () => {
   });
 
   it("handles escaped quotes in string metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata('metadataString = "She said \\"hello\\"."'),
     );
 
@@ -79,7 +79,7 @@ describe("string values", () => {
 
 describe("inline arrays", () => {
   it("parses inline array metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata(
         "metadataBooleanArray = [true, false]",
         "metadataNumberArray = [1, 2, 3]",
@@ -98,7 +98,7 @@ describe("inline arrays", () => {
   });
 
   it("returns error for mixed-type inline arrays", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithMetadata('mixedInlineArray = [true, 1, "a"]'),
     );
 
@@ -117,7 +117,7 @@ describe("inline arrays", () => {
 
 describe("multiline arrays", () => {
   it("parses multiline array metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata(
         "metadataBooleanArray = [",
         "    true,",
@@ -147,7 +147,7 @@ describe("multiline arrays", () => {
   });
 
   it("parses multiline arrays followed by other metadata", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markitWithMetadata(
         "arrayKey = [",
         "    1,",
@@ -167,7 +167,7 @@ describe("multiline arrays", () => {
   });
 
   it("returns error for mixed-type multiline arrays", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithMetadata(
         "mixedArray = [",
         "    true,",
@@ -190,7 +190,7 @@ describe("multiline arrays", () => {
   });
 
   it("returns error for invalid values in multiline arrays", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithMetadata("badArray = [", "    troo,", '    "unclosed,', "]"),
     );
 
@@ -214,7 +214,7 @@ describe("multiline arrays", () => {
   });
 
   it("returns error for null in multiline array", () => {
-    const [, errors] = compile(markitWithMetadata("arr = [", "    null,", "]"));
+    const { errors } = compile(markitWithMetadata("arr = [", "    null,", "]"));
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
@@ -228,7 +228,7 @@ describe("multiline arrays", () => {
   });
 
   it("returns error for empty multiline arrays", () => {
-    const [, errors] = compile(markitWithMetadata("emptyArray = [", "]"));
+    const { errors } = compile(markitWithMetadata("emptyArray = [", "]"));
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
@@ -244,7 +244,7 @@ describe("multiline arrays", () => {
 
 describe("nested tables", () => {
   it("parses nested metadata tables", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Text",
         "",
@@ -274,7 +274,7 @@ describe("nested tables", () => {
   });
 
   it("parses nested metadata tables without blank line between blocks", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Text",
         "",
@@ -303,7 +303,7 @@ describe("nested tables", () => {
   });
 
   it("parses [metadata.subkey] without a top-level [metadata] block", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",
@@ -325,7 +325,7 @@ describe("nested tables", () => {
 
 describe("metadata headers", () => {
   it("parses metadata without blank line after text ID", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Text",
         "[metadata]",
@@ -346,7 +346,7 @@ describe("metadata headers", () => {
   });
 
   it("omits metadata key when no metadata block is present", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit("# Text", "", "{#0}", "Title", ""),
     );
 
@@ -355,7 +355,7 @@ describe("metadata headers", () => {
   });
 
   it("reports error for invalid bracket header without blank line", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Text",
         "[incorrect]",
@@ -374,7 +374,7 @@ describe("metadata headers", () => {
   });
 
   it("returns error for unrecognized metadata header", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit("# Text", "", "[foo]", 'key = "value"', "", "{#0}", "Title", ""),
     );
 
@@ -385,7 +385,7 @@ describe("metadata headers", () => {
 
 describe("child texts", () => {
   it("parses metadata from child texts", () => {
-    const [document, errors] = compile(
+    const { document, errors } = compile(
       markit(
         "# Text",
         "",
@@ -408,7 +408,7 @@ describe("child texts", () => {
 
 describe("general errors", () => {
   it("returns error for invalid metadata values", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markitWithMetadata("badBoolean = troo", 'badString = "no closing quote'),
     );
 
@@ -432,7 +432,7 @@ describe("general errors", () => {
   });
 
   it("returns error for null as inline metadata value", () => {
-    const [, errors] = compile(markitWithMetadata("key = null"));
+    const { errors } = compile(markitWithMetadata("key = null"));
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({
@@ -446,7 +446,7 @@ describe("general errors", () => {
   });
 
   it("returns error for badly formatted metadata lines", () => {
-    const [, errors] = compile(
+    const { errors } = compile(
       markit(
         "# Text",
         "",

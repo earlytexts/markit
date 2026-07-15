@@ -23,7 +23,7 @@ import { TEI_NS, WRAPPER_TEI } from "./schema.ts";
  * particular source document's chrome.
  */
 export const toTEIXML = (mit: string): string => {
-  const [document] = compile(mit);
+  const { document } = compile(mit);
   const header = metadataToHeader(document.metadata as MetaObject | undefined);
   return `<TEI xmlns="${TEI_NS}">${header}${contentXml(document)}</TEI>`;
 };
