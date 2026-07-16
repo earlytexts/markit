@@ -363,6 +363,31 @@ describe("block quotations", () => {
       bq([p([pt("He speaks:")]), sd([p([pt("aside")])])]),
     ]);
   });
+
+  it("returns an error for an empty block quotation", () => {
+    const { document, errors } = compile(markitWithContent("{#1}", ">"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Block quotation must not be empty.",
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 1 },
+      },
+      severity: "error",
+    });
+    expect(document.blocks[0]!.content).toEqual([]);
+  });
+
+  it("reports a block quotation of only bare markers once", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", ">", ">"),
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.message).toBe("Block quotation must not be empty.");
+    expect(document.blocks[0]!.content).toEqual([]);
+  });
 });
 
 describe("stage directions", () => {
@@ -450,5 +475,20 @@ describe("stage directions", () => {
     expect(document.blocks[0]!.content).toEqual([
       sd([list("verse", [li([pt("line a")]), li([pt("line b")])])]),
     ]);
+  });
+
+  it("returns an error for an empty stage direction", () => {
+    const { document, errors } = compile(markitWithContent("{#1}", ":"));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: "Stage direction must not be empty.",
+      source: {
+        start: { line: 3, column: 0 },
+        end: { line: 3, column: 1 },
+      },
+      severity: "error",
+    });
+    expect(document.blocks[0]!.content).toEqual([]);
   });
 });

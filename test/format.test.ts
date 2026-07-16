@@ -477,6 +477,22 @@ describe("formatter", () => {
       expect(formatDocument(stageInQuote)).toBe(stageInQuote);
     });
 
+    it("preserves a blockquote or stage direction of only bare markers", () => {
+      // A wholly-empty element is a compile error; the formatter must leave it
+      // in place rather than silently deleting it.
+      const bareQuote = markitWithContent("{#1}", ">");
+      expect(formatDocument(bareQuote)).toBe(bareQuote);
+
+      const bareStage = markitWithContent("{#1}", ":");
+      expect(formatDocument(bareStage)).toBe(bareStage);
+
+      const stackedBareQuotes = markitWithContent("{#1}", ">", ">");
+      expect(formatDocument(stackedBareQuotes)).toBe(stackedBareQuotes);
+
+      const nestedBareQuote = markitWithContent("{#1}", "> >");
+      expect(formatDocument(nestedBareQuote)).toBe(nestedBareQuote);
+    });
+
     it("normalizes extra whitespace between stacked markers to one space", () => {
       const input = markitWithContent("{#1}", ">   > A nested quote.");
       const result = formatDocument(input);

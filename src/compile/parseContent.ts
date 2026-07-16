@@ -399,10 +399,12 @@ const nestedSpecs = {
   blockquote: {
     marker: blockquoteSpec.marker,
     headingError: "Headings are not allowed inside block quotations.",
+    emptyError: "Block quotation must not be empty.",
   },
   stageDirection: {
     marker: stageDirectionSpec.marker,
     headingError: "Headings are not allowed inside stage directions.",
+    emptyError: "Stage direction must not be empty.",
   },
 } as const;
 
@@ -418,7 +420,7 @@ const buildNested = (
   lines: Line[],
   ctx: ParseContext,
 ): Blockquote | StageDirection | null => {
-  const { marker, headingError } = nestedSpecs[type];
+  const { marker, headingError, emptyError } = nestedSpecs[type];
 
   // Strip the marker (and an optional single space after it) from each line;
   // a bare marker line becomes a blank separator.
@@ -439,7 +441,24 @@ const buildNested = (
     (el): el is NestableBlockElement => el.type !== "heading",
   );
 
-  return content.length > 0 ? { type, content } : null;
+  if (content.length === 0) {
+    // An element whose inner lines are all blank (nothing but bare markers) is
+    // empty by mistake — flag it. When a non-blank line was present but produced
+    // no content (a lone heading), that line's own diagnostic already fired.
+    if (innerLines.every((line) => line.content === "")) {
+      ctx.errors.push(
+        makeError({
+          message: emptyError,
+          line: lines[0]!.lineNumber,
+          column: lines[0]!.charOffset,
+          length: marker.length,
+        }),
+      );
+    }
+    return null;
+  }
+
+  return { type, content };
 };
 
 /**
@@ -561,6 +580,20 @@ const buildListItems = (
       i = nestedEnd;
     } else {
       i++;
+    }
+
+    // An item with neither content nor a nested list is empty by mistake. (A
+    // bare marker that only carries a nested list is legitimate — its content
+    // is empty but `nestedList` is set.)
+    if (content.length === 0 && listItem.nestedList === undefined) {
+      ctx.errors.push(
+        makeError({
+          message: "List item must not be empty.",
+          line: line.lineNumber,
+          column: line.charOffset,
+          length: item.markerLength,
+        }),
+      );
     }
 
     result.push(listItem);
