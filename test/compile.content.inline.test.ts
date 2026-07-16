@@ -403,6 +403,133 @@ describe("whitespace and line breaks", () => {
   });
 });
 
+describe("wrapper-edge whitespace (tight vs loose edges)", () => {
+  // The everyday early-modern pattern: one italic phrase `a b c` with `b` set in
+  // roman inside it, written as three delimiter pairs. The spaces sitting just
+  // inside the closing/opening delimiters are real inter-word spaces, because a
+  // word abuts the delimiter on the outside (a "tight" edge), so they survive.
+  it("preserves inter-word space at a tight wrapper edge (emphasis)", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "x _a _b_ c_ y"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("x "),
+        { type: "emphasis", content: [pt("a ")] },
+        pt("b"),
+        { type: "emphasis", content: [pt(" c")] },
+        pt(" y"),
+      ]),
+    ]);
+  });
+
+  it("preserves inter-word space at a tight wrapper edge (strong)", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "x *a *b* c* y"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("x "),
+        { type: "strong", content: [pt("a ")] },
+        pt("b"),
+        { type: "strong", content: [pt(" c")] },
+        pt(" y"),
+      ]),
+    ]);
+  });
+
+  it("preserves both tight edges of a single span", () => {
+    // `b _a_ c` with the whole thing one roman phrase and `a` italic would give a
+    // loose span; here the source hugs both delimiters against words.
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "a_ b _c"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("a"), { type: "emphasis", content: [pt(" b ")] }, pt("c")]),
+    ]);
+  });
+
+  it("still trims cosmetic padding at loose edges (both sides)", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "_ hello _"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([{ type: "emphasis", content: [pt("hello")] }]),
+    ]);
+  });
+
+  it("trims a loose edge but preserves a tight edge on the same span", () => {
+    // Space *outside* the opening delimiter (loose) is trimmed; the trailing
+    // space is tight against `b`, so it survives.
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "x _ a _b"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("x "),
+        { type: "emphasis", content: [pt("a ")] },
+        pt("b"),
+      ]),
+    ]);
+  });
+
+  it("treats a paragraph edge as loose (leading padding trimmed)", () => {
+    // First span starts the paragraph, so its leading space is cosmetic padding
+    // (trimmed); its trailing space is tight against `b` (preserved).
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "_ a _b_ c_"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "emphasis", content: [pt("a ")] },
+        pt("b"),
+        { type: "emphasis", content: [pt(" c")] },
+      ]),
+    ]);
+  });
+
+  it("treats a line break as a loose edge (trims adjacent padding)", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "_a _\\ b"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "emphasis", content: [pt("a")] },
+        { type: "lineBreak" },
+        pt("b"),
+      ]),
+    ]);
+  });
+
+  it("is tight when a wrapper abuts another wrapper (no space between)", () => {
+    const { document, errors } = compile(
+      markitWithContent("{#1}", "_a _*b*"),
+    );
+
+    expect(errors).toHaveLength(0);
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        { type: "emphasis", content: [pt("a ")] },
+        { type: "strong", content: [pt("b")] },
+      ]),
+    ]);
+  });
+});
+
 describe("foreign text", () => {
   it("parses generic foreign text", () => {
     const { document, errors } = compile(
