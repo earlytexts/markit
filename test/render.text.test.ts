@@ -371,4 +371,11 @@ describe("inline elements", () => {
     const { document } = compile(markitWithContent("{#1}", "[...]"));
     expect(renderText(document)).toContain("<illegible>");
   });
+
+  it("keeps inter-word spaces at tight wrapper edges (does not glue words)", () => {
+    const { document } = compile(markitWithContent("{#1}", "x _a _b_ c_ y"));
+    const text = renderText(document);
+    expect(text).toContain("x a b c y");
+    expect(text).not.toContain("abc");
+  });
 });

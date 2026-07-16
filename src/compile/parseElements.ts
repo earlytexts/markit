@@ -575,21 +575,41 @@ const isTightBreak = (
  * Trim leading and trailing whitespace from the element list, trim whitespace
  * adjacent to lineBreak and pageBreak elements, and recursively clean wrapper
  * element content.
+ *
+ * `protectStart`/`protectEnd` guard the list's outer edges from that trim. They
+ * are set when the list is a wrapper's content and the wrapper's delimiter is
+ * *tight* — a word abuts it in the source — so the edge whitespace is a real
+ * inter-word space, not cosmetic padding. This is what keeps `_a _b_ c_` (one
+ * italic phrase with a roman `b`) compiling to `emphasis("a "), "b",
+ * emphasis(" c")` instead of gluing the words. The paragraph/line edges of a
+ * block are always loose, so the top-level call leaves both false.
  */
-const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
+const cleanupElements = (
+  elements: InlineElement[],
+  protectStart = false,
+  protectEnd = false,
+): InlineElement[] => {
   const result: InlineElement[] = [];
 
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
 
-    // Recursively clean wrapper, word, language, and generic-element content
+    // Recursively clean wrapper, word, language, and generic-element content,
+    // protecting each edge whose delimiter is tight against a neighbouring word.
     if (
       isWrapperElement(element) ||
       element.type === "word" ||
       element.type === "language" ||
       element.type === "element"
     ) {
-      result.push({ ...element, content: cleanupElements(element.content) });
+      result.push({
+        ...element,
+        content: cleanupElements(
+          element.content,
+          isTightEdgeBefore(elements[i - 1]),
+          isTightEdgeAfter(elements[i + 1]),
+        ),
+      });
     } else {
       result.push(element);
     }
@@ -597,7 +617,7 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
 
   // Trim leading whitespace from the first plainText element
   const first = result[0];
-  if (first && first.type === "plainText") {
+  if (!protectStart && first && first.type === "plainText") {
     const trimmed = trimPlainTextStart(first);
     if (trimmed) result[0] = trimmed;
     else result.shift();
@@ -605,7 +625,7 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
 
   // Trim trailing whitespace from the last plainText element
   const last = result[result.length - 1];
-  if (last && last.type === "plainText") {
+  if (!protectEnd && last && last.type === "plainText") {
     const trimmed = trimPlainTextEnd(last);
     if (trimmed) result[result.length - 1] = trimmed;
     else result.pop();
@@ -635,6 +655,32 @@ const cleanupElements = (elements: InlineElement[]): InlineElement[] => {
 
   return result;
 };
+
+/**
+ * Whether a wrapper's opening delimiter is tight against its preceding sibling —
+ * a word sits flush before it in the source, so the wrapper's leading edge
+ * whitespace is a real inter-word space and must be kept. Structurally that is a
+ * sibling that does not itself carry the separating space: a non-plainText
+ * content element (flush against the delimiter), or a plainText not ending in
+ * whitespace. A line/page break, or no sibling at all (a paragraph/line edge),
+ * is a word boundary, hence loose.
+ */
+const isTightEdgeBefore = (prev: InlineElement | undefined): boolean =>
+  prev !== undefined &&
+  prev.type !== "lineBreak" &&
+  prev.type !== "pageBreak" &&
+  (prev.type !== "plainText" || !/\s$/.test(prev.content));
+
+/**
+ * The trailing counterpart of `isTightEdgeBefore`: whether a word sits flush
+ * after the wrapper's closing delimiter, so its trailing edge whitespace is a
+ * real inter-word space.
+ */
+const isTightEdgeAfter = (next: InlineElement | undefined): boolean =>
+  next !== undefined &&
+  next.type !== "lineBreak" &&
+  next.type !== "pageBreak" &&
+  (next.type !== "plainText" || !/^\s/.test(next.content));
 
 /** `node` with leading whitespace trimmed, or null when nothing remains. */
 const trimPlainTextStart = (node: PlainText): PlainText | null => {
