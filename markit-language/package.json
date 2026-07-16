@@ -2,7 +2,7 @@
   "name": "markit-language",
   "publisher": "earlytexts",
   "displayName": "Markit (Early Text Centre)",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "description": "Language support for the Markit markup language",
   "license": "MIT",
   "repository": {

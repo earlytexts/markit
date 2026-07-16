@@ -98,11 +98,10 @@ const extractBlockElements = (buffer: string[]): string[] => {
 
   flush(acc);
 
-  // Strip any trailing blank or bare blockquote/stage-direction separator lines
-  while (
-    acc.output.at(-1) === "" || acc.output.at(-1) === ">" ||
-    acc.output.at(-1) === ":"
-  ) {
+  // Strip any trailing blank separator lines. (Bare blockquote/stage-direction
+  // markers are kept: a wholly-empty element is a compile error the formatter
+  // must not silently delete.)
+  while (acc.output.at(-1) === "") {
     acc.output.pop();
   }
 
@@ -144,8 +143,7 @@ const bufferLine = (
 };
 
 // Emit the buffered lines as their block element, separated from any earlier
-// output by one blank line, then reset the buffer. (A blockquote or stage
-// direction of bare markers formats to nothing, and emits nothing.)
+// output by one blank line, then reset the buffer.
 const flush = (acc: BlockAccumulator): void => {
   if (acc.kind === null) return;
   const lines = formatElement(acc.kind, acc);
@@ -153,7 +151,6 @@ const flush = (acc: BlockAccumulator): void => {
   acc.lines = [];
   acc.listType = null;
   acc.listStart = undefined;
-  if (lines.length === 0) return;
   pushSeparator(acc);
   acc.output.push(...lines);
 };
@@ -192,10 +189,14 @@ const formatParagraph = (lines: string[]): string[] =>
 
 // Recursively format a blockquote or stage direction's inner lines and
 // re-prefix each with its marker (a bare marker for the blank separator lines).
-const formatMarked = (lines: string[], marker: string): string[] =>
-  extractBlockElements(lines).map((line) =>
-    line === "" ? marker : `${marker} ${line}`
-  );
+// A wholly-empty element (nothing but bare markers) is preserved verbatim: an
+// empty blockquote or stage direction is a compile error, and the formatter
+// must surface it rather than silently delete it.
+const formatMarked = (lines: string[], marker: string): string[] => {
+  const inner = extractBlockElements(lines);
+  const formatted = inner.length > 0 ? inner : lines;
+  return formatted.map((line) => (line === "" ? marker : `${marker} ${line}`));
+};
 
 // Normalize a list's indentation to two-space levels and renumber ordered
 // items (verse lists pass through unchanged).

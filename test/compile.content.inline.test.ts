@@ -109,6 +109,87 @@ describe("inline formatting", () => {
       severity: "error",
     });
   });
+
+  it("returns error for an empty inline element", () => {
+    const { document, errors } = compile(
+      markit("# Text", "", "{#3}", "This has ** empty.", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: **",
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 11 },
+      },
+      severity: "error",
+    });
+    // The empty wrapper is still emitted into the tree.
+    expect(document.blocks[0]!.content).toEqual([
+      p([pt("This has "), { type: "strong", content: [] }, pt(" empty.")]),
+    ]);
+  });
+
+  it("returns error for an empty inline quote", () => {
+    const { errors } = compile(
+      markit("# Text", "", "{#3}", 'This has "" empty.', ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: 'Empty formatting: ""',
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 11 },
+      },
+      severity: "error",
+    });
+  });
+
+  it("returns error for an empty multi-character inline element", () => {
+    const { errors } = compile(
+      markit("# Text", "", "{#3}", "This has [++] empty.", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: [++]",
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 13 },
+      },
+      severity: "error",
+    });
+  });
+
+  it("returns error for a whitespace-only inline element", () => {
+    const { document, errors } = compile(
+      markit("# Text", "", "{#3}", "This has * * a space.", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: **",
+      source: {
+        start: { line: 3, column: 9 },
+        end: { line: 3, column: 11 },
+      },
+      severity: "error",
+    });
+    // The blank wrapper is still emitted; its cosmetic whitespace is trimmed
+    // away by the normal cleanup pass, leaving empty content.
+    expect(document.blocks[0]!.content).toEqual([
+      p([
+        pt("This has "),
+        { type: "strong", content: [] },
+        pt(" a space."),
+      ]),
+    ]);
+  });
+
+  it("still accepts an inline element with visible content around spaces", () => {
+    const { errors } = compile(
+      markit("# Text", "", "{#3}", "This has * bold * text.", ""),
+    );
+
+    expect(errors).toHaveLength(0);
+  });
 });
 
 describe("inline quotes", () => {
@@ -603,6 +684,51 @@ describe("foreign text", () => {
       source: {
         start: { line: 3, column: 5 },
         end: { line: 3, column: 10 },
+      },
+      severity: "error",
+    });
+  });
+
+  it("returns error for an empty language wrapper", () => {
+    const { errors } = compile(
+      markitWithContent("{#1}", "some $$ empty", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: $$",
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 7 },
+      },
+      severity: "error",
+    });
+  });
+
+  it("returns error for an empty tagged language wrapper", () => {
+    const { errors } = compile(
+      markitWithContent("{#1}", "some $la:$ empty", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: $la:$",
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 10 },
+      },
+      severity: "error",
+    });
+  });
+
+  it("returns error for a whitespace-only language wrapper", () => {
+    const { errors } = compile(
+      markitWithContent("{#1}", "some $ $ empty", ""),
+    );
+
+    expect(errors[0]).toMatchObject({
+      message: "Empty formatting: $$",
+      source: {
+        start: { line: 3, column: 5 },
+        end: { line: 3, column: 7 },
       },
       severity: "error",
     });

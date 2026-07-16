@@ -313,20 +313,50 @@ describe("List compilation", () => {
   });
 
   describe("Edge cases", () => {
-    it("handles empty list item content", () => {
+    it("reports an error for an empty list item", () => {
       const input = markitWithContent("{#1}", "- ");
       const { document: result, errors } = compile(input);
-      expect(errors).toEqual([]);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
+        message: "List item must not be empty.",
+        source: {
+          start: { line: 3, column: 0 },
+          end: { line: 3, column: 2 },
+        },
+        severity: "error",
+      });
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.items[0]!.content).toEqual([]);
     });
 
-    it("handles list items with only whitespace after marker", () => {
+    it("reports an error for a list item with only whitespace after the marker", () => {
       const input = markitWithContent("{#1}", "-   ");
+      const { errors } = compile(input);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toBe("List item must not be empty.");
+    });
+
+    it("reports an error for an empty ordered list item", () => {
+      const input = markitWithContent("{#1}", "1. ");
+      const { errors } = compile(input);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toBe("List item must not be empty.");
+    });
+
+    it("reports an error for an empty verse line", () => {
+      const input = markitWithContent("{#1}", "* ");
+      const { errors } = compile(input);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toBe("List item must not be empty.");
+    });
+
+    it("accepts a bare marker that carries only a nested list", () => {
+      const input = markitWithContent("{#1}", "- ", "  - Nested item");
       const { document: result, errors } = compile(input);
       expect(errors).toEqual([]);
       const listElement = result.blocks[0]!.content[0] as any;
       expect(listElement.items[0]!.content).toEqual([]);
+      expect(listElement.items[0]!.nestedList).toBeDefined();
     });
 
     it("handles large item numbers in ordered lists", () => {

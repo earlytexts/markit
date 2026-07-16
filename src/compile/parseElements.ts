@@ -67,6 +67,12 @@ for (const wrapper of wrapperElements) {
   specialChars[wrapper.open.charCodeAt(0)] = 1;
 }
 
+// A wrapping inline element must enclose something visible. Content that is
+// empty or only whitespace (e.g. `""`, `**`, `* *`) counts as blank and is
+// reported as an empty-element diagnostic.
+const isBlankContent = (content: InlineElement[]): boolean =>
+  content.every((el) => el.type === "plainText" && el.content.trim() === "");
+
 /**
  * Parse inline elements from `input` starting at `startPos`, stopping at
  * `closeMarker` (or the end of input). Returns the parsed elements, the
@@ -373,6 +379,16 @@ const parseElements = (
             length: openMarker.length,
           }),
         );
+      } else if (isBlankContent(wrapperContent)) {
+        const position = positionMap[pos]!;
+        ctx.errors.push(
+          makeError({
+            message: `Empty formatting: ${openMarker}$`,
+            line: position.line,
+            column: position.column,
+            length: openMarker.length + 1,
+          }),
+        );
       }
 
       flushPlainText();
@@ -467,6 +483,16 @@ const parseElements = (
               line: position.line,
               column: position.column,
               length: wrapper.open.length,
+            }),
+          );
+        } else if (isBlankContent(wrapperContent)) {
+          const position = positionMap[pos]!;
+          ctx.errors.push(
+            makeError({
+              message: `Empty formatting: ${wrapper.open}${wrapper.close}`,
+              line: position.line,
+              column: position.column,
+              length: wrapper.open.length + wrapper.close.length,
             }),
           );
         }
