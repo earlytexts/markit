@@ -131,6 +131,29 @@ export const matchInlineRule = (
 // other <g> resolves to its own text content (combining marks, punctuation).
 export const JOIN_GLYPHS = new Set(["char:EOLhyphen", "char:EOLunhyphen"]);
 
+// `<g ref="char:punc">▪</g>` is not a character: it is EEBO-TCP's sigil for a
+// punctuation mark the transcriber could not identify. Resolving it to its own
+// content would put a black square into the reading text (and so into the
+// corpus's word stream), so it is dropped. Marking it as uncertain instead
+// would over-read it — the mark is almost always a full stop the reader
+// supplies anyway.
+export const PUNC_GLYPHS = new Set(["char:punc"]);
+
+// --- Letterforms ---------------------------------------------------------
+
+// EEBO-TCP transcribes several printed letterforms with code points of their
+// own. `modernize` maps that closed set back to the modern letter, preserving
+// case. Ligatures are deliberately absent: the corpus's settled policy is
+// trust-the-letters, so `æ`/`œ` are kept as printed.
+export const MODERN_LETTERFORMS = new Map([
+  ["ſ", "s"], // long s
+  ["ẛ", "s"], // long s with dot above
+  ["Ʋ", "V"], // capital V with hook: TCP's swash capital (char:V)
+  ["ʋ", "v"],
+  ["Ꞅ", "F"], // insular F
+  ["ꞅ", "f"],
+]);
+
 // --- Notes ---------------------------------------------------------------
 
 // A <note> whose @place is one of these (or absent) is a footnote; place="margin"

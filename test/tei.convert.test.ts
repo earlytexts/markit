@@ -65,6 +65,39 @@ describe("fromTEIXML — structure", () => {
     const mit = clean(tei(`<group><text><body><p>x</p></body></text></group>`));
     expect(mit).toContain("group");
   });
+
+  it("keeps blocks that follow a sub-text in place, as a sub-text of their own", () => {
+    const mit = clean(
+      tei(
+        `<div type="treatise"><p>open</p><div n="1"><p>book</p></div>` +
+          `<trailer>THE END.</trailer></div>`,
+      ),
+    );
+    expect(mit).toContain("##### trailer");
+    expect(mit).toContain('element="trailer"');
+    // The point of the fix: the trailer closes the treatise, not opens it.
+    expect(mit.indexOf("THE END.")).toBeGreaterThan(mit.indexOf("book"));
+    expect(mit.indexOf("open")).toBeLessThan(mit.indexOf("book"));
+  });
+
+  it("splits interleaved blocks into one sub-text per run", () => {
+    const mit = clean(
+      tei(
+        `<div><div n="1"><p>alpha</p></div><p>middle</p>` +
+          `<div n="2"><p>omega</p></div><closer>bye</closer></div>`,
+      ),
+    );
+    expect(mit.indexOf("middle")).toBeGreaterThan(mit.indexOf("alpha"));
+    expect(mit.indexOf("middle")).toBeLessThan(mit.indexOf("omega"));
+    expect(mit).toContain("##### p");
+    expect(mit).toContain("##### closer");
+  });
+
+  it("names a trailing run with no element after it `content`", () => {
+    const mit = clean(tei(`<div><div n="1"><p>a</p></div><pb n="9"/></div>`));
+    expect(mit).toContain("##### content");
+    expect(mit).toContain("//9//");
+  });
 });
 
 describe("fromTEIXML — blocks", () => {
@@ -74,6 +107,22 @@ describe("fromTEIXML — blocks", () => {
     );
     expect(mit).toContain("{#title}");
     expect(mit).toContain("{#subtitle}");
+  });
+
+  it("emits every heading at ^1, whatever the nesting depth", () => {
+    // `^N` is display size, not structural depth: TEI carries no size, so a
+    // depth-derived level would be invented data (and TCP's deepest divisions
+    // typically carry its most prominent headings).
+    const mit = clean(
+      tei(
+        `<div><head>One</head><div><head>Two</head>` +
+          `<div><head>Three</head><p>x</p></div></div></div>`,
+      ),
+    );
+    expect(mit).toContain("^1 One");
+    expect(mit).toContain("^1 Two");
+    expect(mit).toContain("^1 Three");
+    expect(mit).not.toMatch(/\^[2-6] /);
   });
 
   it("demotes a <head> that follows other content to a subtitle", () => {
@@ -139,6 +188,39 @@ describe("fromTEIXML — blocks", () => {
     expect(mit).toContain("> a");
     expect(mit).toContain("> b");
     expect(mit).toContain("> c");
+  });
+
+  it("maps a <q> around block content to a blockquote", () => {
+    const mit = clean(
+      tei(
+        `<div><q><p>HONESTUM igitur.</p><bibl>Cic. de Fin.</bibl></q></div>`,
+      ),
+    );
+    expect(mit).toContain("> HONESTUM igitur.\n>\n> [Cic. de Fin.]");
+    // The canonical TEI form of a blockquote is <quote>, not <q>.
+    expect(toTEIXML(mit)).toContain(
+      "<quote><p>HONESTUM igitur.</p><p><bibl>Cic. de Fin.</bibl></p></quote>",
+    );
+  });
+
+  it("keeps a <q> with inline-only content an inline quotation", () => {
+    expect(clean(tei(`<p>He said <q>yes</q> firmly.</p>`))).toContain(
+      'He said "yes" firmly.',
+    );
+    // Even at block level, where it used to be flattened to a bare paragraph.
+    expect(clean(tei(`<div><said>yes</said></div>`))).toContain('"yes"');
+    // And nested in another block, where the same choice is made per element.
+    expect(clean(tei(`<quote><p>He said <q>yes</q>.</p></quote>`))).toContain(
+      '> He said "yes".',
+    );
+  });
+
+  it("maps a <q> around block content nested in another block", () => {
+    const mit = clean(
+      tei(`<quote><p>outer</p><q><p>inner</p></q></quote>`),
+    );
+    expect(mit).toContain("> outer");
+    expect(mit).toContain("> > inner");
   });
 
   it("maps a list, verse, and nested quote inside a <quote> to block content", () => {
@@ -418,6 +500,13 @@ describe("fromTEIXML — formatter-canonical output", () => {
     expect(mit).not.toContain("_");
   });
 
+  it("separates block groups with a blank line, not a spurious line break", () => {
+    const mit = canonical(tei(`<trailer><p>a</p><p>b</p></trailer>`));
+    expect(mit).toContain("a\n\nb");
+    expect(mit).not.toMatch(/^\\$/m);
+    expect(mit).not.toContain("\\\n");
+  });
+
   it("drops an empty paragraph inside a blockquote", () => {
     const mit = canonical(tei(`<quote><p></p><p>kept</p></quote>`));
     expect(mit).toContain("> kept");
@@ -435,9 +524,30 @@ describe("fromTEIXML — page breaks between blocks", () => {
     expect(mit).toMatch(/\^\d \/\/3\/\/ Title/);
   });
 
-  it("emits a trailing page break as its own paragraph", () => {
+  it("appends a trailing page break to the last line already emitted", () => {
     const mit = clean(tei(`<div><p>x</p><pb n="9"/></div>`));
-    expect(mit).toContain("//9//");
+    expect(mit).toContain("x //9//");
+    expect(mit).not.toMatch(/\{#2}/);
+  });
+
+  it("gives a page break with no preceding block a block of its own", () => {
+    const mit = clean(tei(`<div><pb n="9"/></div>`));
+    expect(mit).toContain("{#1}\n//9//");
+  });
+
+  it("spaces an inline page break off the surrounding words", () => {
+    // TCP writes `<p><pb n="17"/>BUT if…` with no space; unpadded, the marker
+    // fuses to the word, and a break landing mid-word corrupts tokenisation.
+    expect(clean(tei(`<p><pb n="17"/>BUT if any.</p>`))).toContain(
+      "//17// BUT if any.",
+    );
+    expect(clean(tei(`<p>dispo<pb n="53"/>sition</p>`))).toContain(
+      "dispo //53// sition",
+    );
+    // A space already there is not doubled.
+    expect(clean(tei(`<p>end. <pb n="2"/> Next.</p>`))).toContain(
+      "end. //2// Next.",
+    );
   });
 });
 
@@ -447,6 +557,13 @@ describe("fromTEIXML — modernisation option", () => {
     expect(clean(tei(`<p>Deciſions</p>`), { modernize: true })).toContain(
       "Decisions",
     );
+  });
+
+  it("modernises TCP's other letterforms but leaves ligatures alone", () => {
+    const mit = clean(tei(`<p>CONCLƲSION ʋse ẛo Ꞅar ꞅell æther</p>`), {
+      modernize: true,
+    });
+    expect(mit).toContain("CONCLVSION vse so Far fell æther");
   });
 });
 
@@ -719,7 +836,17 @@ describe("fromTEIXML — coverage corners", () => {
 
   it("drops a glyph with no ref and resolves glyph content past comments", () => {
     expect(inline(`a<g/>b`)).toContain("ab");
-    expect(inline(`x<g ref="char:punc">•<!--c--></g>y`)).toContain("x•y");
+    expect(inline(`x<g ref="char:cmbAbbrStroke">•<!--c--></g>y`)).toContain(
+      "x•y",
+    );
+  });
+
+  it("drops the unidentified-punctuation glyph but keeps a letterform", () => {
+    expect(inline(`America<g ref="char:punc">▪</g> and`)).not.toContain("▪");
+    expect(inline(`America<g ref="char:punc">▪</g> and`)).toContain(
+      "America and",
+    );
+    expect(inline(`CONCL<g ref="char:V">Ʋ</g>SION`)).toContain("CONCLƲSION");
   });
 
   it("guards a paragraph that ends with a pipe", () => {
