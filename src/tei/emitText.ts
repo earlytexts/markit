@@ -12,6 +12,8 @@ import {
   langOf,
   MARGIN_PLACES,
   matchInlineRule,
+  MODERN_LETTERFORMS,
+  PUNC_GLYPHS,
   SEMANTIC_BLOCKS,
   STRUCTURAL,
   WRAPPER_TEI,
@@ -44,38 +46,86 @@ const emitText = (
     out.push(...metaLines);
   }
 
-  // Partition children into block-level content and structural sub-texts,
-  // skipping the header (already consumed) and insignificant whitespace.
-  const blockChildren: XmlNode[] = [];
-  const subTexts: XmlElement[] = [];
+  const { blocks, tail } = partitionChildren(element);
+  emitContent(blocks, options, out);
+
+  const usedIds = new Set<string>();
+  for (const item of tail) {
+    out.push("");
+    if (item.kind === "text") {
+      const { element: sub } = item;
+      emitText(sub, level + 1, subTextId(sub, usedIds), null, options, out);
+    } else {
+      // A block run that follows a sub-text becomes a sub-text of its own (see
+      // partitionChildren); `element=` metadata still names the original tag,
+      // so toTEIXML rebuilds a <div>-wrapped <trailer> rather than a bare one.
+      out.push(`${"#".repeat(level + 1)} ${blockRunId(item.nodes, usedIds)}`);
+      emitContent(item.nodes, options, out);
+    }
+  }
+};
+
+export default emitText;
+
+// --- Children ------------------------------------------------------------
+
+// A text's children in document order: the block content that opens the text,
+// then everything after it. The Markit data model is blocks-then-sub-texts, so
+// a block genuinely cannot sit after a sibling sub-text at the same level —
+// rather than hoisting such blocks to the top (which silently reorders the
+// text: a <trailer> would come to open what it closes), each run of them
+// becomes a synthetic sub-text in the place it was written.
+type Partition = { blocks: XmlNode[]; tail: TailItem[] };
+
+type TailItem =
+  | { kind: "text"; element: XmlElement }
+  | { kind: "blocks"; nodes: XmlNode[] };
+
+const partitionChildren = (element: XmlElement): Partition => {
+  const blocks: XmlNode[] = [];
+  const tail: TailItem[] = [];
+  let run: XmlNode[] = [];
+  const flushRun = (): void => {
+    if (run.length === 0) return;
+    tail.push({ kind: "blocks", nodes: run });
+    run = [];
+  };
+
   for (const child of element.children) {
     if (isElement(child)) {
       const name = localName(child.name);
-      if (name === "teiHeader") continue;
-      if (STRUCTURAL.has(name)) subTexts.push(child);
-      else blockChildren.push(child);
-    } else if (child.kind === "text" && child.content.trim() !== "") {
-      blockChildren.push(child);
+      if (name === "teiHeader") continue; // already consumed as metadata
+      if (STRUCTURAL.has(name)) {
+        flushRun();
+        tail.push({ kind: "text", element: child });
+        continue;
+      }
+    } else if (child.kind !== "text" || child.content.trim() === "") {
+      continue; // comments, PIs, insignificant whitespace
     }
+    if (tail.length === 0) blocks.push(child);
+    else run.push(child);
   }
+  flushRun();
+  return { blocks, tail };
+};
 
+// Emit a run of block-level children as content blocks, followed by the
+// footnotes they collected (footnote ids run per text).
+const emitContent = (
+  children: XmlNode[],
+  options: FromTEIOptions,
+  out: string[],
+): void => {
   const walker: Walker = { options, footnotes: [], counter: { n: 0 } };
-  emitBlocks(blockChildren, level, walker, out);
+  emitBlocks(children, walker, out);
 
   for (const footnote of walker.footnotes) {
     out.push("");
     out.push(`{#${footnote.id}}`);
     out.push(...footnote.lines);
   }
-
-  const usedIds = new Set<string>();
-  for (const sub of subTexts) {
-    out.push("");
-    emitText(sub, level + 1, subTextId(sub, usedIds), null, options, out);
-  }
 };
-
-export default emitText;
 
 // A per-text walker: the conversion options plus the footnotes accumulated while
 // rendering this text's blocks (footnote ids run per text).
@@ -97,15 +147,11 @@ const JOIN_PATTERN = new RegExp(`${JOIN}\\s*`, "g");
 
 // Emit each block-level child as its own Markit content block, numbering
 // paragraphs sequentially and turning the first heading into the `title`.
-const emitBlocks = (
-  children: XmlNode[],
-  depth: number,
-  w: Walker,
-  out: string[],
-): void => {
+const emitBlocks = (children: XmlNode[], w: Walker, out: string[]): void => {
   let blockN = 0;
   let headSeen = false;
   let pendingPage: string | null = null;
+  let opened = false;
 
   // Consume the held page break, if any — the one place `pendingPage` is
   // read and cleared, so every consumption site is visible as a call.
@@ -119,6 +165,7 @@ const emitBlocks = (
   // misread as a block construct; heading lines (which must start with `^N`)
   // opt out.
   const open = (tag: string, lines: string[], guard = true): void => {
+    opened = true;
     out.push("");
     out.push(`{#${tag}}`);
     const first = prependPage(lines[0] ?? "", takePage());
@@ -150,18 +197,18 @@ const emitBlocks = (
       // follows other content becomes a `subtitle` instead.
       const tag = blockN === 0 && !headSeen ? "title" : "subtitle";
       headSeen = true;
-      const level = Math.min(6, Math.max(1, depth));
       // A heading line must start with `^N`, so any pending page break goes
       // inside the heading content rather than before the marker.
       const held = takePage();
       const page = held ? `${held} ` : "";
+      // `^N` is display size, not structural depth ("1 being the largest"), and
+      // TEI <head> carries no size information — so deriving a level from the
+      // nesting would be inventing data. Every heading is emitted at `^1`.
       open(
         tag,
-        [
-          `^${level} ${page}${
-            finishInline(renderInline(child.children, w, new Set()))
-          }`,
-        ],
+        [`^1 ${page}${
+          finishInline(renderInline(child.children, w, new Set()))
+        }`],
         false,
       );
       continue;
@@ -172,9 +219,15 @@ const emitBlocks = (
     open(`${++blockN}${block.meta}`, block.lines, block.guard);
   }
 
-  // A trailing page break with no following block becomes its own paragraph.
+  // A trailing page break belongs to the text around it: it joins the last line
+  // already emitted, and only becomes a block of its own when there is none.
   const trailing = takePage();
-  if (trailing) open(`${++blockN}`, [trailing]);
+  if (trailing) {
+    if (opened) {
+      const last = out.length - 1;
+      out[last] = appendPage(out[last]!, trailing);
+    } else open(`${++blockN}`, [trailing]);
+  }
 };
 
 // `guard` marks lines that are paragraph prose (and so need the contentLine
@@ -204,6 +257,18 @@ const renderBlockElement = (element: XmlElement, w: Walker): BlockOut => {
   if (name === "table") return markup(tableLines(element, w));
   if (name === "quote" || name === "cit") {
     return markup(blockquoteLines(element, w));
+  }
+  // <q>/<said> are inline quotations in the common case, but TEI also allows
+  // them around block content (a title-page epigraph of <p> plus <bibl>); only
+  // then are they a blockquote. Otherwise the quotation renders inline, so its
+  // quotation status is not lost to an ordinary paragraph.
+  if (name === "q" || name === "said") {
+    return hasBlockChildren(element) ? markup(blockquoteLines(element, w)) : {
+      lines: paragraphLines(renderInline([element], w, new Set())),
+      meta: "",
+      keep: false,
+      guard: true,
+    };
   }
   if (name === "stage") return markup(stageLines(element, w));
   if (name === "sp") return markup(mixedContent(element.children, w, false));
@@ -299,19 +364,27 @@ const blockContentGroups = (nodes: XmlNode[], w: Walker): BlockGroup[] => {
 };
 
 const isBlockNode = (node: XmlNode): boolean =>
-  isElement(node) && isBlockLevel(localName(node.name));
+  isElement(node) && isBlockLevel(node);
 
-const isBlockLevel = (name: string): boolean =>
-  name === "p" ||
-  name === "lg" ||
-  name === "l" ||
-  name === "list" ||
-  name === "table" ||
-  name === "quote" ||
-  name === "cit" ||
-  name === "stage" ||
-  name === "sp" ||
-  SEMANTIC_BLOCKS.has(name);
+// <q>/<said> are the one content-dependent case: a quotation is block-level
+// only when it wraps block content (see renderBlockElement).
+const isBlockLevel = (element: XmlElement): boolean => {
+  const name = localName(element.name);
+  if (name === "q" || name === "said") return hasBlockChildren(element);
+  return name === "p" ||
+    name === "lg" ||
+    name === "l" ||
+    name === "list" ||
+    name === "table" ||
+    name === "quote" ||
+    name === "cit" ||
+    name === "stage" ||
+    name === "sp" ||
+    SEMANTIC_BLOCKS.has(name);
+};
+
+const hasBlockChildren = (element: XmlElement): boolean =>
+  element.children.some(isBlockNode);
 
 // --- Verse, lists, tables, blockquotes -----------------------------------
 
@@ -441,13 +514,19 @@ const renderInlineNode = (
   const element = node;
   const name = localName(element.name);
 
-  // Glyphs resolve to Unicode; end-of-line hyphens close up the word.
+  // Glyphs resolve to Unicode; end-of-line hyphens close up the word, and the
+  // unidentified-punctuation sigil is dropped rather than emitted as a glyph.
   if (name === "g") {
-    return JOIN_GLYPHS.has(attr(element, "ref") ?? "")
-      ? JOIN
-      : escapeMarkit(plainText(element, w));
+    const ref = attr(element, "ref") ?? "";
+    if (JOIN_GLYPHS.has(ref)) return JOIN;
+    if (PUNC_GLYPHS.has(ref)) return "";
+    return escapeMarkit(plainText(element, w));
   }
-  if (name === "pb") return pageBreak(element);
+  // Padded so the marker never fuses to a neighbouring word (TCP writes
+  // `<p><pb n="17"/>BUT if…` with no space, and a break landing mid-word would
+  // otherwise parse as a page break inside the word); `finishInline` collapses
+  // the doubling where there was a space already.
+  if (name === "pb") return ` ${pageBreak(element)} `;
   if (name === "lb") return "\\ ";
   if (name === "gap") return "[...]";
 
@@ -565,6 +644,9 @@ const pageBreak = (element: XmlElement): string => {
 const prependPage = (line: string, page: string | null): string =>
   page ? (line ? `${page} ${line}` : page) : line;
 
+const appendPage = (line: string, page: string): string =>
+  line ? `${line} ${page}` : page;
+
 // --- Text, escaping, whitespace ------------------------------------------
 
 // Concatenate a node's descendant text, optionally modernising letterforms.
@@ -577,7 +659,15 @@ const plainText = (node: XmlNode, w: Walker): string => {
   return w.options.modernize ? modernize(raw) : raw;
 };
 
-const modernize = (text: string): string => text.replace(/ſ/g, "s"); // long-s
+// Map TCP's printed letterforms to their modern equivalents (see schema.ts for
+// the set and for what is deliberately left alone).
+const LETTERFORM_PATTERN = new RegExp(
+  `[${[...MODERN_LETTERFORMS.keys()].join("")}]`,
+  "g",
+);
+
+const modernize = (text: string): string =>
+  text.replace(LETTERFORM_PATTERN, (char) => MODERN_LETTERFORMS.get(char)!);
 
 // Escape characters that would otherwise be parsed as Markit markup, collapsing
 // whitespace runs to single spaces. (The JOIN sentinel is added afterwards.)
@@ -606,6 +696,9 @@ const paragraphLines = (text: string): string[] => {
 // blockquote, list, table). We consult the real classifier so the guard stays
 // in lock-step with the compiler.
 const contentLine = (line: string): string => {
+  // A blank line separates block groups; it cannot be misread as a block
+  // construct, and guarding it would emit a spurious line break.
+  if (line === "") return line;
   let result = line;
   if (result.endsWith("|")) result = result.slice(0, -1) + "\\|";
   if (classifyBlockLine(result).kind !== "paragraph") result = `\\${result}`;
@@ -655,6 +748,17 @@ const subTextId = (element: XmlElement, used: Set<string>): string => {
     base = type && n ? `${type}_${n}` : (type ?? (n ? `div_${n}` : "div"));
   }
   return uniqueId(base, used);
+};
+
+// A synthetic sub-text is named after the first real element of its run
+// (`trailer`, `closer`, …); page breaks are markers rather than content, so
+// they never name it.
+const blockRunId = (nodes: XmlNode[], used: Set<string>): string => {
+  const named = nodes.find(
+    (node): node is XmlElement =>
+      isElement(node) && localName(node.name) !== "pb",
+  );
+  return uniqueId(named ? localName(named.name) : "content", used);
 };
 
 const uniqueId = (base: string, used: Set<string>): string => {
