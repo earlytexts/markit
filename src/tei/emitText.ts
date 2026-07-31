@@ -15,10 +15,10 @@ import {
   MODERN_LETTERFORMS,
   PUNC_GLYPHS,
   SEMANTIC_BLOCKS,
-  STRUCTURAL,
   WRAPPER_TEI,
 } from "./schema.ts";
 import type { MetaTree } from "./header.ts";
+import { partitionChildren } from "./structure.ts";
 import classifyBlockLine from "../lib/classifyBlockLine.ts";
 import { wrapperElements } from "../lib/grammar.ts";
 import splitOnLineBreakMarker from "../lib/splitLineBreaks.ts";
@@ -68,47 +68,6 @@ const emitText = (
 export default emitText;
 
 // --- Children ------------------------------------------------------------
-
-// A text's children in document order: the block content that opens the text,
-// then everything after it. The Markit data model is blocks-then-sub-texts, so
-// a block genuinely cannot sit after a sibling sub-text at the same level —
-// rather than hoisting such blocks to the top (which silently reorders the
-// text: a <trailer> would come to open what it closes), each run of them
-// becomes a synthetic sub-text in the place it was written.
-type Partition = { blocks: XmlNode[]; tail: TailItem[] };
-
-type TailItem =
-  | { kind: "text"; element: XmlElement }
-  | { kind: "blocks"; nodes: XmlNode[] };
-
-const partitionChildren = (element: XmlElement): Partition => {
-  const blocks: XmlNode[] = [];
-  const tail: TailItem[] = [];
-  let run: XmlNode[] = [];
-  const flushRun = (): void => {
-    if (run.length === 0) return;
-    tail.push({ kind: "blocks", nodes: run });
-    run = [];
-  };
-
-  for (const child of element.children) {
-    if (isElement(child)) {
-      const name = localName(child.name);
-      if (name === "teiHeader") continue; // already consumed as metadata
-      if (STRUCTURAL.has(name)) {
-        flushRun();
-        tail.push({ kind: "text", element: child });
-        continue;
-      }
-    } else if (child.kind !== "text" || child.content.trim() === "") {
-      continue; // comments, PIs, insignificant whitespace
-    }
-    if (tail.length === 0) blocks.push(child);
-    else run.push(child);
-  }
-  flushRun();
-  return { blocks, tail };
-};
 
 // Emit a run of block-level children as content blocks, followed by the
 // footnotes they collected (footnote ids run per text).

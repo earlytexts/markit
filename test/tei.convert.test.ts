@@ -22,12 +22,12 @@ const clean = (xml: string, opts?: { modernize?: boolean }): string => {
 };
 
 describe("fromTEIXML — structure", () => {
-  it("derives the root id from the DLPS idno and nests text/body/div", () => {
+  it("derives the root id from the DLPS idno and flattens text/body away", () => {
     const mit = clean(tei(`<div type="chapter" n="1"><p>hi</p></div>`));
     expect(mit).toContain("# A1");
-    expect(mit).toContain("## text");
-    expect(mit).toContain("### body");
-    expect(mit).toContain("#### chapter_1");
+    expect(mit).not.toMatch(/^#+ text$/m);
+    expect(mit).not.toMatch(/^#+ body$/m);
+    expect(mit).toMatch(/^## chapter_1$/m);
     expect(mit).toContain('type = "chapter"');
     expect(mit).toContain('n = "1"');
   });
@@ -47,18 +47,24 @@ describe("fromTEIXML — structure", () => {
           `<div><p>3</p></div><div type="a"><p>4</p></div>`,
       ),
     );
-    expect(mit).toContain("#### a\n");
-    expect(mit).toContain("#### div_2\n");
-    expect(mit).toContain("#### div\n");
-    expect(mit).toContain("#### a_2\n");
+    expect(mit).toMatch(/^## a$/m);
+    expect(mit).toMatch(/^## div_2$/m);
+    expect(mit).toMatch(/^## div$/m);
+    expect(mit).toMatch(/^## a_2$/m);
   });
 
-  it("carries xml:lang onto the text as `lang` metadata and back", () => {
+  it("carries the text's xml:lang onto the root as `lang` metadata and back", () => {
     const mit = clean(
       `<TEI xmlns="x"><text xml:lang="lat"><body><p>x</p></body></text></TEI>`,
     );
     expect(mit).toContain('lang = "lat"');
     expect(toTEIXML(mit)).toContain('<text xml:lang="lat">');
+  });
+
+  it("carries a division's xml:lang onto its section and back", () => {
+    const mit = clean(tei(`<div xml:lang="lat"><p>x</p></div>`));
+    expect(mit).toContain('lang = "lat"');
+    expect(toTEIXML(mit)).toContain('<div xml:lang="lat">');
   });
 
   it("treats <group> as structural", () => {
@@ -67,13 +73,16 @@ describe("fromTEIXML — structure", () => {
   });
 
   it("keeps blocks that follow a sub-text in place, as a sub-text of their own", () => {
+    // The treatise holds a block of its own, so it is not a content-free
+    // wrapper and survives the collapse.
     const mit = clean(
       tei(
         `<div type="treatise"><p>open</p><div n="1"><p>book</p></div>` +
           `<trailer>THE END.</trailer></div>`,
       ),
     );
-    expect(mit).toContain("##### trailer");
+    expect(mit).toMatch(/^## treatise$/m);
+    expect(mit).toMatch(/^### trailer$/m);
     expect(mit).toContain('element="trailer"');
     // The point of the fix: the trailer closes the treatise, not opens it.
     expect(mit.indexOf("THE END.")).toBeGreaterThan(mit.indexOf("book"));
@@ -83,20 +92,216 @@ describe("fromTEIXML — structure", () => {
   it("splits interleaved blocks into one sub-text per run", () => {
     const mit = clean(
       tei(
-        `<div><div n="1"><p>alpha</p></div><p>middle</p>` +
+        `<div type="w"><p>open</p><div n="1"><p>alpha</p></div><p>middle</p>` +
           `<div n="2"><p>omega</p></div><closer>bye</closer></div>`,
       ),
     );
     expect(mit.indexOf("middle")).toBeGreaterThan(mit.indexOf("alpha"));
     expect(mit.indexOf("middle")).toBeLessThan(mit.indexOf("omega"));
-    expect(mit).toContain("##### p");
-    expect(mit).toContain("##### closer");
+    expect(mit).toMatch(/^### p$/m);
+    expect(mit).toMatch(/^### closer$/m);
   });
 
   it("names a trailing run with no element after it `content`", () => {
-    const mit = clean(tei(`<div><div n="1"><p>a</p></div><pb n="9"/></div>`));
-    expect(mit).toContain("##### content");
+    const mit = clean(
+      tei(
+        `<div type="w"><p>open</p><div n="1"><p>a</p></div><pb n="9"/></div>`,
+      ),
+    );
+    expect(mit).toMatch(/^### content$/m);
     expect(mit).toContain("//9//");
+  });
+});
+
+describe("fromTEIXML — front, body and back", () => {
+  // The TEI shell (`<text>`, `<front>`, `<body>`) is scaffolding rather than
+  // content: it is flattened away so that a work's own divisions open at `##`,
+  // the depth the corpus writes by hand.
+  const shell = (inner: string): string =>
+    `<TEI xmlns="http://www.tei-c.org/ns/1.0">${HEADER}<text>${inner}</text></TEI>`;
+
+  it("hoists the body's divisions to the top level and keeps front and back", () => {
+    const mit = clean(
+      shell(
+        `<front><div type="errata"><p>e</p></div></front>` +
+          `<body><div type="ch" n="1"><p>b</p></div></body>` +
+          `<back><div type="ads"><p>k</p></div></back>`,
+      ),
+    );
+    expect(mit).not.toMatch(/^#+ text$/m);
+    expect(mit).not.toMatch(/^#+ body$/m);
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit).toMatch(/^### errata$/m);
+    expect(mit).toMatch(/^## ch_1$/m);
+    expect(mit).toMatch(/^## back$/m);
+    expect(mit).toMatch(/^### ads$/m);
+    // Document order survives: front, then body, then back.
+    expect(mit.indexOf("## front")).toBeLessThan(mit.indexOf("## ch_1"));
+    expect(mit.indexOf("## ch_1")).toBeLessThan(mit.indexOf("## back"));
+  });
+
+  it("hoists a leading title page into the root's own blocks", () => {
+    const mit = clean(
+      shell(
+        `<front><div type="title_page"><head>T</head><p>imprint</p></div>` +
+          `<div type="errata"><p>e</p></div></front>` +
+          `<body><div n="1"><p>b</p></div></body>`,
+      ),
+    );
+    // The title page's blocks open the document, above the first section.
+    expect(mit.indexOf("{#title}")).toBeLessThan(mit.indexOf("## front"));
+    expect(mit).toContain("imprint");
+    expect(mit).not.toMatch(/^#+ title_page$/m);
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit).toMatch(/^### errata$/m);
+  });
+
+  it("drops a front that held nothing but the title page", () => {
+    const mit = clean(
+      shell(
+        `<front><div type="title_page"><head>T</head></div></front>` +
+          `<body><div n="1"><p>b</p></div></body>`,
+      ),
+    );
+    expect(mit).not.toMatch(/^#+ front$/m);
+    expect(mit).toContain("{#title}");
+    expect(mit).toMatch(/^## div_1$/m);
+  });
+
+  it("recognises the title page however its type is spelt", () => {
+    for (const type of ["title_page", "titlepage", "titlePage", "title page"]) {
+      const mit = clean(
+        shell(`<front><div type="${type}"><p>tp</p></div></front>`),
+      );
+      expect(mit).not.toMatch(/^#+ front$/m);
+      expect(mit).toContain("tp");
+    }
+  });
+
+  it("leaves a title page that does not open the front as a section", () => {
+    const mit = clean(
+      shell(
+        `<front><div type="dedication"><p>d</p></div>` +
+          `<div type="title_page"><p>tp</p></div></front>`,
+      ),
+    );
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit).toMatch(/^### dedication$/m);
+    expect(mit).toMatch(/^### title_page$/m);
+    expect(mit.indexOf("d")).toBeLessThan(mit.indexOf("tp"));
+  });
+
+  it("keeps a typeless leading div in the front section", () => {
+    const mit = clean(shell(`<front><div><p>d</p></div></front>`));
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit).toMatch(/^### div$/m);
+  });
+
+  it("keeps a front's own blocks with the front section", () => {
+    const mit = clean(
+      shell(`<front><p>loose</p></front><body><p>b</p></body>`),
+    );
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit.indexOf("## front")).toBeLessThan(mit.indexOf("loose"));
+  });
+
+  it("keeps text that sits loose in the <text> element", () => {
+    const mit = clean(shell(`loose<body><p>b</p></body>`));
+    expect(mit).toContain("loose");
+    expect(mit.indexOf("loose")).toBeLessThan(mit.indexOf("b\n"));
+  });
+
+  it("leaves a document with no <text> element alone", () => {
+    const mit = clean(
+      `<TEI xmlns="x">${HEADER}<body><p>x</p></body></TEI>`,
+    );
+    expect(mit).toMatch(/^## body$/m);
+  });
+
+  it("leaves a document with more than one <text> element alone", () => {
+    const mit = clean(
+      `<TEI xmlns="x">${HEADER}<text><body><p>a</p></body></text>` +
+        `<text><body><p>b</p></body></text></TEI>`,
+    );
+    expect(mit).toMatch(/^## text$/m);
+    expect(mit).toMatch(/^## text_2$/m);
+  });
+});
+
+describe("fromTEIXML — content-free wrappers", () => {
+  it("collapses a blockless div that is its parent's only child", () => {
+    // TCP wraps a whole work in a genre div (`treatise`, `sermon`, …); with a
+    // single work it carries nothing and only adds a heading level.
+    const mit = clean(
+      tei(
+        `<div type="treatise"><div type="book" n="1"><head>B</head>` +
+          `<div type="section" n="1"><p>s</p></div></div></div>`,
+      ),
+    );
+    expect(mit).not.toMatch(/^#+ treatise$/m);
+    expect(mit).toMatch(/^## book_1$/m);
+    expect(mit).toMatch(/^### section_1$/m);
+  });
+
+  it("collapses a wrapper whose only content closes it", () => {
+    // A59472's shape: the treatise div opens with nothing, holds the books,
+    // and is closed by a trailer. Collapsing lifts books and trailer alike.
+    const mit = clean(
+      tei(
+        `<div type="treatise"><div type="book" n="1"><head>B1</head><p>a</p></div>` +
+          `<div type="book" n="2"><head>B2</head><p>b</p></div>` +
+          `<trailer>THE END.</trailer></div>`,
+      ),
+    );
+    expect(mit).not.toMatch(/^#+ treatise$/m);
+    expect(mit).toMatch(/^## book_1$/m);
+    expect(mit).toMatch(/^## book_2$/m);
+    expect(mit).toMatch(/^## trailer$/m);
+    expect(mit.indexOf("## book_2")).toBeLessThan(mit.indexOf("## trailer"));
+  });
+
+  it("collapses a chain of content-free wrappers", () => {
+    const mit = clean(
+      tei(
+        `<div type="a"><div type="b"><div type="c"><p>x</p></div></div></div>`,
+      ),
+    );
+    expect(mit).not.toMatch(/^#+ a$/m);
+    expect(mit).not.toMatch(/^#+ b$/m);
+    expect(mit).toMatch(/^## c$/m);
+  });
+
+  it("keeps a blockless div that has a sibling", () => {
+    // Two genre divs are two distinct works; collapsing would merge them.
+    const mit = clean(
+      tei(
+        `<div type="treatise" n="1"><div n="1"><p>a</p></div></div>` +
+          `<div type="treatise" n="2"><div n="1"><p>b</p></div></div>`,
+      ),
+    );
+    expect(mit).toMatch(/^## treatise_1$/m);
+    expect(mit).toMatch(/^## treatise_2$/m);
+  });
+
+  it("keeps a div that has blocks of its own", () => {
+    const mit = clean(
+      tei(`<div type="book"><head>B</head><div n="1"><p>a</p></div></div>`),
+    );
+    expect(mit).toMatch(/^## book$/m);
+    expect(mit).toMatch(/^### div_1$/m);
+  });
+
+  it("keeps a wrapper that holds a stray page break", () => {
+    const mit = clean(
+      tei(`<div type="w"><pb n="4"/><div n="1"><p>a</p></div></div>`),
+    );
+    expect(mit).toMatch(/^## w$/m);
+    expect(mit).toContain("//4//");
+  });
+
+  it("collapses an empty div away entirely", () => {
+    const mit = clean(tei(`<div type="empty"></div>`));
+    expect(mit).not.toMatch(/^#+ empty$/m);
   });
 });
 
@@ -533,6 +738,11 @@ describe("fromTEIXML — page breaks between blocks", () => {
   it("gives a page break with no preceding block a block of its own", () => {
     const mit = clean(tei(`<div><pb n="9"/></div>`));
     expect(mit).toContain("{#1}\n//9//");
+  });
+
+  it("appends a trailing page break to a block that emitted no content", () => {
+    const mit = clean(tei(`<div><trailer></trailer><pb n="9"/></div>`));
+    expect(mit).toContain('{#1, element="trailer"}\n//9//');
   });
 
   it("spaces an inline page break off the surrounding words", () => {
@@ -1080,6 +1290,93 @@ describe("toTEIXML — coverage corners", () => {
   });
 });
 
+describe("toTEIXML — the TEI shell", () => {
+  // fromTEIXML flattens <text>/<front>/<body> away, so toTEIXML has to put
+  // them back: the root's own blocks are its title page, `front` and `back`
+  // name the matter around the body, and everything else is the body.
+  it("wraps the whole document in text and body", () => {
+    expect(toTEIXML("# d\n\n## s\n\n{#1}\nx")).toContain(
+      "<text><body><div><p>x</p></div></body></text>",
+    );
+  });
+
+  it("emits the root's own blocks as the title page in the front matter", () => {
+    expect(toTEIXML("# d\n\n{#title}\nT")).toContain(
+      '<front><div type="title_page"><head>T</head></div></front>',
+    );
+  });
+
+  it("restores front and back matter around the body", () => {
+    const mit = [
+      "# d",
+      "",
+      "{#title}",
+      "T",
+      "",
+      "## front",
+      "",
+      "### errata",
+      "",
+      "[metadata]",
+      'type = "errata"',
+      "",
+      "{#1}",
+      "e",
+      "",
+      "## ch",
+      "",
+      "{#1}",
+      "b",
+      "",
+      "## back",
+      "",
+      "{#1}",
+      "k",
+    ].join("\n");
+    const xml = toTEIXML(mit);
+    expect(xml).toContain(
+      '<front><div type="title_page"><head>T</head></div>' +
+        '<div type="errata"><p>e</p></div></front>',
+    );
+    expect(xml).toContain("<body><div><p>b</p></div></body>");
+    expect(xml).toContain("<back><p>k</p></back>");
+  });
+
+  it("emits an empty body when there is nothing but front matter", () => {
+    expect(toTEIXML("# d\n\n{#title}\nT")).toContain("</front><body></body>");
+  });
+
+  it("puts a group beside the body rather than inside it", () => {
+    const xml = toTEIXML("# d\n\n## group\n\n### text\n\n{#1}\nx");
+    expect(xml).toContain("<text><group><text><p>x</p></text></group></text>");
+    expect(xml).not.toContain("<body>");
+  });
+
+  it("emits a hoisted block run bare, not inside a div that was never there", () => {
+    const xml = toTEIXML(
+      '# d\n\n## ch\n\n{#1}\nb\n\n## trailer\n\n{#1, element="trailer"}\nTHE END.',
+    );
+    expect(xml).toContain("<div><p>b</p></div><trailer>THE END.</trailer>");
+  });
+
+  it("keeps the div around a section that is a division, not a run", () => {
+    // Same shape, but the id does not name the element its blocks came from,
+    // so it is somebody's own section rather than a hoisted run.
+    expect(toTEIXML("# d\n\n## appendix\n\n{#1}\nx")).toContain(
+      "<div><p>x</p></div>",
+    );
+    // Nor is a run a division just because it holds one: metadata marks it out.
+    expect(
+      toTEIXML('# d\n\n## trailer\n\n[metadata]\nn = "1"\n\n{#1}\nx'),
+    ).toContain('<div n="1">');
+  });
+
+  it("carries the root's lang onto the text element", () => {
+    expect(toTEIXML('# d\n\n[metadata]\nlang = "lat"\n\n## s\n\n{#1}\nx'))
+      .toContain('<text xml:lang="lat">');
+  });
+});
+
 describe("round trips", () => {
   it("survives a fromTEIXML → toTEIXML → fromTEIXML cycle without diagnostics", () => {
     const xml = tei(
@@ -1089,5 +1386,47 @@ describe("round trips", () => {
     const mit = clean(xml);
     const round = clean(toTEIXML(mit));
     expect(round).toBe(mit);
+  });
+
+  it("survives a cycle through a title page, front matter, body and back", () => {
+    const xml =
+      `<TEI xmlns="http://www.tei-c.org/ns/1.0">${HEADER}<text xml:lang="eng">` +
+      `<front><div type="title_page"><p>AN INQUIRY</p><quote>epigraph</quote></div>` +
+      `<div type="errata"><head>ERRATA.</head><p>Page 11, read this.</p></div></front>` +
+      `<body><div type="treatise"><div type="book" n="1"><head>BOOK I</head>` +
+      `<div type="section" n="1"><p>text</p></div></div>` +
+      `<trailer>THE END.</trailer></div></body>` +
+      `<back><div type="ads"><head>Books lately published.</head><p>a book</p></div></back>` +
+      `</text></TEI>`;
+    const mit = clean(xml);
+    expect(format(mit)).toBe(mit);
+    expect(mit).toMatch(/^## front$/m);
+    expect(mit).toMatch(/^## book_1$/m);
+    expect(mit).toMatch(/^## back$/m);
+    expect(mit).toMatch(/^## trailer$/m);
+    expect(mit).not.toMatch(/^#+ treatise$/m);
+    expect(clean(toTEIXML(mit))).toBe(mit);
+  });
+
+  it("survives a cycle through a block run hoisted out of a division", () => {
+    const mit = clean(
+      tei(
+        `<div type="ch" n="1"><head>H</head><div n="1"><p>a</p></div>` +
+          `<trailer>THE END.</trailer></div>`,
+      ),
+    );
+    expect(mit).toMatch(/^### trailer$/m);
+    expect(clean(toTEIXML(mit))).toBe(mit);
+
+    // The same holds for a run of bare paragraphs, named `p` after the element
+    // it came from.
+    const paras = clean(
+      tei(
+        `<div type="ch" n="1"><head>H</head><div n="1"><p>a</p></div>` +
+          `<p>after</p></div>`,
+      ),
+    );
+    expect(paras).toMatch(/^### p$/m);
+    expect(clean(toTEIXML(paras))).toBe(paras);
   });
 });
