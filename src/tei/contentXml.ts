@@ -16,24 +16,100 @@ import { WRAPPER_TEI } from "./schema.ts";
  * walker behind `toTEIXML`: a text's blocks (footnotes excluded — they
  * re-inline at their references) followed by its structural sub-texts.
  */
-const contentXml = (document: MarkitDocument): string => {
+const contentXml = (document: MarkitDocument): string =>
+  blocksXml(document) + document.children.map(textXml).join("");
+
+export default contentXml;
+
+/**
+ * Render a compiled root document as a TEI `<text>` element, putting back the
+ * shell `fromTEIXML` flattens away: the root's own blocks are its title page,
+ * a `front`/`back` sub-text is the matter around the body, a `group` stands
+ * beside the body, and every other sub-text is body content.
+ */
+export const shellXml = (document: MarkitDocument): string => {
+  const front: string[] = [];
+  const body: string[] = [];
+  let group = "";
+  let back = "";
+
+  const titlePage = blocksXml(document);
+  if (titlePage !== "") front.push(`<div type="title_page">${titlePage}</div>`);
+
+  for (const child of document.children) {
+    switch (matterOf(child)) {
+      case "front":
+        front.push(contentXml(child));
+        break;
+      case "back":
+        back += contentXml(child);
+        break;
+      case "group":
+        group += `<group>${contentXml(child)}</group>`;
+        break;
+      default:
+        body.push(textXml(child));
+    }
+  }
+
+  const lang = metaStr(document.metadata, "lang");
+  // TEI requires a body or a group; an empty <body> is the honest filler when
+  // a document is nothing but front matter.
+  return `<text${
+    lang === undefined ? "" : ` xml:lang="${escapeAttribute(lang)}"`
+  }>` +
+    (front.length > 0 ? `<front>${front.join("")}</front>` : "") +
+    group +
+    (group !== "" && body.length === 0 ? "" : `<body>${body.join("")}</body>`) +
+    (back !== "" ? `<back>${back}</back>` : "") +
+    `</text>`;
+};
+
+// Where a root sub-text belongs in the shell. A `type`/`n` pair marks a
+// division of the work, so it is body content whatever it is called.
+const matterOf = (document: MarkitDocument): string => {
+  if (
+    metaStr(document.metadata, "type") !== undefined ||
+    metaStr(document.metadata, "n") !== undefined
+  ) return "body";
+  return document.id.split(".").pop()!;
+};
+
+// A text's own blocks, footnotes excluded — they re-inline at their references.
+const blocksXml = (document: MarkitDocument): string => {
   const footnotes = new Map<string, Block>();
   for (const block of document.blocks) {
     if (block.type === "footnote") footnotes.set(block.id, block);
   }
-  const blocks = document.blocks
+  return document.blocks
     .filter((b) => b.type !== "footnote")
     .map((b) => blockXml(b, footnotes))
     .join("");
-  const children = document.children.map(textXml).join("");
-  return blocks + children;
 };
 
-export default contentXml;
-
 const textXml = (document: MarkitDocument): string => {
+  if (isHoistedRun(document)) return blocksXml(document);
   const { name, attrs } = subTextElement(document);
   return `<${name}${attrs}>${contentXml(document)}</${name}>`;
+};
+
+// A text that exists only to hold a run of blocks which could not sit after a
+// sibling text (see `partitionChildren`) is not a division of the work: it has
+// no metadata, no sub-texts, and `fromTEIXML` named it after the very TEI
+// element its blocks came from — a `<trailer>` closing a chapter, say. Emitting
+// such a text bare puts the run back where it was written, rather than inside a
+// `<div>` that was never in the source.
+const isHoistedRun = (document: MarkitDocument): boolean => {
+  if (document.metadata !== undefined || document.children.length > 0) {
+    return false;
+  }
+  const blocks = document.blocks.filter((b) => b.type !== "footnote");
+  const id = document.id.split(".").pop()!;
+  return blocks.length > 0 &&
+    blocks.every((block) =>
+      block.type === "paragraph" &&
+      (metaStr(block.metadata, "element") ?? "p") === id
+    );
 };
 
 // Infer the TEI element for a sub-text. A `type`/`n` metadata pair marks a
